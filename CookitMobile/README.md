@@ -1,3 +1,9 @@
+## 환경 설정
+
+1. `.env.example`을 복사하여 `.env` 파일 생성
+2. Supabase URL과 API 키를 `.env`에 입력
+3. `google-services.json` 파일을 프로젝트 루트에 추가
+
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
