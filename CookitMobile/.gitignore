@@ -30,6 +30,17 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+
+# Sensitive configuration files
+google-services.json
+lib/supabase.ts
+
+# Android build files
+android/app/build/
+android/.gradle/
+android/app/debug.keystore
+android/app/release.keystore
 
 # typescript
 *.tsbuildinfo
