@@ -34,7 +34,6 @@ yarn-error.*
 
 # Sensitive configuration files
 google-services.json
-lib/supabase.ts
 
 # Android build files
 android/app/build/
