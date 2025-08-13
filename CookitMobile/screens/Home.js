@@ -18,6 +18,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useAuth } from '../contexts/AuthContext';
 
 
 
@@ -28,6 +29,7 @@ const Home = () => {
   const navigation = useNavigation();
   const [recommendRecipes, setRecommendRecipes] = useState([]);
   const [hotRecipes, setHotRecipes] = useState([]);
+  const { user } = useAuth();
 
 
 
@@ -80,8 +82,14 @@ const Home = () => {
     <SafeAreaView style={{ flex: 1, paddingTop: Platform.OS === 'android' ? 15 : 0 }}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Image source={require('../assets/signature.png')} style={styles.signature} />
-          <Text style={styles.headerTitle}>Cookit</Text>
+          <View style={styles.headerLeft}>
+            <Image source={require('../assets/signature.png')} style={styles.signature} />
+            <Text style={styles.headerTitle}>Cookit</Text>
+          </View>
+          <View style={styles.userSection}>
+            <Text style={styles.welcomeText}>안녕하세요!</Text>
+            <Text style={styles.userName}>{user?.name || user?.email || '사용자'}님</Text>
+          </View>
         </View>
         <TouchableOpacity
           style={styles.inputButton}
@@ -133,8 +141,13 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingBottom: 20,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   signature: {
     width: 40,
@@ -146,6 +159,19 @@ const styles = StyleSheet.create({
     fontSize: 27,
     fontWeight: 'bold',
     color: 'orange',
+  },
+  userSection: {
+    alignItems: 'flex-end',
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 2,
   },
 
   profileButton: {
