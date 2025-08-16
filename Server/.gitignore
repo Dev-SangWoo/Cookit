@@ -67,7 +67,10 @@ Thumbs.db
 
 # Temporary files
 tmp/
-temp/ 
+temp/
+
+# Tesseract OCR 훈련 데이터 (자동 다운로드됨, 바이러스 오탐 방지)
+*.traineddata 
 *.traineddata
 *.mp4
 *.mp3
