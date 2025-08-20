@@ -1,3 +1,6 @@
+// 지금은 사각으로 고른 영역을 원으로 자르는 식인데 
+// 이거를 사각형 그대로 해도 가능은 할듯?  정해야한다
+
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';

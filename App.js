@@ -1,4 +1,3 @@
-// App.js
 import { StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
@@ -8,6 +7,7 @@ import { supabase } from './lib/supabase';
 import { navigationRef } from './lib/navigationRef';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Alert } from 'react-native';
+import 'react-native-url-polyfill/auto';
 
 import Login from './screens/Login';
 import OnBoard from './screens/OnBoard';
@@ -33,100 +33,70 @@ WebBrowser.maybeCompleteAuthSession();
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-  const [initialRoute, setInitialRoute] = useState(null);
+  const [initialState, setInitialState] = useState(null);
 
   useEffect(() => {
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('App.js Auth State Change Event:', event);
+    const checkAuth = async () => {
+       await supabase.auth.signOut();
+     console.log('App.js: Checking initial session...');
+        const { data: { session } } = await supabase.auth.getSession();
 
-      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-        if (session?.user) {
-          console.log('App.js: User signed in. Checking profile...');
-
-          try {
-            const userId = session.user.id;
-            console.log('App.js: User ID to check:', userId);
-            console.log('App.js: Starting Supabase query...');
-            const { data: profiles, error } = await supabase
-              .from('user_profiles')
-              .select('*')
-              .eq('id', userId)
-              .limit(1);
-
-            console.log('App.js: Supabase query completed.');
-            console.log('App.js: Profiles data:', profiles);
-
-            if (error) {
-              console.error('Supabase query error:', error);
-              Alert.alert('프로필 로딩 오류', '프로필 정보를 가져오는 데 실패했습니다.');
-              setInitialRoute('Login'); // 오류 시 로그인 화면으로
-              return;
-            }
-
-            const profile = profiles?.[0] || null;
-            if (profile) {
-              console.log('App.js: Profile data found:', profile);
-              console.log('App.js: Profile exists. Navigating to HomeTab.');
-              setInitialRoute('HomeTab');
-              if (navigationRef.current?.getCurrentRoute()?.name !== 'HomeTab') {
-                navigationRef.current?.reset({
-                  index: 0,
-                  routes: [{ name: 'HomeTab' }],
-                });
-              }
-            } else {
-              console.log('App.js: No profile found for ID:', userId);
-              console.log('App.js: No profile. Navigating to NicknameSetup.');
-              const userMetadata = session.user.user_metadata || {};
-              setInitialRoute('NicknameSetup');
-              if (navigationRef.current?.getCurrentRoute()?.name !== 'NicknameSetup') {
-                navigationRef.current?.reset({
-                  index: 0,
-                  routes: [{
-                    name: 'NicknameSetup',
-                    params: {
-                      userId: session.user.id,
-                      email: session.user.email,
-                      googleName: userMetadata.full_name || '',
-                      googleAvatar: userMetadata.avatar_url || ''
-                    }
-                  }],
-                });
-              }
-            }
-          } catch (e) {
-            console.error('App.js: An unexpected error occurred while checking profile:', e);
-            Alert.alert('오류', '로그인 처리 중 문제가 발생했습니다.');
-            setInitialRoute('Login'); // 오류 시 로그인 화면으로
-          }
-        } else {
-          setInitialRoute('Login');
-        }
-      } else if (event === 'SIGNED_OUT') {
-        console.log('App.js: User signed out. Navigating to Login.');
-        setInitialRoute('Login');
-        navigationRef.current?.reset({
-          index: 0,
-          routes: [{ name: 'Login' }],
-        });
+      // 세션이 없으면 로그인 화면으로 설정
+      if (!session) {
+        console.log('App.js: No session found. Initializing to Login.');
+        setInitialState({ routes: [{ name: 'Login' }] });
+        return;
       }
-    });
+      
+      // 세션이 있으면 프로필 확인
+      console.log('App.js: Session found. Checking for profile...');
+      try {
+        const { data: profiles, error } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .limit(1);
 
-    return () => {
-      listener?.subscription.unsubscribe();
+        if (error) {
+          console.error('Supabase query error:', error);
+          setInitialState({ routes: [{ name: 'Login' }] });
+          return;
+        }
+
+        const profileExists = profiles && profiles.length > 0;
+        if (profileExists) {
+          console.log('App.js: Profile found. Navigating to HomeTab.');
+          setInitialState({ routes: [{ name: 'HomeTab' }] });
+        } else {
+          console.log('App.js: No profile found. Navigating to NicknameSetup.');
+          setInitialState({ 
+            routes: [{ 
+              name: 'NicknameSetup', 
+              params: {
+                userId: session.user.id,
+                email: session.user.email,
+                googleName: session.user.user_metadata.full_name,
+                googleAvatar: session.user.user_metadata.avatar_url,
+              }
+            }]
+          });
+        }
+      } catch (e) {
+        console.error('App.js: An unexpected error occurred:', e);
+        setInitialState({ routes: [{ name: 'Login' }] });
+      }
     };
+    
+    checkAuth();
   }, []);
 
-  if (!initialRoute) return null;
+  if (!initialState) return null; // 초기 상태가 설정되기 전에는 아무것도 렌더링하지 않음
 
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <NavigationContainer
-          ref={navigationRef}
-          onReady={() => console.log('NavigationContainer is ready!')}
-        >
-          <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+        <NavigationContainer ref={navigationRef} initialState={initialState}>
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name='OnBoard' component={OnBoard} />
             <Stack.Screen name='Login' component={Login} />
             <Stack.Screen name='NicknameSetup' component={NicknameSetup} />

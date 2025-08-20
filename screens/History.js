@@ -13,49 +13,49 @@ const savedRecipes = [
     title: '초간단 김치볶음밥',
     thumbnail: 'https://example.com/image1.jpg',
     creator: '요리왕 비룡',
-    summary: '김치와 밥만 있으면 OK! 10분 완성 레시피.',
+    description: '김치와 밥만 있으면 OK! 10분 완성 레시피.',
   },
   {
     id: '2',
     title: '부드러운 크림파스타',
     thumbnail: 'https://example.com/image2.jpg',
     creator: '최현석',
-    summary: '생크림 없이 만드는 고소한 파스타!',
+    description: '생크림 없이 만드는 고소한 파스타!',
   },
     {
     id: '3',
     title: '부드러운 크림파스타',
     thumbnail: 'https://example.com/image2.jpg',
     creator: '최현석',
-    summary: '생크림 없이 만드는 고소한 파스타!',
+description: '생크림 없이 만드는 고소한 파스타!',
   },
     {
     id: '4',
     title: '부드러운 크림파스타',
     thumbnail: 'https://example.com/image2.jpg',
     creator: '최현석',
-    summary: '생크림 없이 만드는 고소한 파스타!',
+description: '생크림 없이 만드는 고소한 파스타!',
   },
     {
     id: '5',
     title: '부드러운 크림파스타',
     thumbnail: 'https://example.com/image2.jpg',
     creator: '최현석',
-    summary: '생크림 없이 만드는 고소한 파스타!',
+description: '생크림 없이 만드는 고소한 파스타!',
   },
     {
     id: '6',
     title: '부드러운 크림파스타',
     thumbnail: 'https://example.com/image2.jpg',
     creator: '최현석',
-    summary: '생크림 없이 만드는 고소한 파스타!',
+description: '생크림 없이 만드는 고소한 파스타!',
   },
     {
     id: '7',
     title: '부드러운 크림파스타',
     thumbnail: 'https://example.com/image2.jpg',
     creator: '최현석',
-    summary: '생크림 없이 만드는 고소한 파스타!',
+description: '생크림 없이 만드는 고소한 파스타!',
   },
   // ... 더 많은 요약 레시피
 ];
@@ -77,7 +77,7 @@ const History = (value) => {
           title: item.title,
           thumbnail: item.thumbnail,
           creator: item.creator,
-          summary: item.summary,
+          description: item.description,
         })
       }
     >
