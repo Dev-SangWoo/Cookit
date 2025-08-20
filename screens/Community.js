@@ -1,96 +1,97 @@
-// Community.js 오른쪽에 대표 사진(처음 사진) 하나 보여줘도 될듯 
-import React from 'react';
-import { ScrollView, StyleSheet, View, Text, Image, Platform } from 'react-native';
-import PostCard from '../component/PostCard';
+import React, { useEffect, useState } from 'react';
+import { View, Image, TouchableOpacity, FlatList, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { supabase } from '../lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
 
-const posts = [
-  {
-    nickname: '민준',
-    avatar: require('../assets/Choco.png'),
-    comment: '오늘 날씨 너무 좋다 ',
-    likes: 12,
-    replies: 3,
-  },
-  {
-    nickname: '지우',
-    avatar: 'https://example.com/avatar2.jpg',
-    comment: '포천에 새로 생긴 카페 가봤어요!',
-    likes: 8,
-    replies: 1,
-  },
-    {
-    nickname: '지우',
-    avatar: 'https://example.com/avatar2.jpg',
-    comment: '포천에 새로 생긴 카페 가봤어요!',
-    likes: 8,
-    replies: 1,
-  },  {
-    nickname: '지우',
-    avatar: 'https://example.com/avatar2.jpg',
-    comment: '포천에 새로 생긴 카페 가봤어요!',
-    likes: 8,
-    replies: 1,
-  },  {
-    nickname: '지우',
-    avatar: 'https://example.com/avatar2.jpg',
-    comment: '포천에 새로 생긴 카페 가봤어요!',
-    likes: 8,
-    replies: 1,
-  },  {
-    nickname: '지우',
-    avatar: 'https://example.com/avatar2.jpg',
-    comment: '포천에 새로 생긴 카페 가봤어요!',
-    likes: 8,
-    replies: 1,
-  },  {
-    nickname: '지우',
-    avatar: 'https://example.com/avatar2.jpg',
-    comment: '포천에 새로 생긴 카페 가봤어요!',
-    likes: 8,
-    replies: 1,
-  },
-];
+
+const numColumns = 3;
+const imageSize = Dimensions.get('window').width / numColumns;
 
 const Community = () => {
+  const [posts, setPosts] = useState([]);
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    const loadPosts = async () => {
+      const data = await fetchPosts();
+      setPosts(data);
+    };
+
+    loadPosts();
+  }, []);
+
+  const fetchPosts = async () => {
+    const { data, error } = await supabase
+      .from('user_posts')
+      .select('id, image_urls');
+
+    if (error) {
+      console.error('커뮤니티 이미지 불러오기 오류:', error);
+      return [];
+    }
+
+    return data;
+  };
+
+  const renderItem = ({ item }) => {
+    const image = item.image_urls?.[0] || 'https://via.placeholder.com/150';
+
+    return (
+      <TouchableOpacity
+        onPress={() => navigation.navigate('Post', { postId: item.id })}
+        style={styles.imageWrapper}
+      >
+        <Image source={{ uri: image }} style={styles.image} />
+      </TouchableOpacity>
+    );
+  };
+
   return (
-    <SafeAreaView style={{ flex: 1, paddingTop: Platform.OS === 'android' ? 15 : 0 }}>
-      <View style={styles.container}>
-      <View style={styles.header}>
-        <Image source={require('../assets/signature.png')} style={styles.signature} />
-        <Text style={styles.headerTitle}>Cookit</Text>
-      </View>
-      <ScrollView style={{ padding: 16 }}>
-        {posts.map((post, index) => (
-          <PostCard key={index} {...post} />
-        ))}
-      </ScrollView>
-      </View>
+    <SafeAreaView style={styles.container}>
+      <FlatList
+        data={posts}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.id}
+        numColumns={numColumns}
+      />
+      <TouchableOpacity
+  style={styles.fab}
+  onPress={() => navigation.navigate('CreatePost')}
+>
+  <Ionicons name="add" size={28} color="#fff" />
+</TouchableOpacity>
     </SafeAreaView>
   );
 };
 
 export default Community;
 
-const styles = StyleSheet .create ({
-    container: { // 양쪽 사이드 공백을 준 상태 
+const styles = StyleSheet.create({
+  container: {
     flex: 1,
-    paddingHorizontal: 15
+    backgroundColor: '#fff',
   },
-    header: {
-    flexDirection: 'row',
+  imageWrapper: {
+    width: imageSize,
+    height: imageSize,
+    padding: 1,
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    backgroundColor: '#007AFF',
+    borderRadius: 30,
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 20,
+    elevation: 5,
   },
-  signature: {
-    width: 40,
-    height: 40,
-    marginRight: 8,
-    resizeMode: 'contain'
-  },
-  headerTitle: {
-    fontSize: 27,
-    fontWeight: 'bold',
-    color: 'orange',
-  },
-})
+});

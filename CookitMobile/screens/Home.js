@@ -13,12 +13,13 @@
 
 
 
-import { StyleSheet, Text, View, TouchableOpacity, Platform, Image } from 'react-native';
-import React, { useEffect, useState } from 'react';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { StyleSheet, Text, View, TouchableOpacity, Platform, Image } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { useNavigation, useRoute } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { supabase } from '../lib/supabase';
+
+
 
 const Home = () => {
   const route = useRoute();
@@ -76,8 +77,8 @@ const Home = () => {
   );
 
   return (
-    
-      <SafeAreaView style={styles.container}>
+    <SafeAreaView style={{ flex: 1, paddingTop: Platform.OS === 'android' ? 15 : 0 }}>
+      <View style={styles.container}>
         <View style={styles.header}>
           <Image source={require('../assets/signature.png')} style={styles.signature} />
           <Text style={styles.headerTitle}>Cookit</Text>
@@ -117,8 +118,8 @@ const Home = () => {
           ))}
         </View>
 
-      </SafeAreaView>
-    
+      </View>
+    </SafeAreaView>
   )
 }
 

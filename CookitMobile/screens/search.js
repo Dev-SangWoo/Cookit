@@ -19,7 +19,7 @@ const Search = () => {
 
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={{ flex: 1, paddingTop: Platform.OS === 'android' ? 15 : 0 }}>
             <SearchInput
               value={query}
               onChange={setQuery}
@@ -60,6 +60,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    paddingTop: Platform.OS === 'android' ? 10 : 0,
     backgroundColor: '#fff',
     paddingHorizontal: 16,
   },

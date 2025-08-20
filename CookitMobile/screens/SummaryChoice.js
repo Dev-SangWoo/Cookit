@@ -15,7 +15,7 @@ import ModalSummary from './modal/ModalSummary';
 import { useState } from 'react';
 
 const SummaryChoice = ({ route, navigation }) => {
-  const { thumbnail, title, creator, recipeId } = route.params;
+  const { thumbnail, title, creator } = route.params;
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   const handleSummaryPress = () => {
@@ -47,7 +47,7 @@ const SummaryChoice = ({ route, navigation }) => {
         isVisible={isModalVisible}
         onComplete={() => {
           setIsModalVisible(false);
-          navigation.navigate('Summary', { recipeId });
+          navigation.navigate('Summary', { title, thumbnail });
         }}
       />
     </SafeAreaView>

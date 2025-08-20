@@ -1,23 +1,44 @@
 // 단계별 요약화면
 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Video } from 'expo-av';
+import { useRoute } from '@react-navigation/native';
+import { supabase } from '../lib/supabase'
 
 
-const recipeSteps = [
-  { title: '재료 준비하기', description: '모든 재료를 깨끗이 씻고 손질해 주세요.' },
-  { title: '팬 예열하기', description: '팬을 중불에서 1분간 예열합니다.' },
-  { title: '재료 볶기', description: '채소와 고기를 넣고 볶아주세요.' },
-  { title: '양념 추가하기', description: '간장, 설탕, 참기름을 넣고 잘 섞습니다.' },
-];
+
 
 const Recipe = () => {
+  const [instructions, setInstructions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const totalSteps = recipeSteps.length;
-  const currentStep = recipeSteps[currentIndex];
+
+  const route = useRoute();
+const recipeId = route.params?.recipeId;
+
+useEffect(() => {
+  const fetchInstructions = async () => {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('instructions')
+      .eq('id', recipeId)
+      .single();
+
+    if (data?.instructions) {
+      setInstructions(data.instructions);
+    }
+  };
+
+  fetchInstructions();
+}, []);
+
+const totalSteps = instructions.length;
+const currentStep = instructions.length > 0 && instructions[currentIndex]
+  ? instructions[currentIndex]
+  : null;
+
 
   const handleNext = () => {
     if (currentIndex < totalSteps - 1) {
@@ -33,6 +54,7 @@ const Recipe = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      
         <View style={styles.videoWrapper}>
           <Text style={{ color: '#555' }}>영상</Text>
     {/* <Video
@@ -42,22 +64,32 @@ const Recipe = () => {
       resizeMode="contain"
     /> */}
   </View>
-      <Text style={styles.stepIndicator}>Step {currentIndex + 1} / {totalSteps}</Text>
+{instructions.length === 0 ? (
+  <Text style={{ textAlign: 'center', marginTop: 40 }}>레시피를 불러오는 중입니다...</Text>
+) : (
+  <>
+    <Text style={styles.stepIndicator}>Step {currentIndex + 1} / {totalSteps}</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.title}>{currentStep.title}</Text>
-        <Text style={styles.desc}>{currentStep.description}</Text>
-      </View>
+{currentStep && currentStep.title && (
+  <View style={styles.card}>
+    <Text style={styles.title}>{currentStep.title}</Text>
+    <Text style={styles.desc}>{currentStep.instruction}</Text>
+    <Text style={{ fontStyle: 'italic', color: '#888' }}>⏱ {currentStep.time}</Text>
+    <Text style={{ color: '#aaa' }}>💡 {currentStep.tips}</Text>
+  </View>
+)}
 
-      <View style={styles.navButtons}>
-        <TouchableOpacity onPress={handlePrev} disabled={currentIndex === 0} style={styles.button}>
-          <Text style={styles.buttonText}>← 이전</Text>
-        </TouchableOpacity>
+    <View style={styles.navButtons}>
+      <TouchableOpacity onPress={handlePrev} disabled={currentIndex === 0} style={styles.button}>
+        <Text style={styles.buttonText}>← 이전</Text>
+      </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleNext} disabled={currentIndex === totalSteps - 1} style={styles.button}>
-          <Text style={styles.buttonText}>다음 →</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity onPress={handleNext} disabled={currentIndex === totalSteps - 1} style={styles.button}>
+        <Text style={styles.buttonText}>다음 →</Text>
+      </TouchableOpacity>
+    </View>
+  </>
+)}
     </SafeAreaView>
   );
 };

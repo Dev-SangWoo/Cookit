@@ -3,7 +3,7 @@ import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-const PostCard = ({ nickname, avatar, comment, likes, replies }) => {
+const PostCard = ({ nickname, avatar, comment, likes, replies, date }) => {
   const navigation = useNavigation();
 
   const handlePress = () => {
@@ -34,6 +34,7 @@ const PostCard = ({ nickname, avatar, comment, likes, replies }) => {
       <View style={styles.footer}>
         <Text style={styles.count}>❤️ {likes}</Text>
         <Text style={styles.count}>💬 {replies}</Text>
+        <Text style={styles.count}> {date}</Text>
       </View>
     </TouchableOpacity>
   );
