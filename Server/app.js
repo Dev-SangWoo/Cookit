@@ -18,12 +18,14 @@ app.use(express.urlencoded({ extended: true })); // URL 인코딩 파싱
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const recipeRoutes = require('./routes/recipes');
+const userRecipeRoutes = require('./routes/userRecipes');
 const aiRoutes = require('./routes/ai');
 
 // 라우터 사용
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/recipes', recipeRoutes);
+app.use('/api/user-recipes', userRecipeRoutes);
 app.use('/api/ai', aiRoutes);
 
 // 기본 라우트
