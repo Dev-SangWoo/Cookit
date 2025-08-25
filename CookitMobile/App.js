@@ -20,6 +20,7 @@ import SearchList from './screens/SearchList';
 import SummaryChoice from './screens/SummaryChoice';
 import ModalDelete from './screens/modal/ModalDelete';
 import Recipe from './screens/Recipe';
+import RecipeList from './screens/RecipeList';
 import HomeTab from './screens/HomeTab';
 
 const Stack = createNativeStackNavigator();
@@ -53,6 +54,7 @@ function AppNavigator() {
             <Stack.Screen name="SearchList" component={SearchList} />
             <Stack.Screen name="SummaryChoice" component={SummaryChoice} />
             <Stack.Screen name="Recipe" component={Recipe} />
+            <Stack.Screen name="RecipeList" component={RecipeList} />
             
             {/* 모달 화면들 */}
             <Stack.Screen name="ModalVideo" component={ModalVideo} />

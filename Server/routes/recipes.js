@@ -1,5 +1,5 @@
 const express = require('express');
-const { mcp_supabase_execute_sql } = require('../services/supabaseService');
+const { supabaseService } = require('../services/supabaseService');
 
 const router = express.Router();
 
@@ -23,27 +23,6 @@ router.post('/from-ai', async (req, res) => {
     const recipe = aiResult.recipe;
     console.log(`📝 레시피 DB 저장 시작: ${recipe.title}`);
     
-    // Supabase에 레시피 저장
-    const insertQuery = `
-      INSERT INTO recipes (
-        title,
-        description,
-        ingredients,
-        instructions,
-        prep_time,
-        cook_time,
-        servings,
-        difficulty_level,
-        tags,
-        nutrition_info,
-        source_url,
-        ai_generated,
-        ai_analysis_data
-      ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
-      ) RETURNING id, title, created_at;
-    `;
-
     // 재료를 JSONB 형식으로 변환
     const ingredients = recipe.ingredients?.map((ing, index) => ({
       name: ing.name || ing.ingredient || ing,
@@ -88,30 +67,33 @@ router.post('/from-ai', async (req, res) => {
       confidence: recipe.confidence || null
     };
 
-    const result = await mcp_supabase_execute_sql('ujqdizvpkrjunyrcpvtf', insertQuery, [
-      recipe.title || 'AI 생성 레시피',
-      recipe.description || 'AI가 분석한 요리 레시피입니다.',
-      JSON.stringify(ingredients),
-      JSON.stringify(instructions),
-      recipe.prep_time || null,
-      recipe.cook_time || recipe.cookingTime || null,
-      recipe.servings || null,
-      recipe.difficulty?.toLowerCase() || 'medium',
-      tags,
-      nutritionInfo ? JSON.stringify(nutritionInfo) : null,
-      sourceUrl || null,
-      true, // ai_generated
-      JSON.stringify(aiAnalysisData)
-    ]);
+    // SupabaseService를 사용하여 레시피 저장
+    const recipeData = {
+      title: recipe.title || 'AI 생성 레시피',
+      description: recipe.description || 'AI가 분석한 요리 레시피입니다.',
+      ingredients: ingredients,
+      instructions: instructions,
+      prep_time: recipe.prep_time || null,
+      cook_time: recipe.cook_time || recipe.cookingTime || null,
+      servings: recipe.servings || null,
+      difficulty_level: recipe.difficulty?.toLowerCase() || 'medium',
+      tags: tags,
+      nutrition_info: nutritionInfo,
+      source_url: sourceUrl || null,
+      ai_generated: true,
+      ai_analysis_data: aiAnalysisData
+    };
+
+    const savedRecipe = await supabaseService.saveRecipe(recipeData);
 
     console.log('✅ 레시피 DB 저장 성공!');
     
     res.json({
       success: true,
       message: '레시피가 성공적으로 저장되었습니다.',
-      recipe_id: result[0]?.id,
-      title: result[0]?.title,
-      created_at: result[0]?.created_at
+      recipe_id: savedRecipe.id,
+      title: savedRecipe.title,
+      created_at: savedRecipe.created_at
     });
 
   } catch (error) {
@@ -130,33 +112,12 @@ router.post('/from-ai', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 10, ai_only = false } = req.query;
-    const offset = (page - 1) * limit;
     
-    let whereClause = '';
-    if (ai_only === 'true') {
-      whereClause = 'WHERE ai_generated = true';
-    }
-    
-    const query = `
-      SELECT 
-        id,
-        title,
-        description,
-        jsonb_array_length(ingredients) as ingredient_count,
-        jsonb_array_length(instructions) as step_count,
-        servings,
-        difficulty_level,
-        tags,
-        source_url,
-        ai_generated,
-        created_at
-      FROM recipes 
-      ${whereClause}
-      ORDER BY created_at DESC 
-      LIMIT $1 OFFSET $2;
-    `;
-
-    const recipes = await mcp_supabase_execute_sql('ujqdizvpkrjunyrcpvtf', query, [limit, offset]);
+    const recipes = await supabaseService.getRecipes({
+      page: parseInt(page),
+      limit: parseInt(limit),
+      ai_only: ai_only === 'true'
+    });
     
     res.json({
       success: true,
@@ -185,44 +146,72 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    const query = `
-      SELECT 
-        id,
-        title,
-        description,
-        ingredients,
-        instructions,
-        prep_time,
-        cook_time,
-        servings,
-        difficulty_level,
-        tags,
-        nutrition_info,
-        source_url,
-        ai_generated,
-        ai_analysis_data,
-        created_at,
-        updated_at
-      FROM recipes 
-      WHERE id = $1;
-    `;
-
-    const result = await mcp_supabase_execute_sql('ujqdizvpkrjunyrcpvtf', query, [id]);
+    const recipe = await supabaseService.getRecipeById(id);
     
-    if (result.length === 0) {
+    if (!recipe) {
       return res.status(404).json({
         success: false,
         error: '레시피를 찾을 수 없습니다.'
       });
     }
-
+    
     res.json({
       success: true,
-      recipe: result[0]
+      recipe
     });
 
   } catch (error) {
     console.error('레시피 상세 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route PUT /api/recipes/:id
+ * @desc 레시피 수정
+ */
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+    
+    const updatedRecipe = await supabaseService.updateRecipe(id, updateData);
+    
+    res.json({
+      success: true,
+      message: '레시피가 성공적으로 수정되었습니다.',
+      recipe: updatedRecipe
+    });
+
+  } catch (error) {
+    console.error('레시피 수정 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route DELETE /api/recipes/:id
+ * @desc 레시피 삭제
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await supabaseService.deleteRecipe(id);
+    
+    res.json({
+      success: true,
+      message: '레시피가 성공적으로 삭제되었습니다.'
+    });
+
+  } catch (error) {
+    console.error('레시피 삭제 오류:', error);
     res.status(500).json({
       success: false,
       error: error.message

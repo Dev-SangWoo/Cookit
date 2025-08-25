@@ -13,12 +13,13 @@
 
 
 
-import { StyleSheet, Text, View, TouchableOpacity, Platform, Image } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, Platform, Image, ActivityIndicator, Alert } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '../contexts/AuthContext';
+import recipeService from '../services/recipeService';
 
 
 
@@ -29,33 +30,96 @@ const Home = () => {
   const navigation = useNavigation();
   const [recommendRecipes, setRecommendRecipes] = useState([]);
   const [hotRecipes, setHotRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-
-
   useEffect(() => {
-    const sampleRecommend = [
-      {
-        title: '계란말이',
-        description: '든든한 한끼! 촉촉한 계란말이 레시피',
-        thumbnail: '#',
-      },
-      {
-        title: '비빔국수',
-        description: '매콤새콤! 여름 입맛을 돋우는 국수 레시피',
-        thumbnail: '#',
-      },
-    ];
-    const sampleHot = [
-      {
-        title: '불고기',
-        description: '달달하고 짭짤한 불고기 한 끼',
-        thumbnail: '#',
-      },
-    ];
-    setRecommendRecipes(sampleRecommend);
-    setHotRecipes(sampleHot);
+    loadHomeData();
   }, []);
+
+  const loadHomeData = async () => {
+    try {
+      setLoading(true);
+      
+      // 공개 레시피에서 랜덤으로 추천 요리 2개 가져오기
+      const recommendResponse = await recipeService.getPublicRecipes({ 
+        page: 1, 
+        limit: 6, 
+        sort: 'latest' 
+      });
+      
+      // 인기 요리 (즐겨찾기 많은 순)
+      const hotResponse = await recipeService.getPublicRecipes({ 
+        page: 1, 
+        limit: 3, 
+        sort: 'popular' 
+      });
+
+      if (recommendResponse.recipes && recommendResponse.recipes.length > 0) {
+        // 랜덤으로 2개 선택
+        const shuffled = [...recommendResponse.recipes].sort(() => Math.random() - 0.5);
+        setRecommendRecipes(shuffled.slice(0, 2));
+      } else {
+        // 기본값 유지
+        setRecommendRecipes([
+          {
+            recipe_id: 'sample1',
+            title: '계란말이',
+            description: '든든한 한끼! 촉촉한 계란말이 레시피',
+            image_url: null,
+          },
+          {
+            recipe_id: 'sample2',
+            title: '비빔국수',
+            description: '매콤새콤! 여름 입맛을 돋우는 국수 레시피',
+            image_url: null,
+          },
+        ]);
+      }
+
+      if (hotResponse.recipes && hotResponse.recipes.length > 0) {
+        setHotRecipes(hotResponse.recipes.slice(0, 1));
+      } else {
+        // 기본값 유지
+        setHotRecipes([
+          {
+            recipe_id: 'sample3',
+            title: '불고기',
+            description: '달달하고 짭짤한 불고기 한 끼',
+            image_url: null,
+          },
+        ]);
+      }
+
+    } catch (error) {
+      console.error('홈 데이터 로드 오류:', error);
+      // 오류 시 기본 데이터 사용
+      setRecommendRecipes([
+        {
+          recipe_id: 'sample1',
+          title: '계란말이',
+          description: '든든한 한끼! 촉촉한 계란말이 레시피',
+          image_url: null,
+        },
+        {
+          recipe_id: 'sample2',
+          title: '비빔국수',
+          description: '매콤새콤! 여름 입맛을 돋우는 국수 레시피',
+          image_url: null,
+        },
+      ]);
+      setHotRecipes([
+        {
+          recipe_id: 'sample3',
+          title: '불고기',
+          description: '달달하고 짭짤한 불고기 한 끼',
+          image_url: null,
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
 
@@ -70,11 +134,40 @@ const Home = () => {
   // }, []);
   // 서버에서 title, description, thumbnail 받도록하면 될듯
 
+  const handleRecipePress = (recipe) => {
+    if (recipe.recipe_id && !recipe.recipe_id.toString().startsWith('sample')) {
+      // DB 레시피인 경우 상세 화면으로
+      navigation.navigate('Recipe', { 
+        recipeId: recipe.recipe_id,
+        recipe: recipe 
+      });
+    } else {
+      // 샘플 레시피인 경우 검색으로 
+      navigation.navigate('SearchList', { query: recipe.title });
+    }
+  };
+
   const RecipeCard = ({ recipe, onPress }) => (
     <TouchableOpacity style={styles.card} onPress={() => onPress(recipe)} activeOpacity={0.8}>
-      <Image source={{ uri: recipe.thumbnail }} style={styles.thumbnail} />
+      <Image 
+        source={{ uri: recipe.image_url || recipe.thumbnail }} 
+        style={styles.thumbnail}
+        defaultSource={require('../assets/icon.png')}
+      />
       <Text style={styles.title}>{recipe.title}</Text>
       <Text style={styles.description} numberOfLines={2}>{recipe.description}</Text>
+      {recipe.cooking_time && (
+        <View style={styles.cardMeta}>
+          <Ionicons name="time-outline" size={14} color="#666" />
+          <Text style={styles.cardMetaText}>{recipe.cooking_time}분</Text>
+          {recipe.servings && (
+            <>
+              <Ionicons name="people-outline" size={14} color="#666" style={{ marginLeft: 10 }} />
+              <Text style={styles.cardMetaText}>{recipe.servings}인분</Text>
+            </>
+          )}
+        </View>
+      )}
     </TouchableOpacity>
   );
 
@@ -105,25 +198,82 @@ const Home = () => {
               <TouchableOpacity
                 key={idx}
                 style={styles.miniCard}
-                onPress={() => navigation.navigate('SearchList', { query: item.title })}
+                onPress={() => handleRecipePress(item)}
                 activeOpacity={0.8}
               >
-                <Image source={{ uri: item.thumbnail }} style={styles.miniThumbnail} />
+                <Image 
+                  source={{ uri: item.image_url || item.thumbnail }} 
+                  style={styles.miniThumbnail}
+                  defaultSource={require('../assets/icon.png')}
+                />
                 <View style={styles.divider} />
                 <Text style={styles.miniTitle}>{item.title}</Text>
+                {item.cooking_time && (
+                  <Text style={styles.miniMeta}>{item.cooking_time}분</Text>
+                )}
               </TouchableOpacity>
             ))}
           </View>
         </View>
         <View style={styles.hotBox}>
           <Text style={styles.homeText}>오늘의 인기 요리</Text>
-          {hotRecipes.map((item, idx) => (
-            <RecipeCard
-              key={idx}
-              recipe={item}
-              onPress={(r) => navigation.navigate('SearchList', { query: r.title })}
-            />
-          ))}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#FF6B6B" />
+              <Text style={styles.loadingText}>레시피를 불러오는 중...</Text>
+            </View>
+          ) : (
+            hotRecipes.map((item, idx) => (
+              <RecipeCard
+                key={idx}
+                recipe={item}
+                onPress={handleRecipePress}
+              />
+            ))
+          )}
+        </View>
+
+        {/* DB 레시피 섹션 */}
+        <View style={styles.dbRecipeSection}>
+          <Text style={styles.homeText}>레시피 모음</Text>
+          <View style={styles.recipeButtonsContainer}>
+            <TouchableOpacity 
+              style={[styles.recipeButton, { backgroundColor: '#FF6B6B' }]}
+              onPress={() => navigation.navigate('RecipeList', { 
+                type: 'public', 
+                title: '모든 레시피' 
+              })}
+            >
+              <Ionicons name="restaurant-outline" size={24} color="#FFF" />
+              <Text style={styles.recipeButtonText}>모든 레시피</Text>
+            </TouchableOpacity>
+
+            {user && (
+              <>
+                <TouchableOpacity 
+                  style={[styles.recipeButton, { backgroundColor: '#4ECDC4' }]}
+                  onPress={() => navigation.navigate('RecipeList', { 
+                    type: 'saved', 
+                    title: '저장한 레시피' 
+                  })}
+                >
+                  <Ionicons name="bookmark-outline" size={24} color="#FFF" />
+                  <Text style={styles.recipeButtonText}>저장한 레시피</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.recipeButton, { backgroundColor: '#FFD93D' }]}
+                  onPress={() => navigation.navigate('RecipeList', { 
+                    type: 'favorited', 
+                    title: '즐겨찾기' 
+                  })}
+                >
+                  <Ionicons name="heart-outline" size={24} color="#FFF" />
+                  <Text style={styles.recipeButtonText}>즐겨찾기</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
 
       </View>
@@ -264,5 +414,55 @@ const styles = StyleSheet.create({
     backgroundColor: '#eee',
     marginTop: 10,
     marginBottom: 8,
+  },
+  dbRecipeSection: {
+    paddingVertical: 20,
+    paddingBottom: 40,
+  },
+  recipeButtonsContainer: {
+    marginTop: 16,
+    gap: 12,
+  },
+  recipeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    gap: 8,
+  },
+  recipeButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  cardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 4,
+  },
+  cardMetaText: {
+    fontSize: 12,
+    color: '#666',
+  },
+  miniMeta: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
   },
 })

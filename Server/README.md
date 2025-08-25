@@ -23,10 +23,14 @@ Cookit 모바일 앱의 백엔드 API 서버입니다.
 
 3. **환경 변수 설정**
    ```bash
-   # .env 파일을 생성하고 다음 내용을 추가하세요:
-   PORT=3000
-   NODE_ENV=development
-   # 추가 환경 변수는 필요에 따라 설정
+   # env.example을 .env로 복사
+   cp env.example .env
+   
+   # .env 파일을 열어서 실제 값들로 수정
+   # - SUPABASE_URL: Supabase 프로젝트 URL
+   # - SUPABASE_ANON_KEY: Supabase 익명 키
+   # - SUPABASE_SERVICE_KEY: Supabase 서비스 키
+   # - GEMINI_API_KEY: Google Gemini API 키
    ```
 
 4. **개발 서버 실행**
