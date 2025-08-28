@@ -1,8 +1,10 @@
 // 레시피 관련 API 서비스
 import { supabase } from '../lib/supabase';
 
-// 서버 API 기본 URL (localhost)
-const API_BASE_URL = 'http://localhost:3000/api';
+// 서버 API 기본 URL (실제 PC IP 주소 사용)
+const API_BASE_URL = 'http://172.20.1.213:3000/api';
+
+console.log('🌐 API Base URL:', API_BASE_URL);
 
 class RecipeService {
   
