@@ -14,6 +14,16 @@ AI-Functions/downloads/
 AI-Functions/*_sub/
 AI-Functions/*_out/
 
+# AI Analysis Pipeline - 임시 파일들
+Server/services/combined_sub/
+Server/services/temp_frames/
+Server/services/prompt_out/
+Server/services/OCR_sub/
+Server/services/result_out/
+Server/services/whisper_sub/
+Server/services/yt-dlp_sub/
+Server/temp_frames/
+
 # Build outputs
 dist/
 build/

@@ -22,6 +22,7 @@ import ModalDelete from './screens/modal/ModalDelete';
 import Recipe from './screens/Recipe';
 import RecipeList from './screens/RecipeList';
 import HomeTab from './screens/HomeTab';
+import AIAnalyze from './screens/AIAnalyze';
 
 const Stack = createNativeStackNavigator();
 
@@ -55,6 +56,7 @@ function AppNavigator() {
             <Stack.Screen name="SummaryChoice" component={SummaryChoice} />
             <Stack.Screen name="Recipe" component={Recipe} />
             <Stack.Screen name="RecipeList" component={RecipeList} />
+            <Stack.Screen name="AIAnalyze" component={AIAnalyze} />
             
             {/* 모달 화면들 */}
             <Stack.Screen name="ModalVideo" component={ModalVideo} />

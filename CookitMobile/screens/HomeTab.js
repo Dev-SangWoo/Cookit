@@ -4,6 +4,7 @@ import Home from './Home';
 import History from './History';
 import Shopping from './Shopping';
 import Profile from './Profile';
+import AIAnalyze from './AIAnalyze';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 
@@ -23,6 +24,7 @@ const HomeTab = () => {
           else if (route.name === 'History') iconName = 'time-outline';
           else if (route.name === 'Shopping') iconName = 'cart-outline';
           else if (route.name === 'Profile') iconName = 'person-outline';
+          else if (route.name === 'AIAnalyze') iconName = 'sparkles-outline';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
       })}
@@ -30,6 +32,7 @@ const HomeTab = () => {
       <Tab.Screen name="Home" component={Home} />
       <Tab.Screen name="History" component={History} />
       <Tab.Screen name="Shopping" component={Shopping} />
+      <Tab.Screen name="AIAnalyze" component={AIAnalyze} options={{ title: 'AI 분석' }} />
       <Tab.Screen name="Profile" component={Profile} />
     </Tab.Navigator>
   );
