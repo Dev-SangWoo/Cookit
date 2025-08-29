@@ -1,5 +1,6 @@
 // API 테스트 스크립트
-const API_BASE_URL = 'http://localhost:3000/api';
+// 환경변수에서 API URL 가져오기 (fallback 포함)
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 async function testRecipesAPI() {
   try {

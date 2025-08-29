@@ -1,78 +1,63 @@
-# 📱 네트워크 설정 가이드
+# CookitMobile 네트워크 설정 가이드
 
-API 연결을 위해 환경에 맞는 IP 주소 설정이 필요합니다.
+## 환경변수 설정
 
-## 🔧 설정 방법
+### 1. .env 파일 생성
+`CookitMobile` 폴더에 `.env` 파일을 생성하고 다음 내용을 추가하세요:
 
-### 1️⃣ IP 주소 확인
+```env
+# API 서버 설정 (PC의 실제 IP 주소로 변경)
+EXPO_PUBLIC_API_BASE_URL=http://YOUR_PC_IP:3000/api
 
-**Windows:**
+# Supabase 설정
+EXPO_PUBLIC_SUPABASE_URL=https://ujqdizvpkrjunyrcpvtf.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+```
+
+### 2. PC IP 주소 확인 방법
+
+#### Windows:
 ```cmd
 ipconfig
 ```
+- "IPv4 주소" 항목에서 IP 주소 확인 (예: 192.168.1.100)
 
-**macOS/Linux:**
+#### macOS/Linux:
 ```bash
 ifconfig
+# 또는
+ip addr
 ```
 
-WiFi 어댑터의 IPv4 주소를 확인하세요. 예: `192.168.1.100`
-
-### 2️⃣ recipeService.js 수정
-
-```javascript
-// CookitMobile/services/recipeService.js
-const API_BASE_URL = __DEV__ 
-  ? 'http://10.0.2.2:3000/api'          // Android 에뮬레이터
-  : 'http://YOUR_IP_HERE:3000/api';     // 실제 디바이스
-```
-
-**실제 디바이스에서 테스트할 때:**
-```javascript
-const API_BASE_URL = 'http://192.168.1.100:3000/api'; // 여기에 실제 IP 입력
-```
-
-### 3️⃣ 환경별 설정
-
-| 환경 | IP 주소 |
-|------|---------|
-| Android 에뮬레이터 | `10.0.2.2` |
-| iOS 시뮬레이터 | `localhost` 또는 `127.0.0.1` |
-| 실제 디바이스 | PC의 실제 IP (예: `192.168.1.100`) |
-
-### 4️⃣ 서버 실행 확인
-
+### 3. 서버 실행
 ```bash
 cd Server
 npm start
-# 🚀 Cookit 서버가 포트 3000에서 실행 중입니다.
 ```
 
-브라우저에서 `http://localhost:3000` 접속해서 서버 실행 확인
-
-## ⚠️ 주의사항
-
-1. **방화벽 설정**: 포트 3000이 열려있는지 확인
-2. **같은 네트워크**: 디바이스와 PC가 같은 WiFi에 연결되어야 함
-3. **IP 변경**: WiFi 재연결 시 IP가 바뀔 수 있음
-
-## 🔍 문제 해결
-
-### Network request failed 오류가 계속 나는 경우:
-
-1. **IP 주소 재확인**
-2. **서버 실행 상태 확인**
-3. **방화벽 설정 확인**
-4. **디바이스와 PC가 같은 네트워크인지 확인**
-
-### 현재 설정 (2025-08-28):
-```javascript
-// 모든 환경에서 실제 IP 사용
-const API_BASE_URL = 'http://172.20.1.213:3000/api';
+### 4. 모바일 앱 실행
+```bash
+cd CookitMobile
+npm start
 ```
 
-### 임시 해결책 (개발용):
-```javascript
-// 모든 환경에서 실제 IP 사용
-const API_BASE_URL = 'http://192.168.1.100:3000/api';
-```
+## 현재 설정
+- **API Base URL**: http://172.20.1.213:3000/api
+- **서버 포트**: 3000
+- **모바일 앱**: Expo Go 또는 개발 빌드
+
+## 문제 해결
+
+### 1. 연결 안됨
+- PC와 모바일이 같은 Wi-Fi 네트워크에 연결되어 있는지 확인
+- 방화벽에서 3000번 포트 허용
+- 서버가 실행 중인지 확인
+
+### 2. IP 주소 변경 시
+- `.env` 파일의 `EXPO_PUBLIC_API_BASE_URL` 수정
+- 모바일 앱 재시작
+
+### 3. 환경변수 적용 안됨
+- `.env` 파일이 `CookitMobile` 폴더에 있는지 확인
+- Expo 개발 서버 재시작
+- 모바일 앱 새로고침

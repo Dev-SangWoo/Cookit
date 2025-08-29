@@ -19,7 +19,8 @@ export default function AIAnalyze({ navigation }) {
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const API_BASE_URL = 'http://172.20.1.213:3000/api';
+  // 환경변수에서 API URL 가져오기 (fallback 포함)
+  const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
   const analyzeYouTubeVideo = async () => {
     if (!url.trim()) {
