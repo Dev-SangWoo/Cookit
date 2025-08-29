@@ -73,14 +73,45 @@ router.post('/analyze-youtube', async (req, res) => {
     try {
       // 1. run_full_pipeline.js 실행
       console.log('▶️ [1/1] 전체 파이프라인 실행 중...');
-      execSync(`node run_full_pipeline.js "${url}"`, { 
-        stdio: 'inherit',
-        timeout: 300000 // 5분 타임아웃
-      });
+      console.log('실행할 명령어:', `node run_full_pipeline.js "${url}"`);
+      console.log('현재 작업 디렉토리 (파이프라인 실행 전):', process.cwd());
+      
+      try {
+        execSync(`node run_full_pipeline.js "${url}"`, { 
+          stdio: 'inherit',
+          timeout: 300000 // 5분 타임아웃
+        });
+        console.log('✅ 파이프라인 실행 완료');
+      } catch (pipelineError) {
+        console.error('❌ 파이프라인 실행 실패:', pipelineError.message);
+        throw new Error(`파이프라인 실행 실패: ${pipelineError.message}`);
+      }
       
       // 2. 결과 파일 읽기
       const videoId = extractVideoId(url);
       const resultPath = path.join(PAST_SERVICES_DIR, 'result_out', `${videoId}_summary.txt`);
+      
+      console.log('🔍 디버깅 정보:');
+      console.log('Video ID:', videoId);
+      console.log('Result Path:', resultPath);
+      console.log('File exists:', fs.existsSync(resultPath));
+      console.log('PAST_SERVICES_DIR:', PAST_SERVICES_DIR);
+      console.log('Current working directory:', process.cwd());
+      
+      // 파일이 없으면 다른 가능한 경로들 확인
+      if (!fs.existsSync(resultPath)) {
+        const possiblePaths = [
+          path.join(PAST_SERVICES_DIR, 'result_out', `${videoId}_summary.txt`),
+          path.join(PAST_SERVICES_DIR, 'OCR_sub', `${videoId}.txt`),
+          path.join(PAST_SERVICES_DIR, 'combined_sub', `${videoId}.txt`),
+          path.join(PAST_SERVICES_DIR, 'result_out', `${videoId}.txt`)
+        ];
+        
+        console.log('🔍 가능한 파일 경로들:');
+        possiblePaths.forEach(p => {
+          console.log(`- ${p}: ${fs.existsSync(p)}`);
+        });
+      }
       
       if (fs.existsSync(resultPath)) {
         const resultText = fs.readFileSync(resultPath, 'utf-8');
@@ -400,8 +431,18 @@ router.get('/health', async (req, res) => {
  * YouTube URL에서 video ID 추출
  */
 function extractVideoId(url) {
-  const match = url.match(/[?&]v=([^&]+)/);
-  return match ? match[1] : `video_${Date.now()}`;
+  let videoId;
+  
+  if (url.includes('youtube.com/watch')) {
+    const match = url.match(/[?&]v=([^&]+)/);
+    videoId = match ? match[1] : null;
+  } else if (url.includes('youtu.be/')) {
+    videoId = url.split('youtu.be/')[1].split('?')[0];
+  } else {
+    videoId = null;
+  }
+  
+  return videoId || `video_${Date.now()}`;
 }
 
 /**
@@ -447,12 +488,74 @@ function parseRecipeFromText(text) {
       return JSON.parse(jsonStr);
     }
     
-    // 구조화된 텍스트가 없는 경우 기본 구조로 반환
+    // 일반 텍스트를 파싱하여 구조화된 레시피로 변환
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    // 제목 추출 (첫 번째 줄에서)
+    let title = 'AI 생성 레시피';
+    if (lines.length > 0) {
+      const firstLine = lines[0].trim();
+      if (firstLine.includes('요약') || firstLine.includes('조리') || firstLine.includes('레시피')) {
+        title = firstLine.replace(/^알겠습니다\.\s*/, '').replace(/^유튜브 영상을 참고하여\s*/, '').replace(/\s*조리 과정을 단계별로 요약해 드리겠습니다\.\s*/, '');
+      }
+    }
+    
+    // 재료와 단계 추출
+    const ingredients = [];
+    const steps = [];
+    
+    let currentStep = null;
+    let stepNumber = 1;
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      
+      // 단계 제목 찾기 (예: **1단계: 재료 준비 (00:00:09)**)
+      const stepMatch = trimmedLine.match(/^\*\*(\d+)단계:\s*(.+?)\s*\([^)]*\)\*\*/);
+      if (stepMatch) {
+        if (currentStep) {
+          steps.push(currentStep);
+        }
+        currentStep = {
+          step: stepNumber++,
+          title: stepMatch[2].trim(),
+          description: '',
+          ingredients: []
+        };
+        continue;
+      }
+      
+      // 재료 항목 찾기 (예: - 스팸 4조각 (약 8mm 두께) 준비: ...)
+      const ingredientMatch = trimmedLine.match(/^-\s*(.+?):\s*(.+)/);
+      if (ingredientMatch && currentStep) {
+        const ingredientName = ingredientMatch[1].trim();
+        const description = ingredientMatch[2].trim();
+        
+        // 재료 목록에 추가
+        ingredients.push({
+          name: ingredientName,
+          amount: '',
+          unit: ''
+        });
+        
+        // 현재 단계에 설명 추가
+        if (currentStep.description) {
+          currentStep.description += ' ';
+        }
+        currentStep.description += description;
+      }
+    }
+    
+    // 마지막 단계 추가
+    if (currentStep) {
+      steps.push(currentStep);
+    }
+    
     return {
-      title: 'AI 생성 레시피',
+      title: title || 'AI 생성 레시피',
       description: 'AI가 분석한 요리 레시피입니다.',
-      ingredients: [],
-      steps: [],
+      ingredients: ingredients,
+      steps: steps,
       prep_time: null,
       cook_time: null,
       servings: null,
@@ -461,6 +564,7 @@ function parseRecipeFromText(text) {
       nutrition: null,
       rawResponse: text
     };
+    
   } catch (error) {
     console.warn('⚠️ 레시피 파싱 실패, 기본 구조 사용:', error.message);
     return {

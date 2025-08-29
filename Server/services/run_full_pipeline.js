@@ -17,26 +17,34 @@ try {
 
   // 1. ocr_analyze.js 실행 (영상 다운로드 + OCR)
   console.log("\n▶️ [1/4] OCR 분석 중...");
-  execSync(`node ocr_analyze.js "${videoUrl}"`, { stdio: "inherit" });
+  execSync(`node ${path.join(__dirname, 'ocr_analyze.js')} "${videoUrl}"`, { stdio: "inherit" });
 
   // 2. video ID 추출
-  const urlObj = new URL(videoUrl);
-  const videoId = urlObj.searchParams.get("v");
+  let videoId;
+  if (videoUrl.includes('youtube.com/watch')) {
+    const urlObj = new URL(videoUrl);
+    videoId = urlObj.searchParams.get("v");
+  } else if (videoUrl.includes('youtu.be/')) {
+    videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+  } else {
+    throw new Error("유효한 video ID를 추출하지 못했습니다.");
+  }
+  
   if (!videoId) {
     throw new Error("유효한 video ID를 추출하지 못했습니다.");
   }
 
   // 3. generate_combined_text.js 실행
   console.log("\n▶️ [2/4] 텍스트 통합 중...");
-  execSync(`node generate_combined_text.js ${videoId}`, { stdio: "inherit" });
+  execSync(`node ${path.join(__dirname, 'generate_combined_text.js')} ${videoId}`, { stdio: "inherit" });
 
   // 4. generate_prompt.js 실행
   console.log("\n▶️ [3/4] 프롬프트 생성 중...");
-  execSync(`node generate_prompt.js ${videoId} "${videoUrl}"`, { stdio: "inherit" });
+  execSync(`node ${path.join(__dirname, 'generate_prompt.js')} ${videoId} "${videoUrl}"`, { stdio: "inherit" });
 
   // 5. send_to_gemini.js 실행
   console.log("\n▶️ [4/4] Gemini API 요청 중...");
-  execSync(`node send_to_gemini.js ${videoId}`, { stdio: "inherit" });
+  execSync(`node ${path.join(__dirname, 'send_to_gemini.js')} ${videoId}`, { stdio: "inherit" });
 
   // 종료 시간 기록
   const endTime = performance.now();

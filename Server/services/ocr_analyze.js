@@ -21,9 +21,9 @@ if (fs.existsSync(videoFile)) {
 
 (async () => {
   try {
-    console.log("\n[OCR-1] 유튜브 영상 다운로드 (최대 360p) 중...");
+    console.log("\n[OCR-1] 유튜브 영상 다운로드 중...");
     execSync(
-      `yt-dlp --no-playlist --force-overwrites -f "bestvideo[ext=mp4][height<=360]+bestaudio[ext=m4a]/best[ext=mp4][height<=360]" -o "${videoFile}" "${url}"`,
+      `yt-dlp --no-playlist --force-overwrites --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" --extractor-args "youtube:player_client=android" --format "best[height<=480]/worst" -o "${videoFile}" "${url}"`,
       { stdio: "inherit" }
     );
 
@@ -77,5 +77,7 @@ if (fs.existsSync(videoFile)) {
     console.log(`\n\n[OCR-4] OCR 결과 저장 완료 → ${outputPath}`);
   } catch (err) {
     console.error("❌ OCR 처리 중 오류 발생:", err.message);
+    // 오류를 re-throw하여 파이프라인이 중단되도록 함
+    process.exit(1);
   }
 })();

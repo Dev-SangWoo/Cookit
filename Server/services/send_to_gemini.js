@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-require("dotenv").config();
+require("dotenv").config({ path: path.join(__dirname, '../.env') });
 
 const videoId = process.argv[2];
 if (!videoId) {
@@ -37,6 +37,16 @@ function createVideoPart(filePath) {
 }
 
 async function runGeminiSummarization() {
+  console.log('🔑 환경변수 확인:');
+  console.log('GEMINI_API_KEY 존재:', !!process.env.GEMINI_API_KEY);
+  console.log('GEMINI_API_KEY 길이:', process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0);
+  console.log('GEMINI_API_KEY 시작:', process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 10) + '...' : '없음');
+  
+  if (!process.env.GEMINI_API_KEY) {
+    console.error('❌ GEMINI_API_KEY 환경변수가 설정되지 않았습니다.');
+    process.exit(1);
+  }
+  
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
   const model = genAI.getGenerativeModel({
