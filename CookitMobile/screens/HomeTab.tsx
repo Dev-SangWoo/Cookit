@@ -1,14 +1,24 @@
+// HomeTab.tsx
+
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import {  BottomTabNavigationProp,createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import CommunityStack from './community/CommunityStack';
+import { CommunityStackParamList } from './community/CommunityStack';
 import Home from './Home';
 import History from './History';
 import Shopping from './Shopping';
 import Profile from './Profile';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
+export type HomeTabParamList = {
+  Home: undefined;
+  History: undefined;
+  Community: undefined;
+  Shopping: undefined;
+  Profile: undefined;
+};
 
-
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<HomeTabParamList>();
 
 const HomeTab = () => {
   return (
@@ -23,12 +33,14 @@ const HomeTab = () => {
           else if (route.name === 'History') iconName = 'time-outline';
           else if (route.name === 'Shopping') iconName = 'cart-outline';
           else if (route.name === 'Profile') iconName = 'person-outline';
+          else if (route.name === 'Community') iconName = 'person-outline';
           return <Ionicons name={iconName} size={size} color={color} />;
         },
       })}
     >
       <Tab.Screen name="Home" component={Home} />
       <Tab.Screen name="History" component={History} />
+      <Tab.Screen name="Community" component={CommunityStack} />
       <Tab.Screen name="Shopping" component={Shopping} />
       <Tab.Screen name="Profile" component={Profile} />
     </Tab.Navigator>
@@ -36,6 +48,3 @@ const HomeTab = () => {
 };
 
 export default HomeTab;
-
-// 홈 화면의 하단 탭 화면에 보여질 부분은 
-// Home 화면에 하단 탭을 더한 HomeTaaab.js 파일

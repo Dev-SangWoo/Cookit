@@ -1,26 +1,14 @@
 //메인 화면
 
-// 고려해야할 부분 
-// 오늘의 레시피, 인기 레시피는 하드코딩 되어있다. 데이터 넉넉하게 2~30개정도 뽑아서
-// 음식 이름, 사진, 간단한 설명 이렇게 데이터를 저장해두고 로테이션 돌리면 주기적으로 바뀌게끔
-// 만들 수 있지 않을까? 그래서 그것을 누르면 그 제목으로 검색이 돼서(검색 과정 스킵)
-// SearchList.js로 가도록 만들면 좋을 것 같다. 
-// 지금은 요리로 해놔서 바로 검색이 되게끔 하면 되는데\
-// 추천 레시피, 인기 레시피로 할거라면 이미 다 돌려서 데이터를 가지고 있어야 함 
-// 누르면 검색으로 가는게 아니라 요약된 레시피 화면으로 가게 만들어야 할듯
-//
 
 
 
-
-import { StyleSheet, Text, View, TouchableOpacity, Platform, Image } from 'react-native'
-import React, { useEffect, useState } from 'react'
-import { useNavigation, useRoute } from '@react-navigation/native'
+import { StyleSheet, Text, View, TouchableOpacity, Platform, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useAuth } from '../contexts/AuthContext';
-
-
+import { supabase } from '../lib/supabase';
 
 const Home = () => {
   const route = useRoute();
@@ -29,7 +17,6 @@ const Home = () => {
   const navigation = useNavigation();
   const [recommendRecipes, setRecommendRecipes] = useState([]);
   const [hotRecipes, setHotRecipes] = useState([]);
-  const { user } = useAuth();
 
 
 
@@ -79,17 +66,11 @@ const Home = () => {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, paddingTop: Platform.OS === 'android' ? 15 : 0 }}>
-      <View style={styles.container}>
+    
+      <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Image source={require('../assets/signature.png')} style={styles.signature} />
-            <Text style={styles.headerTitle}>Cookit</Text>
-          </View>
-          <View style={styles.userSection}>
-            <Text style={styles.welcomeText}>안녕하세요!</Text>
-            <Text style={styles.userName}>{user?.name || user?.email || '사용자'}님</Text>
-          </View>
+          <Image source={require('../assets/signature.png')} style={styles.signature} />
+          <Text style={styles.headerTitle}>Cookit</Text>
         </View>
         <TouchableOpacity
           style={styles.inputButton}
@@ -126,8 +107,8 @@ const Home = () => {
           ))}
         </View>
 
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    
   )
 }
 
@@ -141,13 +122,8 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingBottom: 20,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   signature: {
     width: 40,
@@ -159,19 +135,6 @@ const styles = StyleSheet.create({
     fontSize: 27,
     fontWeight: 'bold',
     color: 'orange',
-  },
-  userSection: {
-    alignItems: 'flex-end',
-  },
-  welcomeText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 2,
   },
 
   profileButton: {

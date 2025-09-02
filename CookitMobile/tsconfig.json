@@ -1,10 +1,12 @@
 {
-  "compilerOptions": {},
+  "compilerOptions": {
+    "allowJs": true
+  },
   "extends": "expo/tsconfig.base",
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-  ]
+, "screens/community/CommunityStack.tsx", "screens/HomeTab.tsx"  ]
 }

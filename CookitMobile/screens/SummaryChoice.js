@@ -1,11 +1,6 @@
 // 요약할지 말지 정하는 곳
 // 요약하기 버튼을 누르면 요약 시작
-// 진행도는 
-// 0~40%: "영상 분석중"
-// 40~70%: "재료 정리중"
-// 70~90%: "타임라인 만들기"
-// 90~100%: "마지막 정리중" 이런식?
-// 예상 시간을 받아올 수 있는지는 모르겠는데 받아올 수 있으면 좋긴하다
+
 
 
 
@@ -15,7 +10,7 @@ import ModalSummary from './modal/ModalSummary';
 import { useState } from 'react';
 
 const SummaryChoice = ({ route, navigation }) => {
-  const { thumbnail, title, creator } = route.params;
+  const { thumbnail, title, creator, recipeId } = route.params;
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   const handleSummaryPress = () => {
@@ -47,7 +42,7 @@ const SummaryChoice = ({ route, navigation }) => {
         isVisible={isModalVisible}
         onComplete={() => {
           setIsModalVisible(false);
-          navigation.navigate('Summary', { title, thumbnail });
+          navigation.navigate('Summary', { recipeId });
         }}
       />
     </SafeAreaView>
