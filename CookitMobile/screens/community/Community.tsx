@@ -2,7 +2,7 @@
 import { getPosts } from '../../services/postsApi';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { CommunityStackParamList } from './CommunityStack'; 
+import { CommunityStackParamList } from './CommunityStack';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,19 +30,19 @@ export default function Community() {
   // ✅ useNavigation 훅에 위에서 정의한 타입 적용
   const navigation = useNavigation<CommunityScreenNavigationProp>();
 
-const fetchData = async () => {
-  try {
-    setLoading(true);
-    const data = await getPosts();
-    // ✅ data는 이제 오류 발생 시 빈 배열([])입니다.
-    setPosts(data);
-  } catch (err) {
-    // ✅ 이 블록은 이제 실행될 일이 거의 없습니다.
-    console.error('게시글 로딩 실패:', err);
-  } finally {
-    setLoading(false);
-  }
-};
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const data = await getPosts();
+      // ✅ data는 이제 오류 발생 시 빈 배열([])입니다.
+      setPosts(data);
+    } catch (err) {
+      // ✅ 이 블록은 이제 실행될 일이 거의 없습니다.
+      console.error('게시글 로딩 실패:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -53,7 +53,6 @@ const fetchData = async () => {
   const screenWidth = Dimensions.get('window').width;
   const imageSize = screenWidth / 3;
 
-  // ✅ item의 타입을 명시적으로 정의
   const renderItem = ({ item }: { item: { post_id: string; image_urls: string[] } }) => {
     const thumbnail = item.image_urls?.[0];
     if (!thumbnail) return null;
@@ -61,7 +60,8 @@ const fetchData = async () => {
     return (
       <TouchableOpacity
         style={{ width: imageSize, height: imageSize }}
-        onPress={() => navigation.push('PostDetail', { id: item.post_id })}
+        // ✅ 'id'를 'postId'로 변경하여 PostDetail.js와 파라미터 이름을 통일합니다.
+        onPress={() => navigation.push('PostDetail', { postId: item.post_id })}
       >
         <Image
           source={{ uri: thumbnail }}

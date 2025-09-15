@@ -6,7 +6,7 @@ import CreatePost from './CreatePost';
 
 export type CommunityStackParamList = {
   CommunityMain: undefined; // CommunityMain에는 파라미터가 필요 없다고 명시
-  PostDetail: { id: string };
+  PostDetail: { postId: string };
   CreatePost: undefined;
 };
 

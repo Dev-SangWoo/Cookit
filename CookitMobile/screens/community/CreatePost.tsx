@@ -2,11 +2,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Button, Image, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Button, Image, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import 'react-native-get-random-values';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { v4 as uuid } from 'uuid';
-import { useNavigation } from '@react-navigation/native'; // ✅ expo-router 대신 react-navigation 훅을 import
+import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
 
 const decode = (str: string) => {
@@ -25,7 +25,7 @@ const decode = (str: string) => {
 
 export default function CreatePost() {
   const { user } = useAuth();
-  const navigation = useNavigation(); // ✅ useRouter() 대신 useNavigation() 사용
+  const navigation = useNavigation();
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -33,6 +33,12 @@ export default function CreatePost() {
   const [isUploading, setIsUploading] = useState(false);
 
   const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('권한 필요', '앨범 접근 권한이 필요합니다.');
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
@@ -40,6 +46,26 @@ export default function CreatePost() {
     });
 
     if (!result.canceled) {
+      setImages([...images, ...result.assets]);
+    }
+  };
+
+  // ✅ 카메라로 사진을 찍는 함수를 추가합니다.
+  const handleTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('권한 필요', '카메라 접근 권한이 필요합니다.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, // 편집 허용
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      // 찍은 사진을 기존 이미지 목록에 추가합니다.
       setImages([...images, ...result.assets]);
     }
   };
@@ -88,7 +114,7 @@ export default function CreatePost() {
     return uploadedUrls;
   };
 
-const handleSubmit = async () => {
+  const handleSubmit = async () => {
     if (!user) return;
     setIsUploading(true);
 
@@ -123,7 +149,7 @@ const handleSubmit = async () => {
             text: '확인',
             onPress: () => {
               console.log('확인 버튼이 눌렸습니다. 이전 화면으로 돌아갑니다.');
-              navigation.goBack(); // ✅ router.back() 대신 navigation.goBack() 사용
+              navigation.goBack();
             },
           },
         ]
@@ -150,7 +176,12 @@ const handleSubmit = async () => {
         multiline
       />
 
-      <Button title="이미지 선택" onPress={handlePickImage} disabled={isUploading} />
+      {/* ✅ '이미지 선택' 버튼을 담는 컨테이너 추가 */}
+      <View style={styles.buttonContainer}>
+        <Button title="앨범에서 선택" onPress={handlePickImage} disabled={isUploading} />
+        {/* ✅ '사진 촬영' 버튼 추가 */}
+        <Button title="사진 촬영" onPress={handleTakePhoto} disabled={isUploading} />
+      </View>
 
       <ScrollView horizontal contentContainerStyle={styles.preview}>
         {images.map((img, idx) => (
@@ -184,7 +215,7 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 10,
   },
-  textarea: { // ✅ 이 부분이 누락되었습니다.
+  textarea: {
     borderWidth: 1,
     borderColor: '#666',
     borderRadius: 8,
@@ -193,9 +224,15 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlignVertical: 'top',
   },
-  preview: { // ✅ 이 부분도 누락되었습니다.
+  preview: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginVertical: 10,
+  },
+  // ✅ 버튼들을 담는 새로운 스타일 추가
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
   },
 });
