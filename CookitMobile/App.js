@@ -13,6 +13,7 @@ import AuthScreen from './components/AuthScreen';
 import ModalSummary from './screens/modal/ModalSummary';
 import Search from './screens/search';
 import Profile from './screens/Profile';
+import Ingredients from './screens/Ingredients';
 import Summary from './screens/Summary';
 import SearchList from './screens/SearchList';
 import SummaryChoice from './screens/SummaryChoice';
@@ -27,7 +28,8 @@ import PostDetail from './screens/community/PostDetail';
 import NicknameSetup from './screens/sign/NicknameSetup';
 import ProfileSetup from './screens/sign/ProfileSetup';
 import PreferenceSetup from './screens/sign/PreferenceSetup';
-
+import IngredientsSetup from './screens/sign/IngredientsSetup';
+import ModalInput from './screens/modal/ModalInput';
 
 const Stack = createNativeStackNavigator();
 
@@ -65,21 +67,21 @@ const navigation = useNavigation();
 
   // 4. 세션과 유저 객체가 모두 있는 경우, 온보딩 상태에 따라 라우팅
   // **주의: 온보딩 로직이 AuthProvider가 아닌, 로그인 성공 이후에 실행되도록 구성해야 함**
-  console.log('--- 현재 사용자 상태 ---');
-  console.log('user.name:', user.name);
-  console.log('user.bio:', user.bio);
-  console.log('user.cooking_level:', user.cooking_level);
-  console.log('user.favorite_cuisines:', user.favorite_cuisines);
-  console.log('user.dietary_restrictions:', user.dietary_restrictions);
-  console.log('-------------------------');
+  // console.log('--- 현재 사용자 상태 ---');
+  // console.log('user.name:', user.name);
+  // console.log('user.bio:', user.bio);
+  // console.log('user.cooking_level:', user.cooking_level);
+  // console.log('user.favorite_cuisines:', user.favorite_cuisines);
+  // console.log('user.dietary_restrictions:', user.dietary_restrictions);
+  // console.log('-------------------------');
 
   let initialRouteName;
 
-  if (user.name === null || user.name === '') {
+  if (user.name === null || user.cooking_level === null) {
     initialRouteName = 'NicknameSetup';
-  } else if (user.bio === null || user.cooking_level === null) {
+  } else if (user.bio === null ) {
     initialRouteName = 'ProfileSetup';
-  } else if (user.favorite_cuisines === null || user.dietary_restrictions === null) {
+  } else if (user.favorite_cuisines === null ) {
     initialRouteName = 'PreferenceSetup';
   } else {
     initialRouteName = 'HomeTab';
@@ -87,7 +89,7 @@ const navigation = useNavigation();
 
   useEffect(() => {
     // 모든 필수 정보가 채워졌는지 확인하는 함수
-    const isProfileComplete = user?.name && user?.bio && user?.cooking_level;
+    const isProfileComplete = user?.name && user?.bio && user?.cooking_level && user?.favorite_cuisines;
     
     // 프로필이 완료되었다면 메인 화면으로 이동
     if (isProfileComplete) {
@@ -101,15 +103,17 @@ const navigation = useNavigation();
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
-      {/* 온보딩 스크린 */}
+      {/* 로그인 화면*/}
       <Stack.Screen name="NicknameSetup" component={NicknameSetup} />
       <Stack.Screen name="ProfileSetup" component={ProfileSetup} />
       <Stack.Screen name="PreferenceSetup" component={PreferenceSetup} />
+      <Stack.Screen name="IngredientsSetup" component={IngredientsSetup} />
 
       {/* 메인 스크린들 */}
       <Stack.Screen name="HomeTab" component={HomeTab} />
       <Stack.Screen name="Search" component={Search} />
       <Stack.Screen name="Profile" component={Profile} />
+      <Stack.Screen name="Ingredients" component={Ingredients} />
       <Stack.Screen name="Community" component={Community} />
       <Stack.Screen name="CreatePost" component={CreatePost} />
       <Stack.Screen name="PostDetail" component={PostDetail} />
@@ -118,11 +122,12 @@ const navigation = useNavigation();
       <Stack.Screen name="SummaryChoice" component={SummaryChoice} />
       <Stack.Screen name="Recipe" component={Recipe} />
 
-      {/* 모달 스크린들 */}
+      {/* 모달 화면*/}
       <Stack.Screen name="ModalSummary" component={ModalSummary} />
       <Stack.Screen name="ModalDelete" component={ModalDelete} />
       <Stack.Screen name="ModalLogout" component={ModalLogout} />
       <Stack.Screen name="ModalSelect" component={ModalSelect} />
+      <Stack.Screen name="ModalInput" component={ModalInput} />
     </Stack.Navigator>
   );
 }

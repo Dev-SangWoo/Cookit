@@ -6,7 +6,6 @@ import { CommunityStackParamList } from './CommunityStack';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Button,
   Dimensions,
   FlatList,
   Image,
@@ -17,27 +16,32 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// ✅ 네비게이션 훅에 타입을 적용하기 위한 타입 정의
 type CommunityScreenNavigationProp = NativeStackNavigationProp<
   CommunityStackParamList,
   'CommunityMain'
 >;
 
+type PostItem = { 
+  post_id: string; 
+  title: string;
+  image_urls: string[]; 
+  like_count: number;
+  comment_count: number;
+};
+
 export default function Community() {
-  // ✅ posts 상태에 타입 명시
-  const [posts, setPosts] = useState<any[]>([]);
+  
+  const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
-  // ✅ useNavigation 훅에 위에서 정의한 타입 적용
+  
   const navigation = useNavigation<CommunityScreenNavigationProp>();
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const data = await getPosts();
-      // ✅ data는 이제 오류 발생 시 빈 배열([])입니다.
       setPosts(data);
     } catch (err) {
-      // ✅ 이 블록은 이제 실행될 일이 거의 없습니다.
       console.error('게시글 로딩 실패:', err);
     } finally {
       setLoading(false);
@@ -51,22 +55,32 @@ export default function Community() {
   );
 
   const screenWidth = Dimensions.get('window').width;
-  const imageSize = screenWidth / 3;
+  const numColumns = 2;
+  const itemPadding = 8;
+  const imageSize = (screenWidth / numColumns) - (itemPadding * (numColumns + 1) / numColumns); 
 
-  const renderItem = ({ item }: { item: { post_id: string; image_urls: string[] } }) => {
+  const renderItem = ({ item }: { item: PostItem }) => {
     const thumbnail = item.image_urls?.[0];
     if (!thumbnail) return null;
 
     return (
       <TouchableOpacity
-        style={{ width: imageSize, height: imageSize }}
-        // ✅ 'id'를 'postId'로 변경하여 PostDetail.js와 파라미터 이름을 통일합니다.
+        style={styles.postItemContainer}
         onPress={() => navigation.push('PostDetail', { postId: item.post_id })}
       >
         <Image
           source={{ uri: thumbnail }}
-          style={{ width: '100%', height: '100%' }}
+          style={styles.postImage}
         />
+        <View style={styles.postDetails}>
+          <Text style={styles.postTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <View style={styles.metricsContainer}>
+            <Text style={styles.metricText}>❤️ {item.like_count}</Text>
+            <Text style={styles.metricText}>💬 {item.comment_count}</Text>
+          </View>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -83,16 +97,22 @@ export default function Community() {
     <SafeAreaView style={styles.page}>
       <View style={styles.header}>
         <Text style={styles.title}>커뮤니티</Text>
-        <Button title="새 글 작성" onPress={() => navigation.push('CreatePost')} />
       </View>
 
       <FlatList
         data={posts}
         renderItem={renderItem}
         keyExtractor={(item) => item.post_id}
-        numColumns={3}
+        numColumns={numColumns}
         contentContainerStyle={styles.list}
       />
+      
+      <TouchableOpacity 
+        style={styles.addButton}
+        onPress={() => navigation.push('CreatePost')}
+      >
+        <Text style={styles.addButtonText}>+</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -115,11 +135,68 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   list: {
-    paddingBottom: 16,
+    paddingHorizontal: 8,
+    paddingBottom: 40, // 플로팅 버튼을 위한 하단 여백 추가
   },
   loader: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  postItemContainer: {
+    flex: 1,
+    margin: 8,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  postImage: {
+    width: '100%',
+    height: Dimensions.get('window').width / 2 - (8 * 2),
+    resizeMode: 'cover',
+  },
+  postDetails: {
+    padding: 8,
+  },
+  postTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  metricsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  metricText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
+  },
+  addButton: {
+    position: 'absolute',
+    bottom: 30,
+    right: 30,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FFC107',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  addButtonText: {
+    fontSize: 30,
+    color: 'white',
+    lineHeight: 30,
   },
 });

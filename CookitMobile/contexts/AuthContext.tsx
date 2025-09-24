@@ -69,7 +69,7 @@ const ensureUserProfile = async (supabaseUser: User) => {
       id: supabaseUser.id,
       email: supabaseUser.email,
       avatar_url: supabaseUser.avatar_url,
-      name: profileData?.display_name || null,
+      name: profileData?.display_name,
       bio: profileData?.bio || null,
       cooking_level: profileData?.cooking_level || null,
       favorite_cuisines: profileData?.favorite_cuisines || [],

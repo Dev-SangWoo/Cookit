@@ -1,5 +1,31 @@
 // 앱을 켰을 때 제일 처음 보게될 화면
 // npx expo install @react-native-async-storage/async-storage
+/*
+          <TouchableOpacity
+            style={styles.buttonStart}
+            onPress={handleStart}
+          >
+            <Text style={styles.buttonText}>Get Started</Text>
+          </TouchableOpacity>
+
+  buttonStart: {
+    backgroundColor: 'orange',
+    borderRadius: 50,
+    width: '100%',
+    paddingVertical: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 30
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold'
+  },
+*/
+
+
+
 
 import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native'
 import { useNavigation } from '@react-navigation/native';

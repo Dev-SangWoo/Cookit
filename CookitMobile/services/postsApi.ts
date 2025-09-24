@@ -1,12 +1,11 @@
-import * as FileSystem from 'expo-file-system';
 import { supabase } from '../lib/supabase';
 
-// 간단한 확장자 추출 함수
+
 function getFileExt(uri: string) {
   return uri.split('.').pop() || 'jpg';
 }
 
-// 간단한 MIME 타입 추출 함수
+
 function getMimeType(uri: string) {
   const ext = getFileExt(uri).toLowerCase();
   switch (ext) {
@@ -22,7 +21,7 @@ function getMimeType(uri: string) {
   }
 }
 
-// 📌 이미지 업로드 함수
+// 이미지 업로드 헬퍼 함수
 async function uploadImages(images: string[]): Promise<string[]> {
   const imageUrls: string[] = [];
 
@@ -31,14 +30,13 @@ async function uploadImages(images: string[]): Promise<string[]> {
     const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
     const filePath = `user-post-images/${fileName}`;
 
-    // 파일을 base64로 읽어서 Buffer로 변환
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+    // uri를 fetch API를 통해 Blob 객체로 변환
+    const response = await fetch(uri);
+    const blob = await response.blob();
 
     const { error: uploadError } = await supabase.storage
       .from('user-post-images')
-      .upload(filePath, Buffer.from(base64, 'base64'), {
+      .upload(filePath, blob, {
         contentType: getMimeType(uri),
       });
 
@@ -54,7 +52,7 @@ async function uploadImages(images: string[]): Promise<string[]> {
   return imageUrls;
 }
 
-// 📌 게시글 작성
+// 게시글 생성
 export async function createPost({ title, content, recipe_id, images, user_id }: {
   title: string;
   content: string;
@@ -80,7 +78,7 @@ export async function createPost({ title, content, recipe_id, images, user_id }:
   return data;
 }
 
-// 📌 게시글 목록 조회
+// 게시글 목록 조회
 export async function getPosts() {
   try {
     const { data, error } = await supabase
@@ -90,7 +88,6 @@ export async function getPosts() {
 
     if (error) {
       console.error('getPosts Supabase 쿼리 오류:', error);
-      // 오류가 발생해도 앱이 멈추지 않도록 빈 배열을 반환합니다.
       return []; 
     }
 
@@ -105,7 +102,7 @@ export async function getPosts() {
   }
 }
 
-// 📌 게시글 수정
+// 게시글 수정
 export async function updatePost(postId: string, { title, content, image_urls }: {
   title?: string;
   content?: string;
@@ -127,7 +124,7 @@ export async function updatePost(postId: string, { title, content, image_urls }:
   return data;
 }
 
-// 📌 게시글 삭제
+// 게시글 삭제
 export async function deletePost(postId: string) {
   const { error } = await supabase
     .from('user_posts')
@@ -142,7 +139,7 @@ export async function deletePost(postId: string) {
 export async function getPostById(id: string) {
   const { data, error } = await supabase
     .from('user_posts')
-.select('post_id, title, content, image_urls, created_at, user_profiles ( id, display_name, avatar_url )')
+    .select('post_id, title, content, image_urls, created_at, user_profiles ( id, display_name, avatar_url )')
     .eq('post_id', id)
     .single();
 

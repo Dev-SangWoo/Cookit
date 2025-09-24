@@ -1,3 +1,5 @@
+// 선호 비선호 고르는 모달
+
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Button, StyleSheet } from 'react-native';
 import Modal from 'react-native-modal';

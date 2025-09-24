@@ -5,10 +5,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 
 export default function ProfileSetup({ navigation }) {
-    const { user, updateUserProfile } = useAuth(); // updateUserProfile 함수도 가져옵니다.
+    const { user, updateUserProfile } = useAuth();
     const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '');
     const [bio, setBio] = useState(user?.bio || '');
-    const [cookingLevel, setCookingLevel] = useState(user?.cooking_level || '');
 
     const pickImage = async () => {
         const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -29,8 +28,8 @@ export default function ProfileSetup({ navigation }) {
     };
 
     const handleNext = async () => {
-        if (!bio.trim() || !cookingLevel) {
-            Alert.alert('오류', '자기소개와 요리 레벨을 모두 선택해주세요.');
+        if (!bio.trim()) {
+            Alert.alert('오류', '자기소개를 입력해주세요.');
             return;
         }
 
@@ -40,7 +39,6 @@ export default function ProfileSetup({ navigation }) {
             .update({
                 avatar_url: avatarUrl,
                 bio,
-                cooking_level: cookingLevel,
             })
             .eq('id', user?.id);
 
@@ -54,32 +52,32 @@ export default function ProfileSetup({ navigation }) {
         await updateUserProfile({
             avatar_url: avatarUrl,
             bio,
-            cooking_level: cookingLevel,
         });
 
-        Alert.alert('성공', '프로필이 성공적으로 설정되었습니다!');
 
-        // ✅ 네비게이션 로직을 이 곳으로 옮깁니다.
-        // 다음 온보딩 단계로 이동 (PreferenceSetup)
-        navigation.navigate('PreferenceSetup');
+        navigation.replace('PreferenceSetup');
     };
-
-    const cookingOptions = [
-        { label: '잘 안해요 (1~2회)', value: 'beginner' },
-        { label: '가끔 해요 (3~5회)', value: 'intermediate' },
-        { label: '자주 해요 (6~7회)', value: 'advanced' },
-    ];
 
     return (
         <View style={styles.container}>
+            <Text style={styles.step}>2/4</Text>
+            <Text style={styles.title}>프로필 사진, 자기소개</Text>
+            <Text style={styles.titleText}>본인을 표현할 수 있는{"\n"}프로필 사진과 자기소개를 입력해주세요</Text>
             <Text style={styles.sectionTitle}>프로필 사진</Text>
 
             {avatarUrl && (
                 <Image source={{ uri: avatarUrl }} style={styles.avatarPreview} />
             )}
-            <Text style={styles.label}>Google 프로필 사진을 사용할 수도 있어요</Text>
-            <Button title="프로필 사진 선택" onPress={pickImage} />
-            <Text style={styles.sectionTitle}>자기소개 부탁드립니다!</Text>
+            <Text style={styles.titleText}>Google 프로필 사진을 사용할 수도 있어요</Text>
+            <View style={styles.buttonContainer}>
+            <TouchableOpacity onPress={pickImage} style={styles.imageButton}> 
+                <Text style={styles.imageText}>사진 선택</Text>
+            </TouchableOpacity>
+                        <TouchableOpacity onPress={pickImage} style={styles.imageButton}> 
+                <Text style={styles.imageText}>사진 촬영(미구현)</Text>
+            </TouchableOpacity>
+            </View>
+            <Text style={styles.sectionTitle}>자기소개</Text>
             <TextInput
                 style={styles.input}
                 placeholder="ex) 요리 초보에요"
@@ -87,31 +85,41 @@ export default function ProfileSetup({ navigation }) {
                 onChangeText={setBio}
             />
 
-            <Text style={styles.sectionTitle}>요리를 자주 하시나요?</Text>
-            <View style={styles.optionGroup}>
-                {cookingOptions.map((option) => (
-                    <TouchableOpacity
-                        key={option.value}
-                        style={[
-                            styles.optionButton,
-                            cookingLevel === option.value && styles.optionSelected
-                        ]}
-                        onPress={() => setCookingLevel(option.value)}
-                    >
-                        <Text style={styles.optionText}>{option.label}</Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-
-            <Button title="다음" onPress={handleNext} />
+            <View style={styles.buttonWrapper}>
+  <TouchableOpacity
+    style={styles.buttonNext}
+    onPress={handleNext}
+  >
+    <Text style={styles.buttonText}>다음</Text>
+  </TouchableOpacity>
+</View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 20 },
-    sectionTitle: {
+   container: {
+    flex: 1, 
+    padding: 20,
+    paddingTop: 60,
+  },
+    step: {
+        color: 'orange',
         fontSize: 16,
+        marginBottom: 10,
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        marginBottom: 20,
+    },
+    titleText: {
+        fontSize: 16,
+        color: '#555',
+        marginBottom: 20,
+    },
+    sectionTitle: {
+        fontSize: 18,
         fontWeight: 'bold',
         marginTop: 20,
         marginBottom: 8,
@@ -119,9 +127,29 @@ const styles = StyleSheet.create({
     avatarPreview: {
         width: 120,
         height: 120,
-        borderRadius: 60, // ✅ 원형 처리
+        borderRadius: 15,
         alignSelf: 'center',
         marginVertical: 16,
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginTop: 12,
+        marginBottom: 20
+    },
+    imageButton: {
+        marginHorizontal: 10,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        backgroundColor: 'orange',
+        borderRadius: 30,
+        borderColor: 'orange',
+        borderWidth: 1,
+    },
+    imageText: {
+         color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold'
     },
     input: {
         borderWidth: 1,
@@ -130,23 +158,24 @@ const styles = StyleSheet.create({
         padding: 10,
         marginBottom: 12,
     },
-    optionGroup: {
-        flexDirection: 'column',
-        gap: 8,
-        marginBottom: 20,
-    },
-    optionButton: {
-        padding: 12,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#ccc',
-    },
-    optionSelected: {
-        backgroundColor: 'orange',
-        borderColor: 'white',
-    },
-    optionText: {
-        color: '#333',
-        textAlign: 'center',
+     buttonWrapper: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    marginBottom: 50,
+  },
+  
+  // 버튼 자체의 스타일
+  buttonNext: {
+    backgroundColor: 'orange',
+    borderRadius: 50,
+    width: '100%',
+    paddingVertical: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+    buttonText: {
+        color: 'white',
+        fontSize: 20,
+        fontWeight: 'bold'
     },
 });

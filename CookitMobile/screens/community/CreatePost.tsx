@@ -1,8 +1,8 @@
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Button, Image, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import 'react-native-get-random-values';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { v4 as uuid } from 'uuid';
@@ -50,7 +50,6 @@ export default function CreatePost() {
     }
   };
 
-  // ✅ 카메라로 사진을 찍는 함수를 추가합니다.
   const handleTakePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -60,12 +59,11 @@ export default function CreatePost() {
 
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, // 편집 허용
+      allowsEditing: true,
       quality: 1,
     });
 
     if (!result.canceled) {
-      // 찍은 사진을 기존 이미지 목록에 추가합니다.
       setImages([...images, ...result.assets]);
     }
   };
@@ -79,12 +77,12 @@ export default function CreatePost() {
         const fileExt = image.uri.split('.').pop();
         const fileName = `${uuid()}.${fileExt}`;
         const filePath = `posts/${user?.id}/${fileName}`;
+        const contentType = image.mimeType || 'image/jpeg';
 
         const base64 = await FileSystem.readAsStringAsync(image.uri, {
-          encoding: FileSystem.EncodingType.Base64,
+          encoding: 'base64',
         });
-
-        const contentType = image.mimeType || 'image/jpeg';
+        
         const binaryData = decode(base64);
 
         const { error } = await supabase.storage
@@ -161,26 +159,28 @@ export default function CreatePost() {
   return (
     <SafeAreaView style={styles.container}>
       <TextInput
-        style={[styles.input, { color: 'white' }]}
+        style={styles.input}
         placeholder="제목"
-        placeholderTextColor="#aaa"
+        placeholderTextColor="#999"
         value={title}
         onChangeText={setTitle}
       />
       <TextInput
-        style={[styles.textarea, { color: 'white' }]}
+        style={styles.textarea}
         placeholder="내용"
-        placeholderTextColor="#aaa"
+        placeholderTextColor="#999"
         value={content}
         onChangeText={setContent}
         multiline
       />
 
-      {/* ✅ '이미지 선택' 버튼을 담는 컨테이너 추가 */}
       <View style={styles.buttonContainer}>
-        <Button title="앨범에서 선택" onPress={handlePickImage} disabled={isUploading} />
-        {/* ✅ '사진 촬영' 버튼 추가 */}
-        <Button title="사진 촬영" onPress={handleTakePhoto} disabled={isUploading} />
+        <TouchableOpacity style={styles.imageButton} onPress={handlePickImage} disabled={isUploading}>
+          <Text style={styles.imageButtonText}>앨범에서 선택</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.imageButton} onPress={handleTakePhoto} disabled={isUploading}>
+          <Text style={styles.imageButtonText}>사진 촬영</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView horizontal contentContainerStyle={styles.preview}>
@@ -188,51 +188,105 @@ export default function CreatePost() {
           <Image
             key={idx}
             source={{ uri: img.uri }}
-            style={{ width: 100, height: 100, margin: 5, borderRadius: 8 }}
+            style={styles.previewImage}
           />
         ))}
       </ScrollView>
 
-      <Button
-        title={isUploading ? "등록 중..." : "등록하기"}
+      <TouchableOpacity
+        style={[styles.submitButton, isUploading || images.length === 0 && styles.disabledButton]}
         onPress={handleSubmit}
         disabled={isUploading || images.length === 0}
-      />
+      >
+        <Text style={styles.submitButtonText}>{isUploading ? "등록 중..." : "등록하기"}</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    backgroundColor: 'black',
+    padding: 20,
+    backgroundColor: '#fff',
     flex: 1,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#666',
+    borderColor: '#ddd',
     borderRadius: 8,
-    padding: 10,
-    marginBottom: 10,
+    padding: 15,
+    marginBottom: 15,
+    backgroundColor: '#f9f9f9',
+    fontSize: 16,
+    color: '#333',
   },
   textarea: {
     borderWidth: 1,
-    borderColor: '#666',
+    borderColor: '#ddd',
     borderRadius: 8,
-    padding: 10,
-    height: 120,
-    marginBottom: 10,
+    padding: 15,
+    height: 150,
+    marginBottom: 15,
     textAlignVertical: 'top',
+    backgroundColor: '#f9f9f9',
+    fontSize: 16,
+    color: '#333',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  imageButton: {
+    flex: 1,
+    marginHorizontal: 5,
+    backgroundColor: '#FFC107',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  imageButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   preview: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginVertical: 10,
+    alignItems: 'center',
+    paddingVertical: 10,
   },
-  // ✅ 버튼들을 담는 새로운 스타일 추가
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 16,
+  previewImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#eee',
+    resizeMode: 'cover',
+  },
+  submitButton: {
+    backgroundColor: '#FFC107',
+    padding: 18,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  submitButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
   },
 });
