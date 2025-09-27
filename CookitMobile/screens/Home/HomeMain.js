@@ -8,9 +8,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
-const Home = () => {
+const HomeMain = () => {
   const route = useRoute();
   const initialQuery = route.params?.query || '';
   const [query, setQuery] = React.useState(initialQuery);
@@ -69,12 +69,12 @@ const Home = () => {
     
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Image source={require('../assets/signature.png')} style={styles.signature} />
+          <Image source={require('../../assets/signature.png')} style={styles.signature} />
           <Text style={styles.headerTitle}>Cookit</Text>
         </View>
         <TouchableOpacity
           style={styles.inputButton}
-          onPress={() => navigation.navigate('Search')}
+          onPress={() => navigation.navigate('SearchMain')}
         >
           <Text style={styles.ButtonText}>🔍 검색어를 입력하세요</Text>
         </TouchableOpacity>
@@ -112,7 +112,7 @@ const Home = () => {
   )
 }
 
-export default Home
+export default HomeMain
 
 const styles = StyleSheet.create({
 

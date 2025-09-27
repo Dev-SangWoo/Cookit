@@ -7,11 +7,11 @@ import { ScrollView, Platform, StyleSheet, Text, TouchableOpacity, View } from '
 import React from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation, useRoute } from '@react-navigation/native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // 안드로이드 버튼 하단 보장
-import ModalDelete from './modal/ModalDelete'
-import { supabase } from '../lib/supabase';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
+import RecipeCancelModal from './RecipeCancelModal';
+import { supabase } from '../../lib/supabase';
 
-const Summary = () => {
+const RecipeSummary = () => {
 
   const insets = useSafeAreaInsets();
   const [showModal, setShowModal] = React.useState(false);
@@ -32,7 +32,7 @@ const Summary = () => {
     setShowModal(false);
   };
   const handleStart = () => {
-    navigation.replace("Recipe", { recipeId })
+    navigation.replace("RecipeMain", { recipeId })
   }
 
 
@@ -43,7 +43,7 @@ const Summary = () => {
       const { data, error } = await supabase
         .from('recipes')
         .select('*')
-        .eq('id', recipeId) // ← 전달받은 recipeId 기준
+        .eq('id', recipeId) 
         .single();
 
       if (data) setRecipe(data);
@@ -101,7 +101,7 @@ const Summary = () => {
         </View>
 
         {showModal && (
-          <ModalDelete
+          <RecipeCancelModal
             visible={showModal}
             message="요약된 정보가 삭제됩니다. 계속하시겠습니까?"
             onCancel={handleCancel}
@@ -112,7 +112,7 @@ const Summary = () => {
   )
 }
 
-export default Summary
+export default RecipeSummary;
 
 const styles = StyleSheet.create({
   title: {

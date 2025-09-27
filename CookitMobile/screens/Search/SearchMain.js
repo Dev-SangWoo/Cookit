@@ -3,13 +3,13 @@
 // 추천 메뉴들을 아래에 보여주는 방법도 있을듯
 
 
-import { StyleSheet, Text, View, Platform } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import React, { useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
-import SearchInput from '../components/SearchInput';
+import SearchInput from '../../components/SearchInput';
 
-const Search = () => {
+const SearchMain = () => {
   const navigation = useNavigation();
   const [query, setQuery] = useState('');
 
@@ -20,30 +20,30 @@ const Search = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-            <SearchInput
-              value={query}
-              onChange={setQuery}
-              onClear={() => setQuery('')}
-              onBack={() => navigation.goBack()}
-              onSubmitEditing={searching}
-            />
-            <View style={styles.container}>
-      <View style={styles.currentBox}>
-        <Text style={styles.titleText}>최근 검색어</Text>
-        {/* 최근 검색어 리스트 */}
-      </View>
-      <View style={styles.recommendBox}>
-        <Text style={styles.titleText}>추천 검색</Text>
-        {/* 여러가지 버튼, 텍스트, ... 등 */}
-      </View>
+      <SearchInput
+        value={query}
+        onChange={setQuery}
+        onClear={() => setQuery('')}
+        onBack={() => navigation.goBack()}
+        onSubmitEditing={searching}
+      />
+      <View style={styles.container}>
+        <View style={styles.currentBox}>
+          <Text style={styles.titleText}>최근 검색어</Text>
+          {/* 최근 검색어 리스트 */}
+        </View>
+        <View style={styles.recommendBox}>
+          <Text style={styles.titleText}>추천 검색</Text>
+          {/* 여러가지 버튼, 텍스트, ... 등 */}
+        </View>
 
-</View>
+      </View>
     </SafeAreaView>
   );
 }
 
 
-export default Search
+export default SearchMain;
 
 const styles = StyleSheet.create({
   headerText: {
@@ -64,10 +64,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   currentBox: {
-    
+
   },
-titleText: {
-  fontSize: 18,
-  fontWeight: 'bold'
-}
+  titleText: {
+    fontSize: 18,
+    fontWeight: 'bold'
+  }
 })

@@ -6,12 +6,12 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Video } from 'expo-av';
 import { useRoute } from '@react-navigation/native';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 
 
 
-const Recipe = () => {
+const RecipeMain = () => {
   const [instructions, setInstructions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -94,7 +94,7 @@ const currentStep = instructions.length > 0 && instructions[currentIndex]
   );
 };
 
-export default Recipe;
+export default RecipeMain;
 
 const styles = StyleSheet.create({
   container: {

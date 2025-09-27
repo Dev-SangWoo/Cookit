@@ -23,7 +23,7 @@ const decode = (str: string) => {
   }
 };
 
-export default function CreatePost() {
+export default function CommunityCreate() {
   const { user } = useAuth();
   const navigation = useNavigation();
 

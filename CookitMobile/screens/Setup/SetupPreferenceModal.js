@@ -4,7 +4,7 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Button, StyleSheet } from 'react-native';
 import Modal from 'react-native-modal';
 
-export default function ModalSelect({ visible, options, selected, onClose, onSelect }) {
+export default function SetupPreferenceModal({ visible, options, selected, onClose, onSelect }) {
   return (
     <Modal isVisible={visible}>
       <View style={styles.container}>

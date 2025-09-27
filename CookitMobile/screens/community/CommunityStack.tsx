@@ -1,16 +1,16 @@
-// screens/community/CommunityStack.tsx
+// 커뮤니티 화면 스택
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import Community from './Community';
-import PostDetail from './PostDetail';
-import CreatePost from './CreatePost';
+import CommunityMain from './CommunityMain';
+import CommunityDetail from './CommunityDetail';
+import CommunityCreate from './CommunityCreate';
 
 export type CommunityStackParamList = {
-  CommunityMain: undefined; // CommunityMain에는 파라미터가 필요 없다고 명시
-  PostDetail: { postId: string };
-  CreatePost: undefined;
+  CommunityMain: undefined; 
+  CommunityDetail: { postId: string };
+  CommunityCreate: undefined;
 };
 
-// createNativeStackNavigator에 타입을 적용
+
 const Stack = createNativeStackNavigator<CommunityStackParamList>();
 
 export default function CommunityStack() {
@@ -19,9 +19,9 @@ export default function CommunityStack() {
       screenOptions={{ headerShown: false }}
       initialRouteName="CommunityMain"
     >
-      <Stack.Screen name="CommunityMain" component={Community} />
-      <Stack.Screen name="PostDetail" component={PostDetail} />
-      <Stack.Screen name="CreatePost" component={CreatePost} />
+      <Stack.Screen name="CommunityMain" component={CommunityMain} />
+      <Stack.Screen name="CommunityDetail" component={CommunityDetail} />
+      <Stack.Screen name="CommunityCreate" component={CommunityCreate} />
     </Stack.Navigator>
   );
 }

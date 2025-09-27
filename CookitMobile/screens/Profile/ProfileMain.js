@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, Button, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
-import { supabase } from '../lib/supabase';
-import { SafeAreaView } from 'react-native';
-import ModalLogout from './modal/ModalLogout';
-import { useAuth } from '../contexts/AuthContext';
+import { View, Text, Image, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { supabase } from '../../lib/supabase';
+import ProfileLogoutModal from './ProfileLogoutModal';
+import { useAuth } from '../../contexts/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function Profile({ navigation }) {
+export default function ProfileMain({ navigation }) {
   const [showModal, setShowModal] = useState(false);
 
   const handleLogoutPress = () => {
@@ -63,7 +63,7 @@ export default function Profile({ navigation }) {
 
 
   const handlePostPress = (postId) => {
-    navigation.navigate('PostDetail', { postId: postId });
+    navigation.navigate('CommunityDetail', { postId: postId });
   };
 
   if (!profile) {
@@ -83,7 +83,7 @@ export default function Profile({ navigation }) {
           <TouchableOpacity style={styles.logout} onPress={handleLogoutPress}>
             <Text style={styles.logoutText}>로그아웃</Text>
           </TouchableOpacity>
-          <ModalLogout
+          <ProfileLogoutModal
             visible={showModal}
             onConfirm={confirmLogout}
             onCancel={cancelLogout}

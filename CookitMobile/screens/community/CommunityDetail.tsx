@@ -21,19 +21,19 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons'; // 아이콘을 사용하기 위해 추가
+import { Ionicons } from '@expo/vector-icons'; 
 
-type PostDetailScreenNavigationProp = NativeStackNavigationProp<
+type CommunityDetailScreenNavigationProp = NativeStackNavigationProp<
   CommunityStackParamList,
-  'PostDetail'
+  'CommunityDetail'
 >;
 
 const { width: screenWidth } = Dimensions.get('window');
 
-export default function PostDetail() {
+export default function CommunityDetail() {
   const route = useRoute();
   const { postId } = route.params as { postId: string };
-  const navigation = useNavigation<PostDetailScreenNavigationProp>();
+  const navigation = useNavigation<CommunityDetailScreenNavigationProp>();
   const { user } = useAuth();
 
   const [post, setPost] = useState<any>(null);

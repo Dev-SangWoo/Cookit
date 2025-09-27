@@ -1,7 +1,9 @@
+// 로그아웃 모달
+
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
-export default function ModalLogout({ visible, onConfirm, onCancel }) {
+export default function ProfileLogoutModal({ visible, onConfirm, onCancel }) {
   return (
     <Modal transparent={true} visible={visible} animationType="fade">
       <View style={styles.overlay}>

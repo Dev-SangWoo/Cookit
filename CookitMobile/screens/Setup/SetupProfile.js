@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, Image, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 
-export default function ProfileSetup({ navigation }) {
+export default function SetupProfile({ navigation }) {
     const { user, updateUserProfile } = useAuth();
     const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '');
     const [bio, setBio] = useState(user?.bio || '');
@@ -55,7 +55,7 @@ export default function ProfileSetup({ navigation }) {
         });
 
 
-        navigation.replace('PreferenceSetup');
+        navigation.replace('SetupPreference') ; 
     };
 
     return (

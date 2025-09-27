@@ -6,10 +6,10 @@
 
 import { View, Text, StyleSheet, Image, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ModalSummary from './modal/ModalSummary';
+import RecipeSummaryModal from '../Recipe/RecipeSummaryModal';
 import { useState } from 'react';
 
-const SummaryChoice = ({ route, navigation }) => {
+const SearchSummary = ({ route, navigation }) => {
   const { thumbnail, title, creator, recipeId } = route.params;
   const [isModalVisible, setIsModalVisible] = useState(false);
 
@@ -38,18 +38,18 @@ const SummaryChoice = ({ route, navigation }) => {
         </View>
       </View>
 
-      <ModalSummary
+      <RecipeSummaryModal
         isVisible={isModalVisible}
         onComplete={() => {
           setIsModalVisible(false);
-          navigation.navigate('Summary', { recipeId });
+          navigation.navigate('RecipeSummary', { recipeId });
         }}
       />
     </SafeAreaView>
   );
 };
 
-export default SummaryChoice;
+export default SearchSummary;
 
 const styles = StyleSheet.create({
   container: {

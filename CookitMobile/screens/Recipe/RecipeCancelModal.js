@@ -1,14 +1,16 @@
+// 요약한 레시피 삭제하는 모달
+
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
-const ModalDelete = ({ visible, onCancel, onConfirm, message }) => {
+const RecipeCancelModal = ({ visible, onCancel, onConfirm, message }) => {
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.backdrop}>
         <View style={styles.modalContainer}>
           <Text style={styles.message}>{message}</Text>
           <View style={styles.buttonRow}>
-                        <TouchableOpacity style={styles.deleteBtn} onPress={onConfirm}>
+            <TouchableOpacity style={styles.deleteBtn} onPress={onConfirm}>
               <Text style={[{ color: 'white' }, styles.btnText]}>삭제</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
@@ -21,7 +23,7 @@ const ModalDelete = ({ visible, onCancel, onConfirm, message }) => {
   );
 };
 
-export default ModalDelete;
+export default RecipeCancelModal;
 
 const styles = StyleSheet.create({
   backdrop: {
@@ -58,6 +60,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   btnText: {
-    fontSize:20
+    fontSize: 20
   }
 });

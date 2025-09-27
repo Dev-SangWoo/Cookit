@@ -18,9 +18,9 @@ import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text, View, FlatList, Image, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import SearchInput from '../components/SearchInput';
-import Sort from '../components/Sort';
-import { supabase } from '../lib/supabase';
+import SearchInput from '../../components/SearchInput';
+import Sort from '../../components/Sort';
+import { supabase } from '../../lib/supabase';
 
 const SearchList = () => {
   const navigation = useNavigation();
@@ -78,7 +78,7 @@ const SearchList = () => {
               <TouchableOpacity
                 style={styles.card}
                 onPress={() =>
-                  navigation.navigate('SummaryChoice', {
+                  navigation.navigate('SearchSummary', {
                     recipeId: item.id,
                     title: item.title,
                     thumbnail: item.image_urls?.[0] || 'https://via.placeholder.com/100x70', // 이미지 없으면 빈 값

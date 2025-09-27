@@ -1,8 +1,10 @@
+// 재료 추가/수정 모달
+
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import DatePicker from 'react-native-modern-datepicker';
 
-const ModalInput = ({ visible, onClose, onAddIngredient, isEditing, initialData }) => {
+const SetupIngredientsModal = ({ visible, onClose, onAddIngredient, isEditing, initialData }) => {
   const [ingredientName, setIngredientName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
@@ -140,6 +142,8 @@ const ModalInput = ({ visible, onClose, onAddIngredient, isEditing, initialData 
   );
 };
 
+export default SetupIngredientsModal;
+
 const modalStyles = StyleSheet.create({
   centeredView: {
     flex: 1,
@@ -251,4 +255,3 @@ const modalStyles = StyleSheet.create({
   },
 });
 
-export default ModalInput;

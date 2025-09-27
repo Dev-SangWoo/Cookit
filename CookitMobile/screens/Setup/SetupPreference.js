@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import ModalSelect from '../modal/ModalSelect';
-import { useAuth } from '../../contexts/AuthContext'; // ⭐️ useAuth import
+import ModalSelect from './SetupPreferenceModal';
+import { useAuth } from '../../contexts/AuthContext'; 
 import { useNavigation } from '@react-navigation/native';
+import SetupPreferenceModal from './SetupPreferenceModal';
 
-export default function PreferenceSetup({ navigation }) {
-  const { user, updateUserProfile } = useAuth(); // ⭐️ user와 updateUserProfile 함수 가져오기
+export default function SetupPreference({ navigation }) {
+  const { user, updateUserProfile } = useAuth(); 
   const [isCuisineModalVisible, setCuisineModalVisible] = useState(false);
   const [isAllergenModalVisible, setAllergenModalVisible] = useState(false);
 
@@ -59,7 +60,7 @@ export default function PreferenceSetup({ navigation }) {
     });
 
     // 3. 다음 화면으로 이동
-    navigation.replace('ManageSetup'); // 'ManageSetup'은 다음 화면의 이름으로 가정합니다.
+    navigation.replace('SetupIngredients'); 
   };
 
 
@@ -96,13 +97,14 @@ export default function PreferenceSetup({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ModalSelect
+      <SetupPreferenceModal
         visible={isCuisineModalVisible}
         options={favoriteOptions}
         selected={favoriteCuisines}
         onClose={() => setCuisineModalVisible(false)}
         onSelect={setFavoriteCuisines}
       />
+      
 
       <Text style={styles.sectionTitle}>비선호하는 재료</Text>
       <View style={styles.tagContainer}>
@@ -122,7 +124,7 @@ export default function PreferenceSetup({ navigation }) {
           <Text style={styles.addButtonText}>+</Text>
         </TouchableOpacity>
       </View>
-      <ModalSelect
+      <SetupPreferenceModal
         visible={isAllergenModalVisible}
         options={allergenOptions}
         selected={dietaryRestrictions}

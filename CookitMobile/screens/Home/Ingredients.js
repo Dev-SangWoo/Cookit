@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView } from 'react-native';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
-import ModalInput from './modal/ModalInput';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+import SetupIngredientsModal from '../Setup/SetupIngredientsModal';
 
 export default function Ingredients() {
   const { user } = useAuth();
@@ -30,16 +30,38 @@ export default function Ingredients() {
   };
 
   const calculateExpiry = (expiryDate) => {
+    // 🚨 날짜 파싱 안정성을 위해 형식 변환 로직을 추가합니다. (이전 대화에서 다룬 내용)
+    const dateToParse = expiryDate ? expiryDate.replace(/\//g, '-') : ''; 
+
     const today = new Date();
-    const expiry = new Date(expiryDate);
+    const expiry = new Date(dateToParse);
+
+    // 날짜 파싱 실패 방지
+    if (!dateToParse || isNaN(expiry.getTime())) {
+        return { diffDays: NaN, text: 'D-??', color: 'gray' };
+    }
+    
+    today.setHours(0, 0, 0, 0);
+    expiry.setHours(0, 0, 0, 0);
+    
     const diffTime = expiry.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    let text;
+    let color;
     
-    const text = diffDays >= 0 ? `D+${diffDays}` : `D-${Math.abs(diffDays)}`;
-    const color = diffDays >= 0 ? 'green' : 'red';
-    
+    if (diffDays > 0) {
+        text = `D-${diffDays}`;
+        color = 'green';
+    } else if (diffDays === 0) {
+        text = 'D-Day';
+        color = 'orange'; 
+    } else {
+        text = `D+${Math.abs(diffDays)}`;
+        color = 'red';
+    }
     return { diffDays, text, color };
-  };
+};
 
   const handleAddIngredient = async (newIngredient) => {
     const { error } = await supabase
@@ -59,7 +81,7 @@ export default function Ingredients() {
     }
   };
   
-  // New function to handle ingredient editing
+
   const handleEditIngredient = async (updatedIngredient) => {
     const { error } = await supabase
       .from('receipt_items')
@@ -74,8 +96,8 @@ export default function Ingredients() {
     if (error) {
       Alert.alert('수정 실패', error.message);
     } else {
-      fetchIngredients(); // Refresh the list
-      setIsEditModalVisible(false); // Close the modal
+      fetchIngredients(); 
+      setIsEditModalVisible(false); 
     }
   };
 
@@ -105,7 +127,7 @@ export default function Ingredients() {
   const expiredIngredients = ingredients.filter(item => calculateExpiry(item.expiry_date).diffDays < 0);
   const freshIngredients = ingredients.filter(item => calculateExpiry(item.expiry_date).diffDays >= 0);
 
-  // Function to open the edit modal
+
   const openEditModal = (item) => {
     setSelectedItem(item);
     setIsEditModalVisible(true);
@@ -174,14 +196,14 @@ export default function Ingredients() {
         <Text style={styles.addButtonText}>+</Text>
       </TouchableOpacity>
 
-      <ModalInput
+      <SetupIngredientsModal
         visible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
         onAddIngredient={handleAddIngredient}
       />
 
 
-      <ModalInput
+      <SetupIngredientsModal
         visible={isEditModalVisible}
         onClose={() => setIsEditModalVisible(false)}
         onAddIngredient={handleEditIngredient} 

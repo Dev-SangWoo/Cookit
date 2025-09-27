@@ -1,9 +1,11 @@
+// 요약이 진행중임을 알리는 모달
+
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
 import Modal from 'react-native-modal';
 
 
-const ModalSummary = ({ isVisible, onComplete }) => {
+const RecipeSummaryModal = ({ isVisible, onComplete }) => {
 
 
   return (
@@ -23,7 +25,7 @@ const ModalSummary = ({ isVisible, onComplete }) => {
   );
 };
 
-export default ModalSummary;
+export default RecipeSummaryModal;
 
 const styles = StyleSheet.create({
   modalContainer: {

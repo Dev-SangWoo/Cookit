@@ -1,4 +1,4 @@
-// screens/community/Community.js
+// screens/community/CommunityMain.tsx
 import { getPosts } from '../../services/postsApi';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -29,7 +29,7 @@ type PostItem = {
   comment_count: number;
 };
 
-export default function Community() {
+export default function CommunityMain() {
   
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +66,7 @@ export default function Community() {
     return (
       <TouchableOpacity
         style={styles.postItemContainer}
-        onPress={() => navigation.push('PostDetail', { postId: item.post_id })}
+        onPress={() => navigation.push('CommunityDetail', { postId: item.post_id })}
       >
         <Image
           source={{ uri: thumbnail }}
@@ -109,7 +109,7 @@ export default function Community() {
       
       <TouchableOpacity 
         style={styles.addButton}
-        onPress={() => navigation.push('CreatePost')}
+        onPress={() => navigation.push('CommunityCreate')}
       >
         <Text style={styles.addButtonText}>+</Text>
       </TouchableOpacity>
