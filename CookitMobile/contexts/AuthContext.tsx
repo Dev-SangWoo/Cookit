@@ -21,21 +21,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
 
+  // 사용자 초기 설정 완료 여부 확인
+  const checkSetupComplete = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('nickname, favorite_cuisines')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.log('프로필 확인 오류:', error);
+        setIsSetupComplete(false);
+        return;
+      }
+
+      // nickname이 있고 favorite_cuisines이 설정되어 있으면 초기 설정 완료로 간주
+      const isComplete = !!(data?.nickname && data?.favorite_cuisines?.length > 0);
+      console.log('초기 설정 완료 여부:', isComplete);
+      setIsSetupComplete(isComplete);
+    } catch (err) {
+      console.error('설정 확인 중 오류:', err);
+      setIsSetupComplete(false);
+    }
+  };
+
   useEffect(() => {
     // 세션 상태 확인
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
-      setUser(session?.user ? mapSupabaseUser(session.user) : null);
+      const mappedUser = session?.user ? mapSupabaseUser(session.user) : null;
+      setUser(mappedUser);
+      
+      // 사용자가 있으면 초기 설정 완료 여부 확인
+      if (mappedUser) {
+        await checkSetupComplete(mappedUser.id);
+      }
+      
       setLoading(false);
     });
 
     // 인증 상태 변화 리스너
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       console.log('Auth state changed:', _event, session?.user?.email || 'No user');
       setSession(session);
-      setUser(session?.user ? mapSupabaseUser(session.user) : null);
+      const mappedUser = session?.user ? mapSupabaseUser(session.user) : null;
+      setUser(mappedUser);
+      
+      // 사용자가 있으면 초기 설정 완료 여부 확인
+      if (mappedUser) {
+        await checkSetupComplete(mappedUser.id);
+      } else {
+        setIsSetupComplete(false);
+      }
+      
       setLoading(false);
     });
 
