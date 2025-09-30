@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 
 export default function SetupProfile({ navigation }) {
-    const { user, updateUserProfile } = useAuth();
+    const { user, updateUserProfile = async () => {} } = useAuth();
     const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '');
     const [bio, setBio] = useState(user?.bio || '');
 

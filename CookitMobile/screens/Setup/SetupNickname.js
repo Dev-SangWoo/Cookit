@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function SetupNickname({ navigation }) {
-  const { user, updateUserProfile } = useAuth();
+  const { user, updateUserProfile = async () => {} } = useAuth();
   const [nickname, setNickname] = useState(user?.name || '');
   const [cookingLevel, setCookingLevel] = useState(user?.cooking_level || '');
 

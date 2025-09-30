@@ -7,7 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import SetupPreferenceModal from './SetupPreferenceModal';
 
 export default function SetupPreference({ navigation }) {
-  const { user, updateUserProfile } = useAuth(); 
+  const { user, updateUserProfile = async () => {} } = useAuth(); 
   const [isCuisineModalVisible, setCuisineModalVisible] = useState(false);
   const [isAllergenModalVisible, setAllergenModalVisible] = useState(false);
 
