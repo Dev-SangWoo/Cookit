@@ -33,7 +33,7 @@ const getTagColor = (diffDays) => {
 };
 
 export default function SetupIngredients() {
-    const { user } = useAuth();
+    const { user, setSetupComplete } = useAuth();
     const navigation = useNavigation();
     const [isModalVisible, setIsModalVisible] = useState(false);
     // 타입 주석 <any[]> 제거
@@ -78,10 +78,20 @@ export default function SetupIngredients() {
             return;
         }
 
-        navigation.reset({
-            index: 0,
-            routes: [{ name: 'HomeTab' }],
-        });
+        // 초기 설정 완료 상태 업데이트
+        setSetupComplete(true);
+        
+        Alert.alert('환영합니다!', '초기 설정이 완료되었습니다.', [
+            {
+                text: '확인',
+                onPress: () => {
+                    navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'HomeTab' }],
+                    });
+                }
+            }
+        ]);
     };
 
     return (

@@ -8,6 +8,8 @@ import { User, AuthState } from '../types/auth';
 interface AuthContextType extends AuthState {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  isSetupComplete: boolean;
+  setSetupComplete: (complete: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,6 +18,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSetupComplete, setIsSetupComplete] = useState(false);
 
   useEffect(() => {
     // 세션 상태 확인
@@ -189,6 +192,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signInWithGoogle,
     signOut,
+    isSetupComplete,
+    setSetupComplete,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

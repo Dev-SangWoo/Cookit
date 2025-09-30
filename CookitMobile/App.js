@@ -24,11 +24,17 @@ import RecipeList from './screens/RecipeList';
 import HomeTab from './screens/HomeTab';
 import AIAnalyze from './screens/AIAnalyze';
 
+// Setup 화면 imports
+import SetupNickname from './screens/Setup/SetupNickname';
+import SetupPreference from './screens/Setup/SetupPreference';
+import SetupIngredients from './screens/Setup/SetupIngredients';
+import SetupProfile from './screens/Setup/SetupProfile';
+
 const Stack = createNativeStackNavigator();
 
 // 인증 상태에 따른 앱 네비게이션
 function AppNavigator() {
-  const { user, loading } = useAuth();
+  const { user, loading, isSetupComplete } = useAuth();
 
   // 로딩 중일 때 스피너 표시
   if (loading) {
@@ -45,8 +51,16 @@ function AppNavigator() {
         {/* 인증되지 않은 사용자 - 로그인 화면 */}
         {!user ? (
           <Stack.Screen name="Auth" component={AuthScreen} />
+        ) : !isSetupComplete ? (
+          // 인증됐지만 초기 설정 미완료 - Setup 화면들
+          <>
+            <Stack.Screen name="SetupNickname" component={SetupNickname} />
+            <Stack.Screen name="SetupPreference" component={SetupPreference} />
+            <Stack.Screen name="SetupIngredients" component={SetupIngredients} />
+            <Stack.Screen name="SetupProfile" component={SetupProfile} />
+          </>
         ) : (
-          // 인증된 사용자 - 메인 앱 화면들
+          // 인증 및 설정 완료 - 메인 앱 화면들
           <>
             <Stack.Screen name="HomeTab" component={HomeTab} />
             <Stack.Screen name="Search" component={Search} />
