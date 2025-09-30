@@ -33,7 +33,7 @@ const getTagColor = (diffDays) => {
 };
 
 export default function SetupIngredients() {
-    const { user, setSetupComplete } = useAuth();
+    const { user, setSetupComplete = () => {} } = useAuth();
     const navigation = useNavigation();
     const [isModalVisible, setIsModalVisible] = useState(false);
     // 타입 주석 <any[]> 제거
