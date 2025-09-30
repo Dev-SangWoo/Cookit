@@ -10,6 +10,7 @@ interface AuthContextType extends AuthState {
   signOut: () => Promise<void>;
   isSetupComplete: boolean;
   setSetupComplete: (complete: boolean) => void;
+  updateUserProfile: (updates: Partial<User>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -177,6 +178,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateUserProfile = async (updates: Partial<User>) => {
+    if (!user) return;
+    
+    try {
+      // Supabase user_metadata 업데이트
+      const { error } = await supabase.auth.updateUser({
+        data: updates
+      });
+
+      if (error) {
+        console.error('프로필 업데이트 오류:', error);
+        return;
+      }
+
+      // 로컬 상태 업데이트
+      setUser({ ...user, ...updates });
+    } catch (error) {
+      console.error('프로필 업데이트 중 오류:', error);
+    }
+  };
+
   const mapSupabaseUser = (supabaseUser: any): User => {
     return {
       id: supabaseUser.id,
@@ -194,6 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     isSetupComplete,
     setSetupComplete,
+    updateUserProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
