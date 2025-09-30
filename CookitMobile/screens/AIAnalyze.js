@@ -59,6 +59,27 @@ export default function AIAnalyze({ navigation }) {
       if (data.success && data.recipe) {
         setRecipe(data.recipe);
         console.log('✅ 분석 완료:', data.recipe.title);
+        
+        // 레시피 ID가 있으면 자동으로 레시피 화면으로 이동
+        if (data.recipeId) {
+          console.log('🎯 레시피 화면으로 이동:', data.recipeId);
+          Alert.alert(
+            '분석 완료!',
+            '레시피가 생성되었습니다. 레시피 화면으로 이동하시겠습니까?',
+            [
+              {
+                text: '취소',
+                style: 'cancel',
+              },
+              {
+                text: '확인',
+                onPress: () => {
+                  navigation.navigate('Recipe', { recipeId: data.recipeId });
+                },
+              },
+            ]
+          );
+        }
       } else {
         throw new Error('레시피 데이터를 받지 못했습니다.');
       }

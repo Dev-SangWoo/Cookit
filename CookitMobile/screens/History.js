@@ -83,8 +83,15 @@ const History = () => {
 
   // 레시피 카드 터치
   const handleRecipePress = (recipe) => {
+    console.log('📍 History에서 전달하는 레시피:', recipe);
+    console.log('📍 recipe.id:', recipe.id);
+    console.log('📍 recipe.recipe_id:', recipe.recipe_id);
+    
+    const recipeId = recipe.id || recipe.recipe_id;
+    console.log('📍 최종 전달할 ID:', recipeId);
+    
     navigation.navigate('Recipe', { 
-      recipeId: recipe.recipe_id,
+      recipeId: recipeId,
       recipe: recipe 
     });
   };

@@ -135,10 +135,13 @@ const Home = () => {
   // 서버에서 title, description, thumbnail 받도록하면 될듯
 
   const handleRecipePress = (recipe) => {
-    if (recipe.recipe_id && !recipe.recipe_id.toString().startsWith('sample')) {
+    const recipeId = recipe.id || recipe.recipe_id;
+    
+    if (recipeId && !recipeId.toString().startsWith('sample')) {
       // DB 레시피인 경우 상세 화면으로
+      console.log('📍 Home에서 전달할 ID:', recipeId);
       navigation.navigate('Recipe', { 
-        recipeId: recipe.recipe_id,
+        recipeId: recipeId,
         recipe: recipe 
       });
     } else {

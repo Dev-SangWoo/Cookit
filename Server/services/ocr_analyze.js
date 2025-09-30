@@ -55,8 +55,17 @@ if (fs.existsSync(videoFile)) {
 
     let ocrText = "";
 
-    for (const frame of frames) {
+    for (let i = 0; i < frames.length; i++) {
+      const frame = frames[i];
       const framePath = path.join(frameDir, frame);
+      
+      // 프레임 번호로 타임스탬프 계산 (2초 간격)
+      const timeInSeconds = i * 2;
+      const hours = Math.floor(timeInSeconds / 3600);
+      const minutes = Math.floor((timeInSeconds % 3600) / 60);
+      const seconds = timeInSeconds % 60;
+      const timestamp = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      
       const { data: { text } } = await Tesseract.recognize(
         framePath,
         "kor", // ← 한글만 인식
@@ -65,7 +74,7 @@ if (fs.existsSync(videoFile)) {
 
       const clean = text.trim();
       if (clean) {
-        ocrText += `\n[${frame}]\n${clean}\n`;
+        ocrText += `\n[${timestamp}] (${frame})\n${clean}\n`;
       }
     }
 

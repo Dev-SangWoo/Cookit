@@ -28,7 +28,7 @@ class SupabaseService {
       }
 
       console.log('✅ 레시피 저장 성공:', data.id);
-      return data;
+      return { ...data, recipe_id: data.id };
     } catch (error) {
       console.error('SupabaseService.saveRecipe 오류:', error);
       throw error;
