@@ -19,6 +19,7 @@ import SummaryChoice from '../screens/SummaryChoice';
 import ModalDelete from '../screens/modal/ModalDelete';
 import Recipe from '../screens/Recipe';
 import RecipeList from '../screens/RecipeList';
+import AIAnalyze from '../screens/AIAnalyze';
 
 const Stack = createNativeStackNavigator();
 
@@ -48,9 +49,10 @@ export default function AuthNavigator() {
             <Stack.Screen name="Profile" component={Profile} />
             <Stack.Screen name="Summary" component={Summary} />
             <Stack.Screen name="SearchList" component={SearchList} />
-            <Stack.Screen name="SummaryChoice" component={SummaryChoice} />
-            <Stack.Screen name="Recipe" component={Recipe} />
-            <Stack.Screen name="RecipeList" component={RecipeList} />
+                <Stack.Screen name="SummaryChoice" component={SummaryChoice} />
+                <Stack.Screen name="Recipe" component={Recipe} />
+                <Stack.Screen name="RecipeList" component={RecipeList} />
+                <Stack.Screen name="AIAnalyze" component={AIAnalyze} />
             
             {/* 모달 화면들 */}
             <Stack.Screen name="ModalVideo" component={ModalVideo} />
