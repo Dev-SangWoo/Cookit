@@ -1,32 +1,28 @@
 import React from 'react';
-import { StyleSheet, View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-
-// Auth 관련 imports
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import AuthScreen from './components/AuthScreen';
+import { useAuth } from '../contexts/AuthContext';
+import AuthScreen from './AuthScreen';
+import HomeTab from '../screens/HomeTab';
 
 // 화면 imports
-import ModalVideo from './screens/modal/ModalVideo'
-import ModalAi from './screens/modal/ModalAi'
-import ModalSave from './screens/modal/ModalSave'
-import ModalSummary from './screens/modal/ModalSummary'
-import Search from './screens/search'
-import Profile from './screens/Profile';
-import Summary from './screens/Summary';
-import SearchList from './screens/SearchList';
-import SummaryChoice from './screens/SummaryChoice';
-import ModalDelete from './screens/modal/ModalDelete';
-import Recipe from './screens/Recipe';
-import RecipeList from './screens/RecipeList';
-import HomeTab from './screens/HomeTab';
+import ModalVideo from '../screens/modal/ModalVideo';
+import ModalAi from '../screens/modal/ModalAi';
+import ModalSave from '../screens/modal/ModalSave';
+import ModalSummary from '../screens/modal/ModalSummary';
+import Search from '../screens/search';
+import Profile from '../screens/Profile';
+import Summary from '../screens/Summary';
+import SearchList from '../screens/SearchList';
+import SummaryChoice from '../screens/SummaryChoice';
+import ModalDelete from '../screens/modal/ModalDelete';
+import Recipe from '../screens/Recipe';
+import RecipeList from '../screens/RecipeList';
 
 const Stack = createNativeStackNavigator();
 
-// 인증 상태에 따른 앱 네비게이션
-function AppNavigator() {
+export default function AuthNavigator() {
   const { user, loading } = useAuth();
 
   // 로딩 중일 때 스피너 표시
@@ -69,15 +65,6 @@ function AppNavigator() {
   );
 }
 
-export default function App() {
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <AppNavigator />
-      </AuthProvider>
-    </GestureHandlerRootView>
-  );
-}
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,

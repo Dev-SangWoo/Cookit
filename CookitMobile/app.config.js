@@ -46,7 +46,6 @@ export default {
       favicon: "./assets/favicon.png"
     },
     plugins: [
-      "expo-router",
       [
         "expo-splash-screen",
         {
@@ -57,17 +56,14 @@ export default {
         }
       ]
     ],
-    experiments: {
-      typedRoutes: true
-    },
     extra: {
-      router: {},
       eas: {
         projectId: "9e253b46-c7c8-463e-a6e2-1826662fa9fe"
       },
       // 환경변수에서 안전하게 로드
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL,
     }
   }
 };

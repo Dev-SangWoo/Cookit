@@ -1,5 +1,5 @@
 // API 테스트 스크립트
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = 'http://172.20.1.231:3000/api';
 
 async function testRecipesAPI() {
   try {

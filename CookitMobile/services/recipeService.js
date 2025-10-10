@@ -1,8 +1,14 @@
 // 레시피 관련 API 서비스
 import { supabase } from '../lib/supabase';
+import Constants from 'expo-constants';
 
-// 서버 API 기본 URL (localhost)
-const API_BASE_URL = 'http://localhost:3000/api';
+// 서버 API 기본 URL (.env에서 가져오기)
+const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl || 'http://172.20.1.231:3000/api';
+
+// 디버깅: 환경변수 값 확인
+console.log('🔍 API_BASE_URL:', API_BASE_URL);
+console.log('🔍 Constants.expoConfig?.extra?.apiBaseUrl:', Constants.expoConfig?.extra?.apiBaseUrl);
+console.log('🔍 process.env.EXPO_PUBLIC_API_BASE_URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
 
 class RecipeService {
   

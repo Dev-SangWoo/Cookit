@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { User, AuthState } from '../types/auth';
+import { AuthState, User } from '../types/auth';
 
 interface AuthContextType extends AuthState {
   signInWithGoogle: () => Promise<void>;
@@ -17,129 +18,113 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // ✅ 프로필 자동 생성 함수
+  const ensureUserProfile = async (user: User) => {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (!data) {
+      console.log('user_profiles에 레코드 없음, 새로 생성합니다.');
+      const { error: insertError } = await supabase.from('user_profiles').insert({
+        id: user.id,
+        email: user.email,
+        display_name: user.name,
+        avatar_url: user.avatar_url,
+      });
+
+      if (insertError) {
+        console.error('user_profiles 생성 실패:', insertError);
+      } else {
+        console.log('user_profiles 생성 완료');
+      }
+    }
+  };
+
   useEffect(() => {
-    // 세션 상태 확인
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setUser(session?.user ? mapSupabaseUser(session.user) : null);
+      if (session?.user) {
+        const mapped = mapSupabaseUser(session.user);
+        setUser(mapped);
+        ensureUserProfile(mapped); // ✅ 여기!
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
-    // 인증 상태 변화 리스너
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       console.log('Auth state changed:', _event, session?.user?.email || 'No user');
       setSession(session);
-      setUser(session?.user ? mapSupabaseUser(session.user) : null);
+
+      if (session?.user) {
+        const mapped = mapSupabaseUser(session.user);
+        setUser(mapped);
+        ensureUserProfile(mapped); // ✅ 여기도!
+      } else {
+        setUser(null);
+      }
+
       setLoading(false);
     });
 
-    // 앱 상태 변화 감지 (백그라운드에서 돌아올 때)
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
-        console.log('App became active, refreshing session...');
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session) {
+            const mapped = mapSupabaseUser(session.user);
             setSession(session);
-            setUser(mapSupabaseUser(session.user));
+            setUser(mapped);
+            ensureUserProfile(mapped); // (선택 사항)
           }
         });
       }
     };
-
     const subscription_appState = AppState.addEventListener('change', handleAppStateChange);
 
-    // URL 링크 처리 (OAuth 리디렉션 감지)
     const handleDeepLink = async (url: string) => {
       console.log('Deep link received:', url);
-      
-      // OAuth 완료 후 세션 새로고침  
-      if (url.includes('cookitmobile://') || url.includes('exp://')) {
-        console.log('OAuth 리디렉션 감지, 세션 처리 중...');
-        
-        try {
-          // 안전한 URL 파라미터 파싱
-          const parseUrlParams = (url: string) => {
-            const params: Record<string, string> = {};
-            
-            // URL 파라미터 부분 추출
-            const paramString = url.includes('?') ? url.split('?')[1] : '';
-            const hashString = url.includes('#') ? url.split('#')[1] : '';
-            
-            // 파라미터 파싱
-            const parseParams = (str: string) => {
-              if (!str) return;
-              str.split('&').forEach(pair => {
-                const [key, value] = pair.split('=');
-                if (key && value) {
-                  params[decodeURIComponent(key)] = decodeURIComponent(value);
-                }
-              });
-            };
-            
-            parseParams(paramString);
-            parseParams(hashString);
-            
-            return params;
-          };
-          
-          const params = parseUrlParams(url);
-          const accessToken = params.access_token;
-          const refreshToken = params.refresh_token;
-          
-          if (accessToken) {
-            console.log('Deep link에서 토큰 발견, 세션 설정 중...');
-            
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || '',
-            });
-            
-            if (data.session) {
-              console.log('Deep link 세션 설정 성공:', data.user?.email);
-              setSession(data.session);
-              setUser(mapSupabaseUser(data.user));
-              return;
-            }
-          }
-        } catch (error) {
-          console.error('Deep link 토큰 처리 오류:', error);
+      const params = new URLSearchParams(url.split('#')[1] || url.split('?')[1] || '');
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      console.log('access_token:', accessToken);
+      console.log('refresh_token:', refreshToken);
+
+      if (accessToken) {
+        console.log('Deep link에서 토큰 발견, 세션 설정 시도...');
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || '',
+        });
+        if (!error && data.session) {
+          console.log('세션 설정 완료:', data.user?.email);
+          const mapped = mapSupabaseUser(data.user);
+          setSession(data.session);
+          setUser(mapped);
+          ensureUserProfile(mapped); // ✅ 여기도!
+          return;
         }
-        
-        // 백업: 일반적인 세션 새로고침
-        let retryCount = 0;
-        const maxRetries = 3;
-        
-        const refreshSession = async () => {
-          retryCount++;
-          console.log(`Deep link 세션 새로고침 시도 ${retryCount}/${maxRetries}`);
-          
-          const { data: { session }, error } = await supabase.auth.getSession();
-          
-          if (session) {
-            console.log('Deep link 세션 확인 성공:', session.user.email);
-            setSession(session);
-            setUser(mapSupabaseUser(session.user));
-          } else if (retryCount < maxRetries) {
-            setTimeout(refreshSession, 1000);
-          } else {
-            console.log('Deep link 세션 새로고침 최대 시도 완료');
-          }
-        };
-        
-        setTimeout(refreshSession, 500);
       }
+
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          console.log('백업 세션 확인 성공:', session.user.email);
+          const mapped = mapSupabaseUser(session.user);
+          setSession(session);
+          setUser(mapped);
+          ensureUserProfile(mapped);
+        }
+      });
     };
 
-    // 초기 URL 확인
     Linking.getInitialURL().then(url => {
-      if (url) {
-        handleDeepLink(url);
-      }
+      if (url) handleDeepLink(url);
     });
 
-    // URL 변화 리스너
     const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
       handleDeepLink(url);
     });
@@ -154,8 +139,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async () => {
     try {
       setLoading(true);
-      // Google 로그인 로직은 나중에 구현
-      console.log('Google 로그인 구현 예정');
+
+      const redirectTo = 'cookitmobile://';
+      console.log('구글 로그인 시작...');
+      console.log('사용하는 redirectTo:', redirectTo);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          queryParams: {
+            prompt: 'select_account',
+          },
+        },
+      });
+
+      if (error) throw error;
+      if (!data.url) throw new Error('OAuth URL이 없습니다.');
+
+      console.log('구글 로그인 리디렉션 URL:', data.url);
+
+      if (Platform.OS === 'web') {
+        window.location.href = data.url;
+      } else {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        console.log('브라우저 결과:', result);
+      }
     } catch (error) {
       console.error('로그인 오류:', error);
     } finally {
@@ -166,7 +175,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       setLoading(true);
+
       await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
+
+      if (Platform.OS === 'web') {
+        try {
+          localStorage.clear();
+          console.log('웹 로컬 스토리지 초기화 완료');
+        } catch (err) {
+          console.warn('웹 로컬 스토리지 초기화 실패:', err);
+        }
+      } else {
+        try {
+          const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+          await AsyncStorage.clear();
+          console.log('모바일 AsyncStorage 초기화 완료');
+        } catch (err) {
+          console.warn('AsyncStorage 초기화 실패:', err);
+        }
+
+        try {
+          const SecureStore = await import('expo-secure-store');
+          const allKeys = ['sb-access-token', 'sb-refresh-token'];
+          for (const key of allKeys) {
+            await SecureStore.deleteItemAsync(key);
+          }
+          console.log('모바일 SecureStore 토큰 삭제 완료');
+        } catch (err) {
+          console.warn('SecureStore 초기화 실패:', err);
+        }
+      }
+
+      console.log('로그아웃 완료');
     } catch (error) {
       console.error('로그아웃 오류:', error);
     } finally {
@@ -174,30 +216,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const mapSupabaseUser = (supabaseUser: any): User => {
-    return {
-      id: supabaseUser.id,
-      email: supabaseUser.email,
-      name: supabaseUser.user_metadata?.name || supabaseUser.user_metadata?.full_name,
-      avatar_url: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture,
-    };
-  };
+  const mapSupabaseUser = (supabaseUser: any): User => ({
+    id: supabaseUser.id,
+    email: supabaseUser.email,
+    name: supabaseUser.user_metadata?.name || supabaseUser.user_metadata?.full_name,
+    avatar_url: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture,
+  });
 
-  const value: AuthContextType = {
-    user,
-    session,
-    loading,
-    signInWithGoogle,
-    signOut,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, session, loading, signInWithGoogle, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth는 AuthProvider 내에서만 사용할 수 있습니다');
+  if (!context) {
+    throw new Error('useAuth는 AuthProvider 내에서만 사용 가능합니다');
   }
   return context;
 }
