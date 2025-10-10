@@ -85,8 +85,7 @@ const History = () => {
   const handleRecipePress = (recipe) => {
     // History → Summary → Recipe 흐름으로 변경
     navigation.navigate('Summary', { 
-      recipeId: recipe.recipe_id,
-      recipe: recipe 
+      recipeId: recipe.recipe_id
     });
   };
 

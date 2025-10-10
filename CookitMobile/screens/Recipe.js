@@ -58,35 +58,12 @@ const Recipe = ({ route }) => {
   useEffect(() => {
     const loadRecipe = async () => {
       if (!recipeId) {
+        console.log('❌ recipeId가 없습니다. route.params를 확인하세요.');
+        Alert.alert('오류', '레시피 ID가 전달되지 않았습니다.');
         setLoading(false);
         return;
       }
 
-      // route.params에서 recipe 객체가 있으면 우선 사용 (Summary.js에서 전달받은 데이터)
-      if (route?.params?.recipe) {
-        setLoading(true);
-        console.log('🔍 route.params에서 레시피 데이터 로딩 시작:', recipeId);
-        
-        const receivedRecipe = route.params.recipe;
-        setRecipe(receivedRecipe);
-        console.log('✅ route.params 레시피 로딩 성공:', receivedRecipe.title);
-        
-        // YouTube URL이 있으면 video ID 추출 (video_url 또는 source_url 사용)
-        const videoUrl = receivedRecipe.video_url || receivedRecipe.source_url;
-        if (videoUrl) {
-          const extractedId = extractVideoId(videoUrl);
-          if (extractedId) {
-            setVideoId(extractedId);
-            setVideoUrl(videoUrl);
-            console.log('🎥 YouTube Video ID (route.params):', extractedId);
-          }
-        }
-        
-        setLoading(false);
-        return;
-      }
-
-      // route.params에 데이터가 없으면 Supabase에서 조회
       try {
         setLoading(true);
         console.log('🔍 Supabase에서 레시피 로딩 시작:', recipeId);
@@ -128,7 +105,7 @@ const Recipe = ({ route }) => {
     };
 
     loadRecipe();
-  }, [recipeId, route?.params?.recipe]);
+  }, [recipeId]);
 
   const handleNext = () => {
     if (currentIndex < totalSteps - 1) {

@@ -3,24 +3,62 @@
 
 
 
-import { ScrollView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import React from 'react'
+import { ScrollView, Platform, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native'
+import React, { useState, useEffect } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'; // 안드로이드 버튼 하단 보장
 import ModalDelete from './modal/ModalDelete'
+import { supabase } from '../lib/supabase'
 
 const Summary = () => {
 
   const insets = useSafeAreaInsets();
   const [showModal, setShowModal] = React.useState(false);
+  const [recipe, setRecipe] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigation = useNavigation();
   const route = useRoute();
   
-  // History.js에서 전달받은 레시피 데이터
-  const receivedRecipe = route?.params?.recipe;
+  // History.js에서 전달받은 레시피 ID
   const receivedRecipeId = route?.params?.recipeId;
 
+  // 레시피 데이터 가져오기
+  useEffect(() => {
+    const fetchRecipe = async () => {
+      if (!receivedRecipeId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        console.log('🔍 Summary에서 레시피 로딩 시작:', receivedRecipeId);
+
+        const { data, error } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', receivedRecipeId)
+          .single();
+
+        if (error) {
+          console.error('❌ 레시피 로딩 오류:', error);
+          return;
+        }
+
+        if (data) {
+          setRecipe(data);
+          console.log('✅ Summary 레시피 데이터 로드 완료:', data.title);
+        }
+      } catch (error) {
+        console.error('❌ 레시피 로딩 예외:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRecipe();
+  }, [receivedRecipeId]);
 
   const handleDelete = () => {
     setShowModal(true);
@@ -35,99 +73,92 @@ const Summary = () => {
     setShowModal(false);
   };
   const handleStart = () => {
-    // History.js에서 전달받은 실제 레시피 데이터 사용
-    if (receivedRecipe && receivedRecipeId) {
+    // recipeId가 있으면 해당 ID로 Recipe 화면으로 이동
+    if (receivedRecipeId) {
       navigation.replace("Recipe", { 
-        recipeId: receivedRecipeId,
-        recipe: receivedRecipe 
+        recipeId: receivedRecipeId
       });
     } else {
-      // 더미 데이터 사용 (기존 Summary 화면에서 직접 접근한 경우)
+      // Summary 화면에서 직접 접근한 경우 - 실제 레시피 ID 사용
+      // 가장 최근 레시피 ID 사용 (데모용)
+      const demoRecipeId = "73928ef2-12d2-4d17-9e51-f1dcccfaf878"; // 백종원 초간단 참치마요덮밥
       navigation.replace("Recipe", { 
-        recipeId: "summary-demo-recipe",
-        recipe: recipe 
+        recipeId: demoRecipeId
       });
     }
   }
 
 
-  const recipe = {
+  // 더미 데이터 (recipeId가 없을 때 사용)
+  const dummyRecipe = {
     title: '크림 파스타 만들기',
     time: '25분',
     level: '보통',
     servings: '2인분',
-    video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', // 데모용 YouTube URL
+    video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     ingredients: [
       { name: '스파게티 면', amount: '200g' },
       { name: '생크림', amount: '150ml' },
       { name: '버터', amount: '2큰술' },
-      // ... 더 추가 가능
     ],
     steps: [
       '마늘을 다져주세요',
       '팬에 버터를 녹이고 마늘을 볶아주세요',
       '생크림을 넣고 졸인 뒤 면과 함께 버무려주세요',
-      // ... 더 추가 가능
     ],
-    // Recipe.js에서 사용할 instructions 형식으로 변환
-    instructions: [
-      {
-        step: 1,
-        title: '마늘 다지기',
-        instruction: '마늘을 다져주세요',
-        start_time: '00:00:30',
-        end_time: '00:01:30'
-      },
-      {
-        step: 2,
-        title: '팬에 볶기',
-        instruction: '팬에 버터를 녹이고 마늘을 볶아주세요',
-        start_time: '00:01:30',
-        end_time: '00:03:00'
-      },
-      {
-        step: 3,
-        title: '생크림 추가',
-        instruction: '생크림을 넣고 졸인 뒤 면과 함께 버무려주세요',
-        start_time: '00:03:00',
-        end_time: '00:05:00'
-      }
-    ]
   };
+
+  // 로딩 상태
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, paddingTop: Platform.OS === 'android' ? 15 : 0 }}>
+        <View style={styles.container}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#ffcc80" />
+            <Text style={styles.loadingText}>레시피를 불러오는 중...</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // 표시할 레시피 데이터 결정
+  const displayRecipe = recipe || dummyRecipe;
 
   return (
     <SafeAreaView style={{ flex: 1, paddingTop: Platform.OS === 'android' ? 15 : 0 }}>
       <View style={styles.container}>
         <Text style={styles.title}>레시피 요약</Text>
-  <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}>
-          {/* 실제 레시피 데이터가 있으면 사용, 없으면 더미 데이터 사용 */}
+        <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}>
           <Text style={styles.recipeTitle}>
-            {receivedRecipe?.title || recipe.title}
+            {displayRecipe.title}
           </Text>
 
           {/* 레시피 정보 표시 */}
-          {(receivedRecipe?.cook_time || receivedRecipe?.prep_time || receivedRecipe?.servings) && (
+          {(displayRecipe.cook_time || displayRecipe.prep_time || displayRecipe.servings) && (
             <View style={styles.recipeInfo}>
-              {receivedRecipe?.cook_time && (
-                <Text style={styles.infoText}>조리시간: {receivedRecipe.cook_time}</Text>
+              {displayRecipe.cook_time && (
+                <Text style={styles.infoText}>조리시간: {displayRecipe.cook_time}</Text>
               )}
-              {receivedRecipe?.prep_time && (
-                <Text style={styles.infoText}>준비시간: {receivedRecipe.prep_time}</Text>
+              {displayRecipe.prep_time && (
+                <Text style={styles.infoText}>준비시간: {displayRecipe.prep_time}</Text>
               )}
-              {receivedRecipe?.servings && (
-                <Text style={styles.infoText}>인분: {receivedRecipe.servings}</Text>
+              {displayRecipe.servings && (
+                <Text style={styles.infoText}>인분: {displayRecipe.servings}</Text>
               )}
             </View>
           )}
 
           <Text style={styles.sectionTitle}>재료</Text>
-          {(receivedRecipe?.ingredients || recipe.ingredients).map((item, index) => (
+          {displayRecipe.ingredients?.map((item, index) => (
             <Text key={index}>• {item.name} - {item.quantity || item.amount} {item.unit || ''}</Text>
           ))}
 
           <Text style={styles.sectionTitle}>요리 과정</Text>
-          {(receivedRecipe?.instructions || recipe.steps).map((step, index) => (
+          {displayRecipe.instructions?.map((step, index) => (
             <Text key={index}>{index + 1}. {step.instruction || step.title || step}</Text>
+          )) || displayRecipe.steps?.map((step, index) => (
+            <Text key={index}>{index + 1}. {step}</Text>
           ))}
         </ScrollView>
 <View style={[styles.Buttoncontainer, { paddingBottom: Math.min(insets.bottom, 10) }]}>
@@ -237,5 +268,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
   },
 })
