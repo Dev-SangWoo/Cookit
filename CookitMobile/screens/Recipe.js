@@ -62,6 +62,18 @@ const Recipe = ({ route }) => {
         return;
       }
 
+      // 더미 데이터인 경우 route.params에서 recipe 객체 사용
+      if (recipeId === "summary-demo-recipe" && route?.params?.recipe) {
+        setLoading(true);
+        console.log('🔍 더미 레시피 로딩 시작:', recipeId);
+        
+        const demoRecipe = route.params.recipe;
+        setRecipe(demoRecipe);
+        console.log('✅ 더미 레시피 로딩 성공:', demoRecipe.title);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         console.log('🔍 레시피 로딩 시작:', recipeId);

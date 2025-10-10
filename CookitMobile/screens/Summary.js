@@ -30,7 +30,11 @@ const Summary = () => {
     setShowModal(false);
   };
   const handleStart = () => {
-    navigation.replace("Recipe")
+    // 더미 recipeId 사용 (실제로는 Summary 화면에서 생성된 레시피의 ID를 사용해야 함)
+    navigation.replace("Recipe", { 
+      recipeId: "summary-demo-recipe",
+      recipe: recipe 
+    })
   }
 
 

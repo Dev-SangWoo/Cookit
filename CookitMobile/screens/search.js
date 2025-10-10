@@ -7,7 +7,7 @@ import { StyleSheet, Text, View, Platform } from 'react-native'
 import React, { useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
-import SearchInput from '../component/SearchInput';
+import SearchInput from '../components/SearchInput';
 
 const Search = () => {
   const navigation = useNavigation();

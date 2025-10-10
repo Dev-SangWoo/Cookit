@@ -25,8 +25,8 @@ import { Platform, StyleSheet, Text, View, FlatList, Image, TouchableOpacity,} f
 import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import SearchInput from '../component/SearchInput';
-import Sort from '../component/Sort';
+import SearchInput from '../components/SearchInput';
+import Sort from '../components/Sort';
 
 const dummyData = [
   {
