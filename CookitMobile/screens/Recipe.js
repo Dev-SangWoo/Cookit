@@ -62,22 +62,23 @@ const Recipe = ({ route }) => {
         return;
       }
 
-      // 더미 데이터인 경우 route.params에서 recipe 객체 사용
-      if (recipeId === "summary-demo-recipe" && route?.params?.recipe) {
+      // route.params에서 recipe 객체가 있으면 우선 사용 (Summary.js에서 전달받은 데이터)
+      if (route?.params?.recipe) {
         setLoading(true);
-        console.log('🔍 더미 레시피 로딩 시작:', recipeId);
+        console.log('🔍 route.params에서 레시피 데이터 로딩 시작:', recipeId);
         
-        const demoRecipe = route.params.recipe;
-        setRecipe(demoRecipe);
-        console.log('✅ 더미 레시피 로딩 성공:', demoRecipe.title);
+        const receivedRecipe = route.params.recipe;
+        setRecipe(receivedRecipe);
+        console.log('✅ route.params 레시피 로딩 성공:', receivedRecipe.title);
         
-        // YouTube URL이 있으면 video ID 추출
-        if (demoRecipe.video_url) {
-          const extractedId = extractVideoId(demoRecipe.video_url);
+        // YouTube URL이 있으면 video ID 추출 (video_url 또는 source_url 사용)
+        const videoUrl = receivedRecipe.video_url || receivedRecipe.source_url;
+        if (videoUrl) {
+          const extractedId = extractVideoId(videoUrl);
           if (extractedId) {
             setVideoId(extractedId);
-            setVideoUrl(demoRecipe.video_url);
-            console.log('🎥 YouTube Video ID (더미):', extractedId);
+            setVideoUrl(videoUrl);
+            console.log('🎥 YouTube Video ID (route.params):', extractedId);
           }
         }
         
@@ -85,9 +86,10 @@ const Recipe = ({ route }) => {
         return;
       }
 
+      // route.params에 데이터가 없으면 Supabase에서 조회
       try {
         setLoading(true);
-        console.log('🔍 레시피 로딩 시작:', recipeId);
+        console.log('🔍 Supabase에서 레시피 로딩 시작:', recipeId);
 
         const { data, error } = await supabase
           .from('recipes')
@@ -110,7 +112,7 @@ const Recipe = ({ route }) => {
           const extractedVideoId = extractVideoId(data.video_url);
           setVideoId(extractedVideoId);
           
-          console.log('✅ 레시피 데이터 로드 완료');
+          console.log('✅ Supabase 레시피 데이터 로드 완료');
           console.log('📋 레시피 제목:', data.title);
           console.log('📝 조리 단계 수:', data.instructions?.length || 0);
           console.log('📺 영상 URL:', data.video_url);
@@ -126,7 +128,7 @@ const Recipe = ({ route }) => {
     };
 
     loadRecipe();
-  }, [recipeId]);
+  }, [recipeId, route?.params?.recipe]);
 
   const handleNext = () => {
     if (currentIndex < totalSteps - 1) {
