@@ -56,6 +56,7 @@ const Summary = () => {
     time: '25분',
     level: '보통',
     servings: '2인분',
+    video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', // 데모용 YouTube URL
     ingredients: [
       { name: '스파게티 면', amount: '200g' },
       { name: '생크림', amount: '150ml' },
@@ -67,6 +68,30 @@ const Summary = () => {
       '팬에 버터를 녹이고 마늘을 볶아주세요',
       '생크림을 넣고 졸인 뒤 면과 함께 버무려주세요',
       // ... 더 추가 가능
+    ],
+    // Recipe.js에서 사용할 instructions 형식으로 변환
+    instructions: [
+      {
+        step: 1,
+        title: '마늘 다지기',
+        instruction: '마늘을 다져주세요',
+        start_time: '00:00:30',
+        end_time: '00:01:30'
+      },
+      {
+        step: 2,
+        title: '팬에 볶기',
+        instruction: '팬에 버터를 녹이고 마늘을 볶아주세요',
+        start_time: '00:01:30',
+        end_time: '00:03:00'
+      },
+      {
+        step: 3,
+        title: '생크림 추가',
+        instruction: '생크림을 넣고 졸인 뒤 면과 함께 버무려주세요',
+        start_time: '00:03:00',
+        end_time: '00:05:00'
+      }
     ]
   };
 

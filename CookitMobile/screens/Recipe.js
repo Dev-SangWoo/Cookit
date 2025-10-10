@@ -70,6 +70,17 @@ const Recipe = ({ route }) => {
         const demoRecipe = route.params.recipe;
         setRecipe(demoRecipe);
         console.log('✅ 더미 레시피 로딩 성공:', demoRecipe.title);
+        
+        // YouTube URL이 있으면 video ID 추출
+        if (demoRecipe.video_url) {
+          const extractedId = extractVideoId(demoRecipe.video_url);
+          if (extractedId) {
+            setVideoId(extractedId);
+            setVideoUrl(demoRecipe.video_url);
+            console.log('🎥 YouTube Video ID (더미):', extractedId);
+          }
+        }
+        
         setLoading(false);
         return;
       }
@@ -297,7 +308,7 @@ const Recipe = ({ route }) => {
 
       <View style={styles.card}>
         <Text style={styles.title}>{currentStep.title}</Text>
-        <Text style={styles.desc}>{currentStep.description}</Text>
+        <Text style={styles.desc}>{currentStep.instruction || currentStep.description}</Text>
       </View>
 
       <View style={styles.navButtons}>
