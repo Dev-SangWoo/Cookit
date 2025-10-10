@@ -92,7 +92,7 @@ const Recipe = ({ route }) => {
         const { data, error } = await supabase
           .from('recipes')
           .select('*')
-          .eq('recipe_id', recipeId)
+          .eq('id', recipeId)
           .single();
 
         if (error) {
@@ -103,18 +103,19 @@ const Recipe = ({ route }) => {
 
         if (data) {
           setRecipe(data);
-          console.log('✅ 레시피 로딩 성공:', data.title);
+          setVideoUrl(data.video_url);
+          setVideoError(false);
           
-          // YouTube URL이 있으면 video ID 추출 (source_url 또는 video_url 사용)
-          const videoUrl = data.video_url || data.source_url;
-          if (videoUrl) {
-            const extractedId = extractVideoId(videoUrl);
-            if (extractedId) {
-              setVideoId(extractedId);
-              setVideoUrl(videoUrl);
-              console.log('🎥 YouTube Video ID:', extractedId);
-            }
-          }
+          // YouTube video ID 추출
+          const extractedVideoId = extractVideoId(data.video_url);
+          setVideoId(extractedVideoId);
+          
+          console.log('✅ 레시피 데이터 로드 완료');
+          console.log('📋 레시피 제목:', data.title);
+          console.log('📝 조리 단계 수:', data.instructions?.length || 0);
+          console.log('📺 영상 URL:', data.video_url);
+          console.log('🎬 Video ID:', extractedVideoId);
+          console.log('🔍 Instructions 데이터:', JSON.stringify(data.instructions, null, 2));
         }
       } catch (error) {
         console.error('❌ 레시피 로딩 예외:', error);
@@ -152,99 +153,103 @@ const Recipe = ({ route }) => {
     return { startTime, endTime };
   };
 
-  // 시간을 초 단위로 변환 (HH:MM:SS -> seconds)
-  const timeToSeconds = (timeString) => {
-    if (!timeString) return 0;
-    
-    const parts = timeString.split(':');
+  // 시간 문자열을 초로 변환 (HH:MM:SS -> seconds)
+  const timeToSeconds = (timeStr) => {
+    if (!timeStr) return 0;
+    const parts = timeStr.split(':').map(Number);
     if (parts.length === 3) {
-      const hours = parseInt(parts[0]) || 0;
-      const minutes = parseInt(parts[1]) || 0;
-      const seconds = parseInt(parts[2]) || 0;
-      return hours * 3600 + minutes * 60 + seconds;
-    } else if (parts.length === 2) {
-      const minutes = parseInt(parts[0]) || 0;
-      const seconds = parseInt(parts[1]) || 0;
-      return minutes * 60 + seconds;
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
     }
-    
-    return parseInt(timeString) || 0;
+    return 0;
   };
 
-  // YouTube 구간 반복 재생을 위한 HTML 생성
-  const generateYouTubeHTML = () => {
-    const { startTime, endTime } = getCurrentStepTimes();
-    const startSeconds = timeToSeconds(startTime);
-    const endSeconds = timeToSeconds(endTime);
+  // YouTube iframe embed HTML 생성 (타임스탬프 지원 + 구간 반복)
+  const getYouTubeHTML = (videoId, startTime = null, endTime = null) => {
+    const startSeconds = startTime ? timeToSeconds(startTime) : 0;
+    const endSeconds = endTime ? timeToSeconds(endTime) : 0;
     
     return `
-  <!DOCTYPE html>
-  <html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-      body { margin: 0; padding: 0; background: #000; }
-      #player { width: 100%; height: 100%; }
-    </style>
-  </head>
-  <body>
-    <div id="player"></div>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      margin: 0; 
+      padding: 0; 
+      background: #000; 
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #player {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="player"></div>
+  
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    let player;
+    const startTime = ${startSeconds};
+    const endTime = ${endSeconds};
+    const videoId = '${videoId}';
     
-    <script src="https://www.youtube.com/iframe_api"></script>
-    <script>
-      let player;
-      const startTime = ${startSeconds};
-      const endTime = ${endSeconds};
-      const videoId = '${videoId}';
-      
-      function onYouTubeIframeAPIReady() {
-        player = new YT.Player('player', {
-          videoId: videoId,
-          playerVars: {
-            'autoplay': 1,
-            'controls': 1,
-            'rel': 0,
-            'modestbranding': 1,
-            'playsinline': 1,
-            'start': startTime
-          },
-          events: {
-            'onReady': onPlayerReady,
-            'onStateChange': onPlayerStateChange
-          }
-        });
-      }
-      
-      function onPlayerReady(event) {
-        console.log('YouTube Player Ready');
-        event.target.playVideo();
-      }
-      
-      function onPlayerStateChange(event) {
-        if (event.data === YT.PlayerState.PLAYING && endTime > 0) {
-          checkTime();
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        videoId: videoId,
+        playerVars: {
+          'autoplay': 1,
+          'controls': 1,
+          'rel': 0,
+          'modestbranding': 1,
+          'playsinline': 1,
+          'start': startTime
+        },
+        events: {
+          'onReady': onPlayerReady,
+          'onStateChange': onPlayerStateChange
         }
+      });
+    }
+    
+    function onPlayerReady(event) {
+      console.log('YouTube Player Ready');
+      event.target.playVideo();
+    }
+    
+    function onPlayerStateChange(event) {
+      if (event.data === YT.PlayerState.PLAYING && endTime > 0) {
+        checkTime();
+      }
+    }
+    
+    function checkTime() {
+      if (!player || typeof player.getCurrentTime !== 'function') return;
+      
+      const currentTime = player.getCurrentTime();
+      
+      // 종료 시간에 도달하면 시작 시간으로 돌아가기 (구간 반복)
+      if (endTime > 0 && currentTime >= endTime) {
+        console.log('구간 반복: ' + startTime + '초로 이동');
+        player.seekTo(startTime, true);
       }
       
-      function checkTime() {
-        if (!player || typeof player.getCurrentTime !== 'function') return;
-        
-        const currentTime = player.getCurrentTime();
-        
-        // 종료 시간에 도달하면 시작 시간으로 돌아가기 (구간 반복)
-        if (endTime > 0 && currentTime >= endTime) {
-          console.log('구간 반복: ' + startTime + '초로 이동');
-          player.seekTo(startTime, true);
-        }
-        
-        // 재생 중일 때만 계속 체크
-        if (player.getPlayerState() === YT.PlayerState.PLAYING) {
-          setTimeout(checkTime, 500); // 0.5초마다 체크
-        }
+      // 재생 중일 때만 계속 체크
+      if (player.getPlayerState() === YT.PlayerState.PLAYING) {
+        setTimeout(checkTime, 500); // 0.5초마다 체크
       }
-    </script>
-  </body>
-  </html>`;
+    }
+  </script>
+</body>
+</html>
+    `;
   };
 
   if (loading) {
@@ -270,54 +275,134 @@ const Recipe = ({ route }) => {
         </View>
       )}
 
-      {/* YouTube 비디오 */}
-      {videoId && (
-        <View style={styles.videoWrapper}>
+      {/* YouTube 영상 (단계별 타임스탬프 적용) */}
+      <View style={styles.videoWrapper}>
+        {videoId && !videoError ? (
           <WebView
-            source={{ html: generateYouTubeHTML() }}
-            style={styles.webview}
+            key={`video-${currentIndex}-${currentStep?.start_time || 'default'}`}  // 단계가 바뀔 때마다 WebView 새로 로드
+            source={{ 
+              html: getYouTubeHTML(
+                videoId, 
+                currentStep?.start_time,  // 현재 단계 시작 시간
+                currentStep?.end_time     // 현재 단계 종료 시간 (구간 반복 구현)
+              ) 
+            }}
+            style={styles.video}
+            allowsFullscreenVideo={true}
             allowsInlineMediaPlayback={true}
             mediaPlaybackRequiresUserAction={false}
-            onError={(syntheticEvent) => {
-              const { nativeEvent } = syntheticEvent;
-              console.error('WebView 오류:', nativeEvent);
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            onError={(error) => {
+              console.error('❌ WebView 오류:', error);
               setVideoError(true);
             }}
-            onHttpError={(syntheticEvent) => {
-              const { nativeEvent } = syntheticEvent;
-              console.error('HTTP 오류:', nativeEvent);
+            onLoadStart={() => {
+              console.log(`🔄 YouTube 로딩 시작 (단계 ${currentIndex + 1})`);
+              if (currentStep?.start_time) {
+                const loopInfo = currentStep.end_time ? ' [구간 반복 ON]' : ' [반복 OFF]';
+                console.log(`⏰ 영상 구간: ${currentStep.start_time} ~ ${currentStep.end_time || '끝'}${loopInfo}`);
+              }
+            }}
+            onLoad={() => {
+              console.log('✅ YouTube 로드 완료');
+              setVideoError(false);
+            }}
+            onLoadEnd={() => {
+              console.log('🎉 YouTube 렌더링 완료');
             }}
           />
-          {videoError && (
-            <View style={styles.videoErrorContainer}>
-              <Text style={styles.videoErrorText}>
-                비디오를 불러올 수 없습니다.
+        ) : (
+          <View style={styles.noVideoContainer}>
+            <Text style={styles.noVideoText}>
+              {videoError ? '🚫 YouTube 영상 로딩 오류' : '📹 YouTube 영상이 없습니다'}
+            </Text>
+            {videoError && (
+              <Text style={styles.errorText}>
+                YouTube 영상을 불러올 수 없습니다.
               </Text>
-              <TouchableOpacity
-                style={styles.retryButton}
-                onPress={() => {
-                  setVideoError(false);
-                }}
-              >
-                <Text style={styles.retryButtonText}>다시 시도</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
-      <Text style={styles.stepIndicator}>Step {currentIndex + 1} / {totalSteps}</Text>
+            )}
+            <Text style={styles.debugText}>Video ID: {videoId || 'null'}</Text>
+            <Text style={styles.debugText}>영상 URL: {videoUrl || 'null'}</Text>
+            
+            {videoUrl && (
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity 
+                  style={styles.retryButton}
+                  onPress={() => {
+                    setVideoError(false);
+                    console.log('🔄 재시도');
+                  }}
+                >
+                  <Text style={styles.retryButtonText}>다시 시도</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.externalButton}
+                  onPress={() => {
+                    Linking.openURL(videoUrl);
+                    console.log('🌐 외부 브라우저에서 열기');
+                  }}
+                >
+                  <Text style={styles.externalButtonText}>브라우저에서 보기</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+      {/* 레시피 단계 */}
+      <Text style={styles.stepIndicator}>
+        Step {currentIndex + 1} / {totalSteps}
+        {recipe && recipe.instructions?.length > 0 ? ' (DB)' : ' (기본값)'}
+      </Text>
 
       <View style={styles.card}>
-        <Text style={styles.title}>{currentStep.title}</Text>
-        <Text style={styles.desc}>{currentStep.instruction || currentStep.description}</Text>
+        {/* 디버깅: 레시피 데이터 확인 */}
+        {!recipe && (
+          <Text style={[styles.debugText, { marginBottom: 10 }]}>
+            ⚠️ 레시피 데이터 로딩 중 또는 없음
+          </Text>
+        )}
+        
+        <Text style={styles.title}>
+          {recipe ? currentStep?.title || currentStep?.instruction || '제목 없음' : currentStep?.title}
+        </Text>
+        <Text style={styles.desc}>
+          {recipe ? currentStep?.instruction || currentStep?.description || '설명 없음' : currentStep?.description}
+        </Text>
+        
+        {/* 타임스탬프 표시 */}
+        {currentStep?.start_time && (
+          <View style={styles.timestampContainer}>
+            <Text style={styles.timestampText}>
+              🔁 영상 구간: {currentStep.start_time}
+              {currentStep.end_time && ` ~ ${currentStep.end_time}`}
+            </Text>
+            <Text style={styles.timestampNote}>
+              {currentStep.end_time 
+                ? '* 자동 재생되며, 해당 구간이 반복됩니다' 
+                : '* 시작 시간부터 자동 재생됩니다'}
+            </Text>
+          </View>
+        )}
       </View>
 
+      {/* 네비게이션 버튼 */}
       <View style={styles.navButtons}>
-        <TouchableOpacity onPress={handlePrev} disabled={currentIndex === 0} style={styles.button}>
+        <TouchableOpacity 
+          onPress={handlePrev} 
+          disabled={currentIndex === 0} 
+          style={[styles.button, currentIndex === 0 && styles.buttonDisabled]}
+        >
           <Text style={styles.buttonText}>← 이전</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleNext} disabled={currentIndex === totalSteps - 1} style={styles.button}>
+        <TouchableOpacity 
+          onPress={handleNext} 
+          disabled={currentIndex === totalSteps - 1} 
+          style={[styles.button, currentIndex === totalSteps - 1 && styles.buttonDisabled]}
+        >
           <Text style={styles.buttonText}>다음 →</Text>
         </TouchableOpacity>
       </View>
@@ -330,62 +415,78 @@ export default Recipe;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 20,
     backgroundColor: '#fff',
+  },
+  videoWrapper: {
+    height: 220,
+    backgroundColor: '#000',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 20,
+  },
+  video: {
+    flex: 1,
+    backgroundColor: '#000',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fff',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 16,
     fontSize: 16,
     color: '#666',
   },
-  header: {
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  recipeTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  recipeDescription: {
-    fontSize: 16,
-    color: '#666',
-    lineHeight: 22,
-  },
-  videoWrapper: {
-    height: 220,
-    backgroundColor: '#000',
-    marginBottom: 10,
-  },
-  webview: {
-    flex: 1,
-  },
-  videoErrorContainer: {
+  noVideoContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
+    padding: 20,
   },
-  videoErrorText: {
+  noVideoText: {
     fontSize: 16,
-    color: '#666',
+    color: '#999',
     marginBottom: 10,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#e74c3c',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
   },
   retryButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#3498db',
     borderRadius: 6,
   },
   retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  externalButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#e74c3c',
+    borderRadius: 6,
+  },
+  externalButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
@@ -394,10 +495,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
-    paddingHorizontal: 20,
+    fontWeight: '600',
+    color: '#333',
   },
   card: {
-    margin: 20,
     padding: 20,
     backgroundColor: '#fef5e7',
     borderRadius: 10,
@@ -412,13 +513,29 @@ const styles = StyleSheet.create({
   desc: {
     fontSize: 16,
     color: '#555',
-    lineHeight: 22,
+    lineHeight: 24,
+  },
+  timestampContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0e5d8',
+  },
+  timestampText: {
+    fontSize: 14,
+    color: '#ff9800',
+    fontWeight: '600',
+  },
+  timestampNote: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   navButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 30,
-    paddingHorizontal: 20,
   },
   button: {
     paddingVertical: 10,
@@ -426,8 +543,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffcc80',
     borderRadius: 8,
   },
+  buttonDisabled: {
+    backgroundColor: '#ddd',
+  },
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#333',
   },
 });
