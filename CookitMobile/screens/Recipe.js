@@ -105,12 +105,13 @@ const Recipe = ({ route }) => {
           setRecipe(data);
           console.log('✅ 레시피 로딩 성공:', data.title);
           
-          // YouTube URL이 있으면 video ID 추출
-          if (data.video_url) {
-            const extractedId = extractVideoId(data.video_url);
+          // YouTube URL이 있으면 video ID 추출 (source_url 또는 video_url 사용)
+          const videoUrl = data.video_url || data.source_url;
+          if (videoUrl) {
+            const extractedId = extractVideoId(videoUrl);
             if (extractedId) {
               setVideoId(extractedId);
-              setVideoUrl(data.video_url);
+              setVideoUrl(videoUrl);
               console.log('🎥 YouTube Video ID:', extractedId);
             }
           }

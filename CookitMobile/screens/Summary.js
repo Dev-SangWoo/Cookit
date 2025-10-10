@@ -105,14 +105,29 @@ const Summary = () => {
             {receivedRecipe?.title || recipe.title}
           </Text>
 
+          {/* 레시피 정보 표시 */}
+          {(receivedRecipe?.cook_time || receivedRecipe?.prep_time || receivedRecipe?.servings) && (
+            <View style={styles.recipeInfo}>
+              {receivedRecipe?.cook_time && (
+                <Text style={styles.infoText}>조리시간: {receivedRecipe.cook_time}</Text>
+              )}
+              {receivedRecipe?.prep_time && (
+                <Text style={styles.infoText}>준비시간: {receivedRecipe.prep_time}</Text>
+              )}
+              {receivedRecipe?.servings && (
+                <Text style={styles.infoText}>인분: {receivedRecipe.servings}</Text>
+              )}
+            </View>
+          )}
+
           <Text style={styles.sectionTitle}>재료</Text>
           {(receivedRecipe?.ingredients || recipe.ingredients).map((item, index) => (
-            <Text key={index}>• {item.name} - {item.amount}</Text>
+            <Text key={index}>• {item.name} - {item.quantity || item.amount} {item.unit || ''}</Text>
           ))}
 
           <Text style={styles.sectionTitle}>요리 과정</Text>
-          {(receivedRecipe?.steps || recipe.steps).map((step, index) => (
-            <Text key={index}>{index + 1}. {step}</Text>
+          {(receivedRecipe?.instructions || recipe.steps).map((step, index) => (
+            <Text key={index}>{index + 1}. {step.instruction || step.title || step}</Text>
           ))}
         </ScrollView>
 <View style={[styles.Buttoncontainer, { paddingBottom: Math.min(insets.bottom, 10) }]}>
@@ -210,8 +225,17 @@ const styles = StyleSheet.create({
   startText: {
     color: 'white',
     fontSize: 18,
-
     fontWeight: 'bold',
   },
-
+  recipeInfo: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  infoText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
 })

@@ -105,7 +105,7 @@ const sortedData = [...filteredData].sort((a, b) => {
         ) : (
           <FlatList
             data={sortedData}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item, index) => item.id || `search-${index}`}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.card}

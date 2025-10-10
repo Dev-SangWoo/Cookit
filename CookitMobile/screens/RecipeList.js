@@ -227,7 +227,7 @@ const RecipeList = ({
       
       <FlatList
         data={recipes}
-        keyExtractor={(item) => `recipe-${item.recipe_id}`}
+        keyExtractor={(item, index) => `recipe-${item.recipe_id || item.id || index}`}
         numColumns={2}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.listContainer}

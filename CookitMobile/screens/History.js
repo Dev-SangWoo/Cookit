@@ -188,7 +188,7 @@ const History = () => {
         ) : (
           <FlatList
             data={filteredRecipes}
-            keyExtractor={(item) => `history-${item.recipe_id}`}
+            keyExtractor={(item, index) => `history-${item.recipe_id || item.id || index}`}
             numColumns={2}
             columnWrapperStyle={styles.row}
             contentContainerStyle={styles.listContainer}
