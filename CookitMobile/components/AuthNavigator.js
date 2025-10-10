@@ -47,17 +47,15 @@ export default function AuthNavigator() {
         {/* 인증되지 않은 사용자 - 로그인 화면 */}
         {!user ? (
           <Stack.Screen name="Auth" component={AuthScreen} />
-        ) : !isSetupComplete ? (
-          // 인증되었지만 초기 설정이 완료되지 않은 사용자 - Setup 화면들
+        ) : (
+          // 테스트용: 인증된 사용자는 무조건 Setup 화면으로 이동
           <>
             <Stack.Screen name="SetupNickname" component={SetupNickname} />
             <Stack.Screen name="SetupProfile" component={SetupProfile} />
             <Stack.Screen name="SetupPreference" component={SetupPreference} />
             <Stack.Screen name="SetupIngredients" component={SetupIngredients} />
-          </>
-        ) : (
-          // 인증되고 초기 설정이 완료된 사용자 - 메인 앱 화면들
-          <>
+            
+            {/* Setup 완료 후 사용할 메인 앱 화면들 */}
             <Stack.Screen name="HomeTab" component={HomeTab} />
             <Stack.Screen name="Search" component={Search} />
             <Stack.Screen name="Profile" component={Profile} />
