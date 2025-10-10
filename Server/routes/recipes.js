@@ -31,14 +31,18 @@ router.post('/from-ai', async (req, res) => {
       order: index + 1
     })) || [];
 
-    // 조리 단계를 JSONB 형식으로 변환
+    // 조리 단계를 JSONB 형식으로 변환 (타임스탬프 포함)
     const instructions = recipe.steps?.map((step, index) => ({
       step: index + 1,
       title: step.title || `단계 ${index + 1}`,
-      instruction: step.action || step.instruction || step.content || step,
-      time: step.time || null,
+      instruction: step.actions?.[0]?.action || step.action || step.instruction || step.content || step,
+      start_time: step.start_time || null,  // HH:MM:SS 형식
+      end_time: step.end_time || null,      // HH:MM:SS 형식
+      time: step.actions?.[0]?.time || step.time || null,
       temperature: step.temperature || null,
-      tips: step.tip || step.tips || null
+      tips: step.actions?.[0]?.tip || step.tip || step.tips || null,
+      ingredients: step.actions?.[0]?.ingredients || [],
+      tools: step.actions?.[0]?.tools || []
     })) || [];
 
     // 영양 정보 처리
