@@ -6,7 +6,7 @@
 import { ScrollView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useRoute } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'; // 안드로이드 버튼 하단 보장
 import ModalDelete from './modal/ModalDelete'
 
@@ -15,6 +15,11 @@ const Summary = () => {
   const insets = useSafeAreaInsets();
   const [showModal, setShowModal] = React.useState(false);
   const navigation = useNavigation();
+  const route = useRoute();
+  
+  // History.js에서 전달받은 레시피 데이터
+  const receivedRecipe = route?.params?.recipe;
+  const receivedRecipeId = route?.params?.recipeId;
 
 
   const handleDelete = () => {
@@ -30,11 +35,19 @@ const Summary = () => {
     setShowModal(false);
   };
   const handleStart = () => {
-    // 더미 recipeId 사용 (실제로는 Summary 화면에서 생성된 레시피의 ID를 사용해야 함)
-    navigation.replace("Recipe", { 
-      recipeId: "summary-demo-recipe",
-      recipe: recipe 
-    })
+    // History.js에서 전달받은 실제 레시피 데이터 사용
+    if (receivedRecipe && receivedRecipeId) {
+      navigation.replace("Recipe", { 
+        recipeId: receivedRecipeId,
+        recipe: receivedRecipe 
+      });
+    } else {
+      // 더미 데이터 사용 (기존 Summary 화면에서 직접 접근한 경우)
+      navigation.replace("Recipe", { 
+        recipeId: "summary-demo-recipe",
+        recipe: recipe 
+      });
+    }
   }
 
 
@@ -62,15 +75,18 @@ const Summary = () => {
       <View style={styles.container}>
         <Text style={styles.title}>레시피 요약</Text>
   <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}>
-          <Text style={styles.recipeTitle}>{recipe.title}</Text>
+          {/* 실제 레시피 데이터가 있으면 사용, 없으면 더미 데이터 사용 */}
+          <Text style={styles.recipeTitle}>
+            {receivedRecipe?.title || recipe.title}
+          </Text>
 
           <Text style={styles.sectionTitle}>재료</Text>
-          {recipe.ingredients.map((item, index) => (
+          {(receivedRecipe?.ingredients || recipe.ingredients).map((item, index) => (
             <Text key={index}>• {item.name} - {item.amount}</Text>
           ))}
 
           <Text style={styles.sectionTitle}>요리 과정</Text>
-          {recipe.steps.map((step, index) => (
+          {(receivedRecipe?.steps || recipe.steps).map((step, index) => (
             <Text key={index}>{index + 1}. {step}</Text>
           ))}
         </ScrollView>

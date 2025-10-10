@@ -83,7 +83,8 @@ const History = () => {
 
   // 레시피 카드 터치
   const handleRecipePress = (recipe) => {
-    navigation.navigate('Recipe', { 
+    // History → Summary → Recipe 흐름으로 변경
+    navigation.navigate('Summary', { 
       recipeId: recipe.recipe_id,
       recipe: recipe 
     });
