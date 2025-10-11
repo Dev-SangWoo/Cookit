@@ -9,6 +9,9 @@ import { AuthState, User } from '../types/auth';
 interface AuthContextType extends AuthState {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  isSetupComplete: boolean;
+  setSetupComplete: (complete: boolean) => void;
+  updateUserProfile: (updates: Partial<User>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,68 +20,82 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSetupComplete, setIsSetupComplete] = useState(false); // 테스트용: 항상 false로 설정
 
-  // ✅ 프로필 자동 생성 함수
-  const ensureUserProfile = async (user: User) => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('id', user.id)
-      .maybeSingle();
+  // 사용자 초기 설정 완료 여부 확인 (테스트용: 항상 false)
+  const checkSetupComplete = async (userId: string) => {
+    // 테스트용: 항상 setup이 완료되지 않은 것으로 처리
+    console.log('🧪 테스트 모드: setup을 항상 미완료로 설정');
+    setIsSetupComplete(false);
+    
+    // 원래 코드 (주석 처리)
+    /*
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('display_name, favorite_cuisines')
+        .eq('id', userId)
+        .single();
 
-    if (!data) {
-      console.log('user_profiles에 레코드 없음, 새로 생성합니다.');
-      const { error: insertError } = await supabase.from('user_profiles').insert({
-        id: user.id,
-        email: user.email,
-        display_name: user.name,
-        avatar_url: user.avatar_url,
-      });
-
-      if (insertError) {
-        console.error('user_profiles 생성 실패:', insertError);
-      } else {
-        console.log('user_profiles 생성 완료');
+      if (error) {
+        console.log('프로필 확인 오류:', error);
+        setIsSetupComplete(false);
+        return;
       }
+
+      // display_name이 있고 favorite_cuisines이 설정되어 있으면 초기 설정 완료로 간주
+      const isComplete = !!(data?.display_name && data?.favorite_cuisines?.length > 0);
+      console.log('초기 설정 완료 여부:', isComplete);
+      setIsSetupComplete(isComplete);
+    } catch (err) {
+      console.error('설정 확인 중 오류:', err);
+      setIsSetupComplete(false);
     }
+    */
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // 세션 상태 확인
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
-      if (session?.user) {
-        const mapped = mapSupabaseUser(session.user);
-        setUser(mapped);
-        ensureUserProfile(mapped); // ✅ 여기!
-      } else {
-        setUser(null);
+      const mappedUser = session?.user ? mapSupabaseUser(session.user) : null;
+      setUser(mappedUser);
+      
+      // 사용자가 있으면 초기 설정 완료 여부 확인
+      if (mappedUser) {
+        await checkSetupComplete(mappedUser.id);
       }
+      
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // 인증 상태 변화 리스너
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       console.log('Auth state changed:', _event, session?.user?.email || 'No user');
       setSession(session);
-
-      if (session?.user) {
-        const mapped = mapSupabaseUser(session.user);
-        setUser(mapped);
-        ensureUserProfile(mapped); // ✅ 여기도!
+      const mappedUser = session?.user ? mapSupabaseUser(session.user) : null;
+      setUser(mappedUser);
+      
+      // 사용자가 있으면 초기 설정 완료 여부 확인
+      if (mappedUser) {
+        await checkSetupComplete(mappedUser.id);
       } else {
-        setUser(null);
+        setIsSetupComplete(false);
       }
-
+      
       setLoading(false);
     });
 
+    // 앱 상태 변화 감지 (백그라운드에서 돌아올 때)
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
+        console.log('App became active, refreshing session...');
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session) {
-            const mapped = mapSupabaseUser(session.user);
             setSession(session);
-            setUser(mapped);
-            ensureUserProfile(mapped); // (선택 사항)
+            setUser(mapSupabaseUser(session.user));
           }
         });
       }
@@ -100,12 +117,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           access_token: accessToken,
           refresh_token: refreshToken || '',
         });
-        if (!error && data.session) {
-          console.log('세션 설정 완료:', data.user?.email);
-          const mapped = mapSupabaseUser(data.user);
+        if (data.session) {
+          console.log('Deep link 세션 설정 성공:', data.user?.email);
           setSession(data.session);
-          setUser(mapped);
-          ensureUserProfile(mapped); // ✅ 여기도!
+          setUser(mapSupabaseUser(data.user));
           return;
         }
       }
@@ -113,10 +128,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
           console.log('백업 세션 확인 성공:', session.user.email);
-          const mapped = mapSupabaseUser(session.user);
           setSession(session);
-          setUser(mapped);
-          ensureUserProfile(mapped);
+          setUser(mapSupabaseUser(session.user));
         }
       });
     };
@@ -216,6 +229,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateUserProfile = async (updates: Partial<User>) => {
+    if (!user) return;
+    
+    try {
+      // Supabase user_metadata 업데이트
+      const { error } = await supabase.auth.updateUser({
+        data: updates
+      });
+
+      if (error) {
+        console.error('프로필 업데이트 오류:', error);
+        return;
+      }
+
+      // 로컬 상태 업데이트
+      setUser({ ...user, ...updates });
+    } catch (error) {
+      console.error('프로필 업데이트 중 오류:', error);
+    }
+  };
+
   const mapSupabaseUser = (supabaseUser: any): User => ({
     id: supabaseUser.id,
     email: supabaseUser.email,
@@ -223,17 +257,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     avatar_url: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture,
   });
 
-  return (
-    <AuthContext.Provider value={{ user, session, loading, signInWithGoogle, signOut }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value: AuthContextType = {
+    user,
+    session,
+    loading,
+    signInWithGoogle,
+    signOut,
+    isSetupComplete,
+    setSetupComplete: setIsSetupComplete,
+    updateUserProfile,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth는 AuthProvider 내에서만 사용 가능합니다');
+  if (context === undefined) {
+    throw new Error('useAuth는 AuthProvider 내에서만 사용할 수 있습니다');
   }
   return context;
 }

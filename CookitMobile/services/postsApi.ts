@@ -85,7 +85,7 @@ export async function getPosts() {
   const { data, error } = await supabase
     .from('user_posts')
     .select(`
-      id, title, content, image_urls, created_at, updated_at,
+      post_id, title, content, image_urls, created_at, updated_at,
       user_profiles ( id, display_name, avatar_url ),
       user_post_likes ( id ),
       user_post_comments ( id )
@@ -115,7 +115,7 @@ export async function updatePost(postId: string, { title, content, image_urls }:
       image_urls,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', postId)
+    .eq('post_id', postId)
     .select()
     .single();
 
@@ -128,21 +128,21 @@ export async function deletePost(postId: string) {
   const { error } = await supabase
     .from('user_posts')
     .delete()
-    .eq('id', postId);
+    .eq('post_id', postId);
 
   if (error) throw error;
   return true;
 }
 
 // 게시글 1개 조회
-export async function getPostById(id: string) {
+export async function getPostById(postId: string) {
   const { data, error } = await supabase
     .from('user_posts')
     .select(`
-      id, title, content, image_urls, created_at,
+      post_id, title, content, image_urls, created_at,
       user_profiles ( id, display_name, avatar_url )
     `)
-    .eq('id', id)
+    .eq('post_id', postId)
     .single();
 
   if (error) throw error;

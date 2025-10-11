@@ -3,8 +3,7 @@ import { supabase } from '../lib/supabase';
 import Constants from 'expo-constants';
 
 // 서버 API 기본 URL (.env에서 가져오기)
-const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl || 'http://172.20.1.231:3000/api';
-
+const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl ;
 // 디버깅: 환경변수 값 확인
 console.log('🔍 API_BASE_URL:', API_BASE_URL);
 console.log('🔍 Constants.expoConfig?.extra?.apiBaseUrl:', Constants.expoConfig?.extra?.apiBaseUrl);

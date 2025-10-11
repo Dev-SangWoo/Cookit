@@ -108,8 +108,11 @@ const RecipeList = ({
   // 레시피 카드 터치
   const handleRecipePress = (recipe) => {
     navigation.navigate('Recipe', { 
-      recipeId: recipe.recipe_id,
-      recipe: recipe 
+      screen: 'RecipeMain',
+      params: { 
+        recipeId: recipe.recipe_id,
+        recipe: recipe 
+      }
     });
   };
 
@@ -227,7 +230,7 @@ const RecipeList = ({
       
       <FlatList
         data={recipes}
-        keyExtractor={(item) => `recipe-${item.recipe_id}`}
+        keyExtractor={(item, index) => `recipe-${item.recipe_id || item.id || index}`}
         numColumns={2}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.listContainer}
