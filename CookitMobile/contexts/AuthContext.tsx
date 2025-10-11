@@ -20,14 +20,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isSetupComplete, setIsSetupComplete] = useState(false);
+  const [isSetupComplete, setIsSetupComplete] = useState(false); // 테스트용: 항상 false로 설정
 
-  // 사용자 초기 설정 완료 여부 확인
+  // 사용자 초기 설정 완료 여부 확인 (테스트용: 항상 false)
   const checkSetupComplete = async (userId: string) => {
+    // 테스트용: 항상 setup이 완료되지 않은 것으로 처리
+    console.log('🧪 테스트 모드: setup을 항상 미완료로 설정');
+    setIsSetupComplete(false);
+    
+    // 원래 코드 (주석 처리)
+    /*
     try {
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('nickname, favorite_cuisines')
+        .select('display_name, favorite_cuisines')
         .eq('id', userId)
         .single();
 
@@ -37,14 +43,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // nickname이 있고 favorite_cuisines이 설정되어 있으면 초기 설정 완료로 간주
-      const isComplete = !!(data?.nickname && data?.favorite_cuisines?.length > 0);
+      // display_name이 있고 favorite_cuisines이 설정되어 있으면 초기 설정 완료로 간주
+      const isComplete = !!(data?.display_name && data?.favorite_cuisines?.length > 0);
       console.log('초기 설정 완료 여부:', isComplete);
       setIsSetupComplete(isComplete);
     } catch (err) {
       console.error('설정 확인 중 오류:', err);
       setIsSetupComplete(false);
     }
+    */
   };
 
   useEffect(() => {

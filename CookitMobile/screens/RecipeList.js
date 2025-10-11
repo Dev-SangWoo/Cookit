@@ -108,8 +108,11 @@ const RecipeList = ({
   // 레시피 카드 터치
   const handleRecipePress = (recipe) => {
     navigation.navigate('Recipe', { 
-      recipeId: recipe.recipe_id,
-      recipe: recipe 
+      screen: 'RecipeMain',
+      params: { 
+        recipeId: recipe.recipe_id,
+        recipe: recipe 
+      }
     });
   };
 

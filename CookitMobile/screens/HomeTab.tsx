@@ -5,7 +5,6 @@ import { BottomTabNavigationProp, createBottomTabNavigator } from '@react-naviga
 import CommunityStack from './community/CommunityStack'; 
 import { CommunityStackParamList } from './community/CommunityStack';
 import HomeMain from './Home/HomeMain';
-
 import Ingredients from './Home/Ingredients';
 import ProfileMain from './Profile/ProfileMain';
 import Ionicons from '@expo/vector-icons/Ionicons';

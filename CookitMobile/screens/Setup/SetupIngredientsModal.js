@@ -254,3 +254,4 @@ const modalStyles = StyleSheet.create({
     fontSize: 16,
   },
 });
+

@@ -3,12 +3,13 @@
 
 
 
-import { StyleSheet, Text, View, TouchableOpacity, Platform, Image } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Platform, Image, ActivityIndicator } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../lib/supabase';
+import recipeService from '../../services/recipeService';
 
 const HomeMain = () => {
   const route = useRoute();
@@ -17,45 +18,85 @@ const HomeMain = () => {
   const navigation = useNavigation();
   const [recommendRecipes, setRecommendRecipes] = useState([]);
   const [hotRecipes, setHotRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
 
 
   useEffect(() => {
-    const sampleRecommend = [
-      {
-        title: '계란말이',
-        description: '든든한 한끼! 촉촉한 계란말이 레시피',
-        thumbnail: '#',
-      },
-      {
-        title: '비빔국수',
-        description: '매콤새콤! 여름 입맛을 돋우는 국수 레시피',
-        thumbnail: '#',
-      },
-    ];
-    const sampleHot = [
-      {
-        title: '불고기',
-        description: '달달하고 짭짤한 불고기 한 끼',
-        thumbnail: '#',
-      },
-    ];
-    setRecommendRecipes(sampleRecommend);
-    setHotRecipes(sampleHot);
+    fetchRecipes();
   }, []);
 
+  const fetchRecipes = async () => {
+    try {
+      setLoading(true);
+      
+      // 추천 레시피 (최신 2개)
+      const recommendResponse = await recipeService.getPublicRecipes({
+        page: 1,
+        limit: 2
+      });
+      
+      // 인기 레시피 (AI 생성 레시피 중 3개)
+      const hotResponse = await recipeService.getPublicRecipes({
+        page: 1,
+        limit: 3,
+        ai_only: true
+      });
+
+      // 데이터 변환
+      const recommendData = recommendResponse.recipes?.map(recipe => ({
+        id: recipe.id,
+        title: recipe.title,
+        description: recipe.description || '맛있는 레시피입니다',
+        thumbnail: recipe.image_urls?.[0] || 'https://via.placeholder.com/300x200?text=No+Image'
+      })) || [];
+
+      const hotData = hotResponse.recipes?.map(recipe => ({
+        id: recipe.id,
+        title: recipe.title,
+        description: recipe.description || '맛있는 레시피입니다',
+        thumbnail: recipe.image_urls?.[0] || 'https://via.placeholder.com/300x200?text=No+Image'
+      })) || [];
+
+      setRecommendRecipes(recommendData);
+      setHotRecipes(hotData);
+      
+    } catch (error) {
+      console.error('레시피 로딩 실패:', error);
+      
+      // 오류 시 기본 데이터 사용
+      const fallbackRecommend = [
+        {
+          id: 'fallback1',
+          title: '계란말이',
+          description: '든든한 한끼! 촉촉한 계란말이 레시피',
+          thumbnail: 'https://via.placeholder.com/300x200?text=계란말이',
+        },
+        {
+          id: 'fallback2',
+          title: '비빔국수',
+          description: '매콤새콤! 여름 입맛을 돋우는 국수 레시피',
+          thumbnail: 'https://via.placeholder.com/300x200?text=비빔국수',
+        },
+      ];
+      const fallbackHot = [
+        {
+          id: 'fallback3',
+          title: '불고기',
+          description: '달달하고 짭짤한 불고기 한 끼',
+          thumbnail: 'https://via.placeholder.com/300x200?text=불고기',
+        },
+      ];
+      
+      setRecommendRecipes(fallbackRecommend);
+      setHotRecipes(fallbackHot);
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
-  // 서버에서 받아올거면 이렇게 쓰라는데 
-  //   const fetchRecipes = async () => {
-  //     const recommend = await fetch('#').then(res => res.json());
-  //     const hot = await fetch('#').then(res => res.json());
-  //     setRecommendRecipes(recommend);
-  //     setHotRecipes(hot);
-  //   };
-  //   fetchRecipes();
-  // }, []);
-  // 서버에서 title, description, thumbnail 받도록하면 될듯
+
 
   const RecipeCard = ({ recipe, onPress }) => (
     <TouchableOpacity style={styles.card} onPress={() => onPress(recipe)} activeOpacity={0.8}>
@@ -65,9 +106,23 @@ const HomeMain = () => {
     </TouchableOpacity>
   );
 
-  return (
-    
+  if (loading) {
+    return (
       <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Image source={require('../../assets/signature.png')} style={styles.signature} />
+          <Text style={styles.headerTitle}>Cookit</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="orange" />
+          <Text style={styles.loadingText}>레시피를 불러오는 중...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Image source={require('../../assets/signature.png')} style={styles.signature} />
           <Text style={styles.headerTitle}>Cookit</Text>
@@ -84,9 +139,12 @@ const HomeMain = () => {
           <View style={styles.recommendRow}>
             {recommendRecipes.slice(0, 2).map((item, idx) => (
               <TouchableOpacity
-                key={idx}
+                key={item.id}
                 style={styles.miniCard}
-                onPress={() => navigation.navigate('SearchList', { query: item.title })}
+                onPress={() => navigation.navigate('Summary', { 
+                  recipeId: item.id, 
+                  recipe: item 
+                })}
                 activeOpacity={0.8}
               >
                 <Image source={{ uri: item.thumbnail }} style={styles.miniThumbnail} />
@@ -100,15 +158,17 @@ const HomeMain = () => {
           <Text style={styles.homeText}>오늘의 인기 요리</Text>
           {hotRecipes.map((item, idx) => (
             <RecipeCard
-              key={idx}
+              key={item.id}
               recipe={item}
-              onPress={(r) => navigation.navigate('SearchList', { query: r.title })}
+              onPress={(r) => navigation.navigate('Summary', { 
+                recipeId: r.id, 
+                recipe: r 
+              })}
             />
           ))}
         </View>
 
       </SafeAreaView>
-    
   )
 }
 
@@ -227,5 +287,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#eee',
     marginTop: 10,
     marginBottom: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
   },
 })

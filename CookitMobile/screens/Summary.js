@@ -8,13 +8,11 @@ import React, { useState, useEffect } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'; // 안드로이드 버튼 하단 보장
-import ModalDelete from './modal/ModalDelete'
 import { supabase } from '../lib/supabase'
 
 const Summary = () => {
 
   const insets = useSafeAreaInsets();
-  const [showModal, setShowModal] = React.useState(false);
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation();
@@ -61,29 +59,26 @@ const Summary = () => {
   }, [receivedRecipeId]);
 
   const handleDelete = () => {
-    setShowModal(true);
-  };
-
-  const handleConfirm = () => {
-    setShowModal(false);
     navigation.replace("HomeTab");
-  };
-
-  const handleCancel = () => {
-    setShowModal(false);
   };
   const handleStart = () => {
     // recipeId가 있으면 해당 ID로 Recipe 화면으로 이동
     if (receivedRecipeId) {
       navigation.replace("Recipe", { 
-        recipeId: receivedRecipeId
+        screen: 'RecipeMain',
+        params: { 
+          recipeId: receivedRecipeId
+        }
       });
     } else {
       // Summary 화면에서 직접 접근한 경우 - 실제 레시피 ID 사용
       // 가장 최근 레시피 ID 사용 (데모용)
       const demoRecipeId = "73928ef2-12d2-4d17-9e51-f1dcccfaf878"; // 백종원 초간단 참치마요덮밥
       navigation.replace("Recipe", { 
-        recipeId: demoRecipeId
+        screen: 'RecipeMain',
+        params: { 
+          recipeId: demoRecipeId
+        }
       });
     }
   }
@@ -176,13 +171,6 @@ const Summary = () => {
           </TouchableOpacity>
         </View>
 
-        {showModal && (
-          <ModalDelete
-            visible={showModal}
-            message="요약된 정보가 삭제됩니다. 계속하시겠습니까?"
-            onCancel={handleCancel}
-            onConfirm={handleConfirm}
-          />)}
       </View>
     </SafeAreaView>
   )
