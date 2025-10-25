@@ -44,19 +44,6 @@ const HomeMain = () => {
     setHotRecipes(sampleHot);
   }, []);
 
-
-
-  // 서버에서 받아올거면 이렇게 쓰라는데 
-  //   const fetchRecipes = async () => {
-  //     const recommend = await fetch('#').then(res => res.json());
-  //     const hot = await fetch('#').then(res => res.json());
-  //     setRecommendRecipes(recommend);
-  //     setHotRecipes(hot);
-  //   };
-  //   fetchRecipes();
-  // }, []);
-  // 서버에서 title, description, thumbnail 받도록하면 될듯
-
   const RecipeCard = ({ recipe, onPress }) => (
     <TouchableOpacity style={styles.card} onPress={() => onPress(recipe)} activeOpacity={0.8}>
       <Image source={{ uri: recipe.thumbnail }} style={styles.thumbnail} />
@@ -79,8 +66,9 @@ const HomeMain = () => {
           <Text style={styles.ButtonText}>🔍 검색어를 입력하세요</Text>
         </TouchableOpacity>
 
+ {/* 보유 재료 기반 추천 */}
         <View style={styles.recommendBox}>
-          <Text style={styles.homeText}>추천 요리</Text>
+          <Text style={styles.homeText}>나의 재료로 만들 수 있는 요리</Text>
           <View style={styles.recommendRow}>
             {recommendRecipes.slice(0, 2).map((item, idx) => (
               <TouchableOpacity
@@ -96,8 +84,9 @@ const HomeMain = () => {
             ))}
           </View>
         </View>
-        <View style={styles.hotBox}>
-          <Text style={styles.homeText}>오늘의 인기 요리</Text>
+        {/* 선호 재료 기반 추천 */}
+        <View style={styles.hotBox}> 
+          <Text style={styles.homeText}>이런 요리는 어떠세요?</Text>
           {hotRecipes.map((item, idx) => (
             <RecipeCard
               key={idx}
@@ -225,7 +214,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#eee',
-    marginTop: 10,
+    marginTop: 12,
     marginBottom: 8,
   },
 })

@@ -7,19 +7,7 @@ import { createComment, deleteComment, getComments } from '../../services/commen
 import { toggleLike } from '../../services/likesApi';
 import { deletePost, getPostById } from '../../services/postsApi';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  FlatList,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons'; 
 
@@ -254,7 +242,7 @@ export default function CommunityDetail() {
               />
             </TouchableOpacity>
             <Text style={styles.likeCountText}>
-              {likeCount} likes
+              {likeCount} 
             </Text>
           </View>
 

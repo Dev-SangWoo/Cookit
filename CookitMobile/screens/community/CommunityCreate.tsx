@@ -158,6 +158,7 @@ export default function CommunityCreate() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20 }}>커뮤니티 글 작성</Text>
       <TextInput
         style={styles.input}
         placeholder="제목"

@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 
-// Ingredients.js에서 가져온 유통기한 계산 함수 (타입 주석 제거)
+// Ingredients.js에서 가져온 유통기한 계산 함수
 const calculateExpiry = (expiryDate) => {
     const today = new Date();
     const expiry = new Date(expiryDate);
@@ -36,15 +36,12 @@ export default function SetupIngredients() {
     const { user } = useAuth();
     const navigation = useNavigation();
     const [isModalVisible, setIsModalVisible] = useState(false);
-    // 타입 주석 <any[]> 제거
     const [ingredients, setIngredients] = useState([]);
 
-    // 인자 타입 주석 제거
     const handleAddIngredient = (newIngredient) => {
         setIngredients([...ingredients, { ...newIngredient, expiry: newIngredient.expiry }]);
     };
 
-    // 인자 타입 주석 제거
     const handleRemoveIngredient = (ingredientToRemove) => {
         setIngredients(ingredients.filter(ing =>
             ing.name !== ingredientToRemove.name ||
@@ -87,7 +84,18 @@ export default function SetupIngredients() {
     return (
         <View style={styles.container}>
             <Text style={styles.step}>4/4</Text>
-            <Text style={styles.title}>냉장고 등록</Text>
+
+            {/* 타이틀과 버튼을 감싸는 컨테이너 */}
+            <View style={styles.titleContainer}>
+                <Text style={styles.title}>냉장고 등록</Text>
+                <TouchableOpacity
+                    style={styles.addIconBtn}
+                    onPress={() => setIsModalVisible(true)}
+                >
+                    <Text style={styles.addIconBtnText}>+</Text>
+                </TouchableOpacity>
+            </View>
+
             <Text style={styles.titleText}>현재 보유한 재료와{"\n"}유통기한을 등록해 주세요</Text>
             <Text style={styles.sectionTitle}>현재 보유한 재료</Text>
 
@@ -115,12 +123,6 @@ export default function SetupIngredients() {
                         );
                     })}
                 </ScrollView>
-                <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => setIsModalVisible(true)}
-                >
-                    <Text style={styles.addButtonText}>+</Text>
-                </TouchableOpacity>
             </View>
 
             <SetupIngredientsModal
@@ -153,11 +155,39 @@ const styles = StyleSheet.create({
         fontSize: 16,
         marginBottom: 10,
     },
+
+    // ✅ 새로운 타이틀-버튼 컨테이너
+    titleContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20, // 이전 title의 여백을 여기서 처리
+    },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        marginBottom: 20,
+        // marginBottom 제거
     },
+    // ✅ 타이틀 옆에 배치된 + 버튼 스타일
+    addIconBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'orange',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        elevation: 4,
+    },
+    addIconBtnText: {
+        fontSize: 24,
+        color: 'white',
+        lineHeight: 24, // 텍스트를 수직 중앙에 맞추기 위해 조정
+    },
+
     titleText: {
         fontSize: 16,
         color: '#555',
@@ -174,22 +204,20 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderRadius: 8,
         padding: 10,
-        minHeight: 450,
-        maxHeight: 800, 
-        flexDirection: 'column',
+        minHeight: 400, // 버튼이 밖으로 나가면서 높이 조정
+        maxHeight: 800,
     },
     scrollArea: {
         flex: 1,
-        marginBottom: 10,
+        // marginBottom 제거됨 (하단의 전체 너비 버튼이 없어짐)
     },
     ingredientTag: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center', 
+        alignItems: 'center',
         width: '100%',
         padding: 15,
         borderRadius: 10,
-       
         borderColor: '#ddd',
         borderWidth: 1,
         marginBottom: 8,
@@ -207,29 +235,15 @@ const styles = StyleSheet.create({
         color: '#555',
         fontSize: 14,
     },
-    // 유통기한 텍스트 스타일 추가
     ingredientExpiry: {
         fontWeight: 'bold',
         fontSize: 15,
     },
-    addButton: {
-        width: '100%',
-        height: 50,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: '#ccc',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    addButtonText: {
-        fontSize: 20,
-        color: '#333',
-        lineHeight: 20,
-    },
+    // 기존 addButton 관련 스타일 제거됨
     buttonWrapper: {
         justifyContent: 'flex-end',
-        marginBottom: 20, // 하단 여백 조정
-        marginTop: 20, // 상단 여백 추가
+        marginBottom: 20,
+        marginTop: 20,
     },
     buttonNext: {
         backgroundColor: 'orange',

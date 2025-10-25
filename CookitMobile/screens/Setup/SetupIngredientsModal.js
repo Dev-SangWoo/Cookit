@@ -1,4 +1,4 @@
-// 재료 추가/수정 모달
+// 재료 추가/수정 모달 버튼 크기 수정 
 
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
@@ -185,23 +185,27 @@ const modalStyles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   cancelButton: {
     backgroundColor: '#ccc',
     borderRadius: 20,
-    padding: 10,
+    paddingVertical: 15,
     marginHorizontal: 10,
+    width: '45%',
   },
   addButton: {
     backgroundColor: 'orange',
     borderRadius: 20,
-    padding: 10,
+    paddingVertical: 15,
     marginHorizontal: 10,
+    width: '45%',
   },
   buttonText: {
     color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
+    fontSize: 18,
   },
   quantityContainer: {
     flexDirection: 'row',

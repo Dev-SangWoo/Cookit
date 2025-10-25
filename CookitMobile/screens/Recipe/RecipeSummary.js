@@ -1,6 +1,4 @@
 // 요약한 내용을 보여주는 곳 TEXT로 정리
-// 재료랑 필요한 양이 나와있는데 원한다면 재료 구매 탭 만들기도 가능(쿠팡으로 보내기)
-
 
 
 import { ScrollView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'

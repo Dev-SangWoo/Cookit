@@ -10,7 +10,7 @@ export default function Ingredients() {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [ingredients, setIngredients] = useState([]);
-  
+
   useEffect(() => {
     fetchIngredients();
   }, []);
@@ -20,7 +20,7 @@ export default function Ingredients() {
       .from('receipt_items')
       .select('*')
       .eq('user_id', user?.id)
-      .order('expiry_date', { ascending: true }); 
+      .order('expiry_date', { ascending: true });
 
     if (error) {
       Alert.alert('오류', '재료를 불러오는 데 실패했습니다.');
@@ -31,37 +31,37 @@ export default function Ingredients() {
 
   const calculateExpiry = (expiryDate) => {
     // 🚨 날짜 파싱 안정성을 위해 형식 변환 로직을 추가합니다. (이전 대화에서 다룬 내용)
-    const dateToParse = expiryDate ? expiryDate.replace(/\//g, '-') : ''; 
+    const dateToParse = expiryDate ? expiryDate.replace(/\//g, '-') : '';
 
     const today = new Date();
     const expiry = new Date(dateToParse);
 
     // 날짜 파싱 실패 방지
     if (!dateToParse || isNaN(expiry.getTime())) {
-        return { diffDays: NaN, text: 'D-??', color: 'gray' };
+      return { diffDays: NaN, text: 'D-??', color: 'gray' };
     }
-    
+
     today.setHours(0, 0, 0, 0);
     expiry.setHours(0, 0, 0, 0);
-    
+
     const diffTime = expiry.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     let text;
     let color;
-    
+
     if (diffDays > 0) {
-        text = `D-${diffDays}`;
-        color = 'green';
+      text = `D-${diffDays}`;
+      color = 'green';
     } else if (diffDays === 0) {
-        text = 'D-Day';
-        color = 'orange'; 
+      text = 'D-Day';
+      color = 'orange';
     } else {
-        text = `D+${Math.abs(diffDays)}`;
-        color = 'red';
+      text = `D+${Math.abs(diffDays)}`;
+      color = 'red';
     }
     return { diffDays, text, color };
-};
+  };
 
   const handleAddIngredient = async (newIngredient) => {
     const { error } = await supabase
@@ -80,7 +80,7 @@ export default function Ingredients() {
       fetchIngredients();
     }
   };
-  
+
 
   const handleEditIngredient = async (updatedIngredient) => {
     const { error } = await supabase
@@ -96,8 +96,8 @@ export default function Ingredients() {
     if (error) {
       Alert.alert('수정 실패', error.message);
     } else {
-      fetchIngredients(); 
-      setIsEditModalVisible(false); 
+      fetchIngredients();
+      setIsEditModalVisible(false);
     }
   };
 
@@ -105,7 +105,7 @@ export default function Ingredients() {
     const { error } = await supabase
       .from('receipt_items')
       .delete()
-      .eq('id', item.id); 
+      .eq('id', item.id);
 
     if (error) {
       Alert.alert('삭제 실패', error.message);
@@ -135,16 +135,25 @@ export default function Ingredients() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+      
       <Text style={styles.title}>내 냉장고</Text>
+      <TouchableOpacity
+        style={styles.headerAddButton}
+        onPress={() => setIsModalVisible(true)}
+      >
+        <Text style={{ fontSize: 18, color: '#fff' }}>재료 등록</Text>
+      </TouchableOpacity>
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
+
         {expiredIngredients.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionHeader, { color: '#FF0000' }]}> 유통기한 지난 재료</Text>
             {expiredIngredients.map((ingredient, index) => {
               const expiryInfo = calculateExpiry(ingredient.expiry_date);
               return (
-                <TouchableOpacity 
+                <TouchableOpacity
                   key={ingredient.id || index}
                   style={[styles.ingredientTag, { backgroundColor: getTagColor(expiryInfo.diffDays) }]}
                   onPress={() => handleRemoveIngredient(ingredient)}
@@ -169,7 +178,7 @@ export default function Ingredients() {
             {freshIngredients.map((ingredient, index) => {
               const expiryInfo = calculateExpiry(ingredient.expiry_date);
               return (
-                <TouchableOpacity 
+                <TouchableOpacity
                   key={ingredient.id || index}
                   style={[styles.ingredientTag, { backgroundColor: getTagColor(expiryInfo.diffDays) }]}
                   onPress={() => handleRemoveIngredient(ingredient)}
@@ -189,13 +198,6 @@ export default function Ingredients() {
         )}
       </ScrollView>
 
-      <TouchableOpacity 
-        style={styles.addButton}
-        onPress={() => setIsModalVisible(true)}
-      >
-        <Text style={styles.addButtonText}>+</Text>
-      </TouchableOpacity>
-
       <SetupIngredientsModal
         visible={isModalVisible}
         onClose={() => setIsModalVisible(false)}
@@ -206,8 +208,8 @@ export default function Ingredients() {
       <SetupIngredientsModal
         visible={isEditModalVisible}
         onClose={() => setIsEditModalVisible(false)}
-        onAddIngredient={handleEditIngredient} 
-        isEditing={true} 
+        onAddIngredient={handleEditIngredient}
+        isEditing={true}
         initialData={selectedItem}
       />
     </View>
@@ -220,11 +222,27 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#fff',
   },
+        header: {
+            paddingHorizontal: 16,
+            marginBottom: 8,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+      },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
   },
+        headerAddButton: {
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            backgroundColor: '#FFC107',
+            borderRadius: 8, 
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginLeft: 10,
+      },
   scrollContent: {
     paddingBottom: 20,
   },
@@ -266,27 +284,6 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     fontSize: 16,
-  },
-  addButton: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'orange',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  addButtonText: {
-    color: 'white',
-    fontSize: 30,
-    lineHeight: 30,
   },
   sectionHeader: {
     width: '100%',

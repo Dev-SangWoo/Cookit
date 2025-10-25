@@ -1,25 +1,12 @@
 // 검색 내용을 보여주는 부분
 
 
-// 고려해야할 부분
-// 1. 사용자가 검색을 하면 검색 내용을 서버에서 검색해주고 
-//     리스트들을 받아서 SearchList.js에서 보여줄 예정 
-//     받아올 내용은 id(필요할지는 모름), title(제목), thumbnail(썸네일), channel(채널 이름)
-//     AI 말로는 YouTube Data API v3 를 쓰면 조회수, 제목, 제작자 정보, 썸네일을 가져올 수 있는듯?
-
-//     사용자 검색 => 검색 내용 서버로 보내기 
-//     => 서버에서 검색한 결과를 앱으로 보내기 => 그 결과를 받아서 보여주기
-
-// 탭을 만들어서 조회수 순, 최근 순, ... 탭 만들어서 할 수 있으면 좋을지도
-
-
-
 import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text, View, FlatList, Image, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import SearchInput from '../../components/SearchInput';
-import Sort from '../../components/Sort';
+import Sort from '../../components/SearchSort';
 import { supabase } from '../../lib/supabase';
 
 const SearchList = () => {
@@ -83,6 +70,7 @@ const SearchList = () => {
                     title: item.title,
                     thumbnail: item.image_urls?.[0] || 'https://via.placeholder.com/100x70', // 이미지 없으면 빈 값
                     creator: item.channel,
+                    description: item.description,
                   })
                 }
               >

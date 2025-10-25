@@ -1,4 +1,5 @@
-// 요약이 진행중임을 알리는 모달
+// 요약이 진행중임을 알리는 모달  
+// 진척도 알려주는 것 구현 필요
 
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'

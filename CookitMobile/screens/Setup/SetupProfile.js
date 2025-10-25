@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     avatarPreview: {
         width: 120,
         height: 120,
-        borderRadius: 15,
+        borderRadius: 25,
         alignSelf: 'center',
         marginVertical: 16,
     },

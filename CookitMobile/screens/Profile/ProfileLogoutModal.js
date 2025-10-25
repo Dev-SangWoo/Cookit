@@ -1,4 +1,4 @@
-// 로그아웃 모달
+// 로그아웃 하시겠습니까? 모달 / 버튼 크기 바꾼 것 말고는 없음
 
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
@@ -10,11 +10,11 @@ export default function ProfileLogoutModal({ visible, onConfirm, onCancel }) {
         <View style={styles.modalBox}>
           <Text style={styles.text}>정말 로그아웃 하시겠어요?</Text>
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.logout} onPress={onConfirm}>
-              <Text style={styles.buttonText}>로그아웃</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.cancel} onPress={onCancel}>
               <Text style={styles.buttonText}>취소</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logout} onPress={onConfirm}>
+              <Text style={styles.buttonText}>로그아웃</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -43,24 +43,24 @@ const styles = StyleSheet.create({
     },
     buttonRow: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
+        justifyContent: 'space-between', 
     },
-buttonText: {
-  color: '#fff',
-  fontSize: 16,
-  fontWeight: 'bold',
-  textAlign: 'center',
-},
-cancel: {
-  paddingVertical: 10,
-  paddingHorizontal: 20,
-  backgroundColor: '#aaa',
-  borderRadius: 8,
-},
-logout: {
-  paddingVertical: 10,
-  paddingHorizontal: 20,
-  backgroundColor: 'orange',
-  borderRadius: 8,
-},
+    buttonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: 'bold',
+      textAlign: 'center',
+    },
+    cancel: {
+      paddingVertical: 10,
+      width: '45%', 
+      backgroundColor: '#aaa',
+      borderRadius: 8,
+    },
+    logout: {
+      paddingVertical: 10,
+      width: '45%',
+      backgroundColor: 'orange', 
+      borderRadius: 8,
+    },
 });

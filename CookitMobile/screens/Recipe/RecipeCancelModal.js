@@ -1,4 +1,5 @@
-// 요약한 레시피 삭제하는 모달
+// 분석이 완료되고 RecipeSummary 파일에서 Text로 보여지는데 
+// 요리하지 않을 경우 취소 버튼을 눌렀을 때 보여지는 모달
 
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
