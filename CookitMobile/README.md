@@ -1,94 +1,78 @@
-# CookIt Mobile App
+# 🍳 Cookit Mobile App (Expo / React Native)
 
-React Native/Expo 기반의 요리 레시피 앱입니다.
+AI 기반 영상 요리 분석 및 레시피 공유 플랫폼 **Cookit**의 모바일 프론트엔드입니다.  
+Expo 환경에서 구동되며, Supabase와 연동되어 회원가입 / 로그인 / 레시피 불러오기 / AI 분석 기능을 제공합니다.
 
-## 🚀 시작하기
+---
 
-### 1. 저장소 클론
-```bash
-git clone <repository-url>
-cd CookitMobile
-```
+## 🚀 실행 환경
 
-### 2. 의존성 설치
+- **Expo SDK:** 54
+- **Node.js:** ≥ 18.x
+- **React Native:** 0.81.x
+- **패키지 매니저:** npm or yarn
+
+---
+
+## ⚙️ 설치 및 실행
+
+### 1️⃣ 의존성 설치
 ```bash
 npm install
-```
+2️⃣ 환경 변수 설정
+프로젝트 루트(CookitMobile/)에 .env 파일을 생성하고, 예시를 참고하여 실제 값으로 변경합니다.
 
-### 3. 환경변수 설정
-```bash
-# .env.example을 .env로 복사
+bash
+코드 복사
 cp .env.example .env
+.env 예시:
 
-# Windows 사용자는:
-copy .env.example .env
-
-# .env 파일을 열어서 실제 값들로 수정
-# - EXPO_PUBLIC_SUPABASE_URL: Supabase 프로젝트 URL
-# - EXPO_PUBLIC_SUPABASE_ANON_KEY: Supabase 익명 키
-```
-
-### 4. 앱 실행
-```bash
+bash
+코드 복사
+EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
+EXPO_PUBLIC_API_URL=http://192.168.x.x:3000/api
+EXPO_PUBLIC_ENV=development
+EXPO_PUBLIC_APP_VERSION=1.0.0
+3️⃣ 실행 (안드로이드 에뮬레이터 또는 Expo Go)
+bash
+코드 복사
 npx expo start
-```
+Android: a
 
-## 📋 환경변수 설정 가이드
+iOS (Mac 환경): i
 
-### Supabase 설정 방법:
+웹 브라우저: w
 
-1. [Supabase](https://supabase.com/)에 접속하여 프로젝트 생성 (또는 기존 프로젝트 사용)
-2. 프로젝트 대시보드에서 **Settings → API** 페이지로 이동
-3. 다음 값들을 복사:
-   - **Project URL** → `EXPO_PUBLIC_SUPABASE_URL`에 입력
-   - **anon public** 키 → `EXPO_PUBLIC_SUPABASE_ANON_KEY`에 입력
-4. `.env` 파일에 해당 값들을 입력
+🔐 주의사항
+.env 파일은 절대 깃허브에 올리지 마세요.
 
-### .env 파일 예시:
-```env
-EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+대신 .env.example만 공유해 팀원이 복사해서 사용합니다.
 
-## 🤝 협업 가이드
+실제 API 서버 IP는 로컬 네트워크 환경에 맞게 변경해야 합니다 (예: http://192.168.0.10:3000/api).
 
-### ⚠️ 중요한 규칙:
-- **절대 `.env` 파일을 Git에 커밋하지 마세요!**
-- **새로운 환경변수 추가 시 `.env.example`도 함께 업데이트하세요**
-- **민감한 정보는 팀 내부 문서나 보안 채널로 공유하세요**
+📦 주요 기술 스택
+영역	기술
+Framework	React Native (Expo)
+Backend 연동	Supabase
+인증	Supabase Auth (Google OAuth 지원)
+스타일링	React Native StyleSheet
+HTTP 통신	Axios
+AI 분석 결과 Polling	Custom interval polling (15초 간격)
 
-### 새로운 팀원 온보딩:
-1. 저장소 클론
-2. `npm install` 실행
-3. `.env.example`을 `.env`로 복사
-4. 팀장에게 Supabase 프로젝트 접근 권한 요청
-5. 실제 환경변수 값들을 `.env`에 입력
-6. `npx expo start`로 앱 실행
-
-## 📁 프로젝트 구조
-
-```
+📁 폴더 구조
+arduino
+코드 복사
 CookitMobile/
-├── components/     # 재사용 가능한 컴포넌트
-├── contexts/       # React Context (상태 관리)
-├── lib/           # 라이브러리 설정 (Supabase 등)
-├── screens/       # 화면 컴포넌트
-├── types/         # TypeScript 타입 정의
-├── assets/        # 이미지, 폰트 등 정적 파일
-├── .env.example   # 환경변수 템플릿
-└── README.md      # 이 파일
-```
-
-## 🛠️ 기술 스택
-
-- **React Native** + **Expo**
-- **TypeScript**
-- **Supabase** (백엔드/데이터베이스)
-- **React Navigation** (네비게이션)
-- **AsyncStorage** (로컬 저장소)
-
-## 📱 지원 플랫폼
-
-- iOS (Expo Go 앱 또는 개발 빌드)
-- Android (Expo Go 앱 또는 개발 빌드)
-- 웹 (개발 모드)
+├── app.config.js
+├── app.json
+├── .env.example
+├── screens/
+│   ├── AIAnalyze.js
+│   ├── RecipeMain.js
+│   ├── RecipeSummary.js
+│   └── Setup/
+├── components/
+├── lib/
+│   └── supabase.js
+└── assets/
