@@ -62,7 +62,7 @@ cd Server
 npm install
 npm start
 ```
-➡️ 서버 주소: http://192.168.x.x:3000
+➡️ 서버 주소: http://192.x.x.x:3000
 
 ---
 
