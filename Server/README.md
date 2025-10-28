@@ -1,6 +1,6 @@
 ---
 
-## 🧩 `Server/README.md`
+🧩 `Server/README.md`
 
 ```markdown
 # 🧠 Cookit Server (Node.js + Express + Supabase + AI)
