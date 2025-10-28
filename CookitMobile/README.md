@@ -64,8 +64,7 @@ AI 분석 결과 Polling	Custom interval polling (15초 간격)
 ---
 
 📁 폴더 구조
-arduino
-코드 복사
+```arduino
 CookitMobile/
 ├── app.config.js
 ├── app.json
@@ -79,3 +78,4 @@ CookitMobile/
 ├── lib/
 │   └── supabase.js
 └── assets/
+```
