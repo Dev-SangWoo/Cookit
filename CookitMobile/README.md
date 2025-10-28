@@ -20,7 +20,7 @@ Expo 환경에서 구동되며, Supabase와 연동되어 회원가입 / 로그�
 ```bash
 npm install
 ```
-###2️⃣ 환경 변수 설정
+### 2️⃣ 환경 변수 설정
 프로젝트 루트(CookitMobile/)에 .env 파일을 생성하고, 예시를 참고하여 실제 값으로 변경합니다.
 
 ```bash
@@ -35,7 +35,7 @@ EXPO_PUBLIC_API_URL=http://192.168.x.x:3000/api
 EXPO_PUBLIC_ENV=development
 EXPO_PUBLIC_APP_VERSION=1.0.0
 ```
-###3️⃣ 실행 (안드로이드 에뮬레이터 또는 Expo Go)
+### 3️⃣ 실행 (안드로이드 에뮬레이터 또는 Expo Go)
 ```bash
 npx expo start
 ```
