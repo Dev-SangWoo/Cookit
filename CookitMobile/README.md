@@ -53,13 +53,13 @@ npx expo start
 ---
 
 📦 주요 기술 스택
-영역	기술
-Framework	React Native (Expo)
-Backend 연동	Supabase
-인증	Supabase Auth (Google OAuth 지원)
-스타일링	React Native StyleSheet
-HTTP 통신	Axios
-AI 분석 결과 Polling	Custom interval polling (15초 간격)
+영역	               |   기술
+Framework	           |   React Native (Expo)
+Backend 연동         |   Supabase
+인증	               |   Supabase Auth (Google OAuth 지원)
+스타일링	             |   React Native StyleSheet
+HTTP 통신	           |   Axios
+AI 분석 결과 Polling	 | Custom interval polling (15초 간격)
 
 ---
 
