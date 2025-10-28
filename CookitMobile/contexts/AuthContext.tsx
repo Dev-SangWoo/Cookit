@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('display_name, favorite_cuisines')
+        .select('display_name, favorite_cuisines, bio')
         .eq('id', userId)
         .single();
 
@@ -43,9 +43,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // display_name이 있고 favorite_cuisines이 설정되어 있으면 초기 설정 완료로 간주
-      const isComplete = !!(data?.display_name && data?.favorite_cuisines?.length > 0);
-      console.log('초기 설정 완료 여부:', isComplete);
+      // display_name, bio, favorite_cuisines가 모두 설정되어 있으면 초기 설정 완료로 간주
+      const isComplete = !!(
+        data?.display_name && 
+        data?.bio && 
+        data?.favorite_cuisines?.length > 0
+      );
+      console.log('초기 설정 완료 여부:', isComplete, {
+        display_name: !!data?.display_name,
+        bio: !!data?.bio,
+        favorite_cuisines: data?.favorite_cuisines?.length > 0
+      });
       setIsSetupComplete(isComplete);
     } catch (err) {
       console.error('설정 확인 중 오류:', err);

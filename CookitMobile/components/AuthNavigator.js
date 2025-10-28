@@ -18,6 +18,13 @@ import RecipeList from '../screens/RecipeList';
 import AIAnalyze from '../screens/AIAnalyze';
 import RecipeStack from '../screens/Recipe/RecipeStack';
 import SearchStack from '../screens/Search/SearchStack';
+import ReceiptStack from '../screens/Receipt/ReceiptStack';
+import SettingsStack from '../screens/Settings/SettingsStack';
+import ProfileMain from '../screens/Profile/ProfileMain';
+import ProfileEdit from '../screens/Profile/ProfileEdit';
+import ProfileAlarm from '../screens/Profile/ProfileAlarm';
+import ProfileHistory from '../screens/Profile/ProfileHistory';
+import ProfileLikes from '../screens/Profile/ProfileLikes';
 
 const Stack = createNativeStackNavigator();
 
@@ -65,6 +72,13 @@ export default function AuthNavigator() {
             <Stack.Screen name="AIAnalyze" component={AIAnalyze} />
             <Stack.Screen name="Recipe" component={RecipeStack} />
             <Stack.Screen name="Search" component={SearchStack} />
+            <Stack.Screen name="Receipt" component={ReceiptStack} />
+            <Stack.Screen name="Settings" component={SettingsStack} />
+            <Stack.Screen name="Profile" component={ProfileMain} />
+            <Stack.Screen name="ProfileEdit" component={ProfileEdit} />
+            <Stack.Screen name="ProfileAlarm" component={ProfileAlarm} />
+            <Stack.Screen name="ProfileHistory" component={ProfileHistory} />
+            <Stack.Screen name="ProfileLikes" component={ProfileLikes} />
           </>
         )}
       </Stack.Navigator>

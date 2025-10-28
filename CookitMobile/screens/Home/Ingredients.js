@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView, Modal } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import SetupIngredientsModal from '../Setup/SetupIngredientsModal';
+import { useNavigation } from '@react-navigation/native';
+import notificationService from '../../services/notificationService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Ingredients() {
   const { user } = useAuth();
+  const navigation = useNavigation();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [isSelectionModalVisible, setIsSelectionModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [ingredients, setIngredients] = useState([]);
   
@@ -77,6 +82,8 @@ export default function Ingredients() {
     if (error) {
       Alert.alert('저장 실패', error.message);
     } else {
+      // 유통기한 알림 스케줄링
+      await scheduleExpiryNotification(newIngredient.name, newIngredient.expiry);
       fetchIngredients();
     }
   };
@@ -131,6 +138,43 @@ export default function Ingredients() {
   const openEditModal = (item) => {
     setSelectedItem(item);
     setIsEditModalVisible(true);
+  };
+
+  // 선택 모달 열기
+  const openSelectionModal = () => {
+    setIsSelectionModalVisible(true);
+  };
+
+  // 수동 입력 선택
+  const handleManualInput = () => {
+    setIsSelectionModalVisible(false);
+    setIsModalVisible(true);
+  };
+
+  // 영수증 OCR 선택
+  const handleReceiptOcr = () => {
+    setIsSelectionModalVisible(false);
+    navigation.navigate('Receipt', { screen: 'ReceiptMain' });
+  };
+
+  // 유통기한 알림 스케줄링
+  const scheduleExpiryNotification = async (ingredientName, expiryDate) => {
+    try {
+      // 알림 설정 확인
+      const settings = await AsyncStorage.getItem('notificationSettings');
+      if (settings) {
+        const { expiryNotifications, expiryHoursBefore } = JSON.parse(settings);
+        if (expiryNotifications) {
+          await notificationService.scheduleExpiryNotification(
+            ingredientName,
+            expiryDate,
+            expiryHoursBefore || 24
+          );
+        }
+      }
+    } catch (error) {
+      console.error('유통기한 알림 스케줄링 실패:', error);
+    }
   };
 
   return (
@@ -191,7 +235,7 @@ export default function Ingredients() {
 
       <TouchableOpacity 
         style={styles.addButton}
-        onPress={() => setIsModalVisible(true)}
+        onPress={openSelectionModal}
       >
         <Text style={styles.addButtonText}>+</Text>
       </TouchableOpacity>
@@ -210,6 +254,46 @@ export default function Ingredients() {
         isEditing={true} 
         initialData={selectedItem}
       />
+
+      {/* 선택 모달 */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isSelectionModalVisible}
+        onRequestClose={() => setIsSelectionModalVisible(false)}
+      >
+        <View style={styles.selectionModalOverlay}>
+          <View style={styles.selectionModalContent}>
+            <Text style={styles.selectionModalTitle}>재료 추가 방법</Text>
+            <Text style={styles.selectionModalSubtitle}>어떤 방법으로 재료를 추가하시겠습니까?</Text>
+            
+            <TouchableOpacity 
+              style={styles.selectionButton}
+              onPress={handleManualInput}
+            >
+              <Text style={styles.selectionButtonIcon}>✏️</Text>
+              <Text style={styles.selectionButtonTitle}>수동 입력</Text>
+              <Text style={styles.selectionButtonSubtitle}>직접 재료 정보를 입력합니다</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.selectionButton}
+              onPress={handleReceiptOcr}
+            >
+              <Text style={styles.selectionButtonIcon}>📷</Text>
+              <Text style={styles.selectionButtonTitle}>영수증 촬영</Text>
+              <Text style={styles.selectionButtonSubtitle}>영수증을 촬영하여 자동으로 추가합니다</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.selectionCancelButton}
+              onPress={() => setIsSelectionModalVisible(false)}
+            >
+              <Text style={styles.selectionCancelButtonText}>취소</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -294,5 +378,74 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 15,
     marginBottom: 10,
+  },
+  // 선택 모달 스타일
+  selectionModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  selectionModalContent: {
+    width: '85%',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 25,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  selectionModalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#333',
+  },
+  selectionModalSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 25,
+    textAlign: 'center',
+  },
+  selectionButton: {
+    width: '100%',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 15,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  selectionButtonIcon: {
+    fontSize: 32,
+    marginBottom: 10,
+  },
+  selectionButtonTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  selectionButtonSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  selectionCancelButton: {
+    width: '100%',
+    backgroundColor: '#6c757d',
+    borderRadius: 15,
+    padding: 15,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  selectionCancelButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Modal, StyleSheet, } from 'react-native';
 
 const SortDropdown = ({ sortBy, setSortBy }) => {
   const [visible, setVisible] = useState(false);
-  const options = ['인기순', '최신순', '구독자순'];
+  const options = ['관련성순', '조회수순', '최신순', '좋아요순'];
 
   return (
     <View style={styles.dropdownContainer}>

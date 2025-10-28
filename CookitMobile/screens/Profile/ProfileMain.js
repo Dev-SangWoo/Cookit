@@ -1,26 +1,39 @@
-import React, { useEffect, useState } from 'react';
+// 프로필 메인 화면 
+// 전체적인 디자인을 피그마 디자인으로 바꿈 
+// 이번주 요리 활동 부분에 (요리 완성, 저장된 레시피, 요리 레벨) 레벨은 어떻게 할지 모르겠음
+
+import React, { useEffect, useState, useRef } from 'react'; 
 import { View, Text, Image, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import ProfileLogoutModal from './ProfileLogoutModal';
+import ProfileSettingModal from './ProfileSettingModal'; 
 import { useAuth } from '../../contexts/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
-export default function ProfileMain({ navigation }) {
-  const [showModal, setShowModal] = useState(false);
+export default function ProfileMain() {
+  const [showSettingModal, setShowSettingModal] = useState(false);
+  const navigation = useNavigation();
 
-  const handleLogoutPress = () => {
-    setShowModal(true);
+  const settingsButtonRef = useRef(null);
+
+  const [buttonPosition, setButtonPosition] = useState({ x: 0, y: 0, width: 0, height: 0 });
+
+  const handleSettingsPress = () => {
+    settingsButtonRef.current.measureInWindow((x, y, width, height) => {
+      setButtonPosition({ x, y, width, height });
+      setShowSettingModal(true);
+    });
   };
+
+  const handleNavigation = (screenName) => {
+     navigation.navigate(screenName);
+   }
 
   const { signOut } = useAuth();
 
-  const confirmLogout = async () => {
-    setShowModal(false);
+  const handleLogout = async () => {
+    setShowSettingModal(false); 
     await signOut();
-  };
-
-  const cancelLogout = () => {
-    setShowModal(false);
   };
 
   const { user } = useAuth();
@@ -61,11 +74,6 @@ export default function ProfileMain({ navigation }) {
     fetchData();
   }, [user]);
 
-
-  const handlePostPress = (postId) => {
-    navigation.navigate('CommunityDetail', { postId: postId });
-  };
-
   if (!profile) {
     return (
       <View style={styles.loadingContainer}>
@@ -77,32 +85,39 @@ export default function ProfileMain({ navigation }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* 닉네임 + 로그아웃 */}
         <View style={styles.headerRow}>
-          <Text style={styles.nickname}>{profile.display_name}</Text>
-          <TouchableOpacity style={styles.logout} onPress={handleLogoutPress}>
-            <Text style={styles.logoutText}>로그아웃</Text>
+          <Text style={styles.nickname}>마이페이지</Text>
+          <TouchableOpacity 
+            ref={settingsButtonRef} 
+            style={styles.settingsButton} 
+            onPress={handleSettingsPress}
+          > 
+            <Text style={styles.settingsText}>설정</Text>
           </TouchableOpacity>
-          <ProfileLogoutModal
-            visible={showModal}
-            onConfirm={confirmLogout}
-            onCancel={cancelLogout}
+          
+          <ProfileSettingModal
+            visible={showSettingModal}
+            onClose={() => setShowSettingModal(false)}
+            onNavigate={(screenName) => {
+              setShowSettingModal(false);
+              navigation.navigate(screenName);
+            }}
+            onLogout={handleLogout}
+            buttonPosition={buttonPosition} 
           />
         </View>
         <View style={styles.divider} />
-        {/* 프로필 + 이메일 + 자기소개 */}
         <View style={styles.profileRow}>
           <Image
             source={{ uri: profile.avatar_url || 'https://via.placeholder.com/100' }}
             style={styles.avatar}
           />
           <View style={styles.infoColumn}>
-            <Text style={styles.email}>{profile.email || '이메일 정보 없음'}</Text>
+            <Text style={styles.nickname}>{profile.display_name || '닉네임 없음'} 님</Text>
             <Text style={styles.bio}>{profile.bio || '자기소개가 없습니다.'}</Text>
           </View>
         </View>
 
-        {/* 선호 요리 / 알레르기 */}
         <View style={styles.row}>
           <View style={styles.column}>
             <Text style={styles.label}>선호 요리</Text>
@@ -114,33 +129,70 @@ export default function ProfileMain({ navigation }) {
           </View>
         </View>
 
+
+        <View style={styles.activityContainer}>
+          <Text style={styles.sectionTitle}>이번 주 요리 활동</Text>
+          <View style={styles.activityRow}>
+            <View style={styles.activityBox}>
+              <Text style={styles.boxText}></Text>
+              <Text style={styles.subText}>요리 완성</Text>
+            </View>
+            <View style={styles.activityBox}>
+              <Text style={styles.boxText}></Text>
+              <Text style={styles.subText}>저장된 레시피</Text>
+            </View>
+            <View style={styles.activityBox}>
+              <Text style={styles.boxText}></Text>
+              <Text style={styles.subText}>요리 레벨</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.cookSection}>
+          <Text style={styles.sectionTitle}>내 요리</Text>
+          </View>
+        <TouchableOpacity 
+        style={styles.cookBox}
+        onPress={() => handleNavigation('ProfileLikes')}
+        >
+          <Text style={styles.cookText}>좋아요 누른 레시피</Text>
+          <Text style={styles.Arrow}>▶</Text>
+        </TouchableOpacity>
+        <View style={styles.divider} />
+        <TouchableOpacity 
+        style={styles.cookBox}
+        onPress={() => handleNavigation('ProfileHistory')}
+        >
+          <Text style={styles.cookText}>요리 기록</Text>
+                  <Text style={styles.Arrow}>▶</Text>
+        </TouchableOpacity>
+
         {/* 게시물 */}
         <Text style={styles.label}>커뮤니티에 올린 사진들</Text>
         <View style={styles.postGrid}>
           {posts.map((post) => (
-            <TouchableOpacity key={post.post_id} onPress={() => handlePostPress(post.post_id)}>
+            <TouchableOpacity key={post.post_id} onPress={() => navigation.navigate('CommunityDetail', { postId: post.post_id })}>
               <Image
-                // ✅ image_urls 배열의 첫 번째 요소만 사용합니다.
                 source={{ uri: post.image_urls[0] }}
                 style={styles.postImage}
               />
             </TouchableOpacity>
           ))}
         </View>
-
       </ScrollView>
-
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, alignItems: 'center' },
-  avatar: { width: 100, height: 100, borderRadius: 50, marginBottom: 10 },
+  avatar: { width: 100, height: 100, borderRadius: 25, marginBottom: 10 },
   nickname: { fontSize: 20, fontWeight: 'bold' },
   safeArea: {
     flex: 1,
     backgroundColor: '#fff',
+    paddingHorizontal: 15,
+  },
+  container: {
+    paddingBottom: 20,
   },
   profileRow: {
     flexDirection: 'row',
@@ -158,22 +210,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#444',
   },
-  logoutText: {
+  settingsText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  logout: {
+  settingsButton: { 
     paddingVertical: 10,
     paddingHorizontal: 15,
     backgroundColor: '#aaa',
     borderRadius: 8,
   },
-  label: { fontSize: 16, fontWeight: '600', marginTop: 20 },
-  tag: { fontSize: 14, color: '#555' },
-  postGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 10 },
-  postImage: { width: 100, height: 100, margin: 5, borderRadius: 10 },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 20
+  },
+  tag: {
+    fontSize: 14,
+    color: '#555'
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -190,11 +247,6 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 10,
   },
-  email: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -209,5 +261,64 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#ccc',
     marginVertical: 10,
+  },
+  activityContainer: {
+    backgroundColor: '#f0ddf3ff',
+    padding: 10,
+    marginVertical: 10,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  activityBox: {
+    width: '30%',
+    backgroundColor: '#fff',
+    padding: 10,
+  },
+  boxText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  subText: {
+    fontSize: 12,
+    color: '#939292ff',
+    textAlign: 'center',
+  },
+  cookSection: {
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  cookBox: {
+    padding: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cookText: {
+    fontSize: 14,
+  },
+  Arrow: {
+    fontSize: 14,
+    color: '#939292ff',
+  },
+  // 게시물 그리드 스타일
+  postGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  postImage: {
+    width: '30%',
+    height: 100,
+    borderRadius: 8,
+    marginBottom: 10,
   },
 });

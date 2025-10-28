@@ -33,7 +33,7 @@ const getTagColor = (diffDays) => {
 };
 
 export default function SetupIngredients() {
-    const { user } = useAuth();
+    const { user, setSetupComplete } = useAuth();
     const navigation = useNavigation();
     const [isModalVisible, setIsModalVisible] = useState(false);
     // 타입 주석 <any[]> 제거
@@ -77,6 +77,9 @@ export default function SetupIngredients() {
             Alert.alert('저장 실패', error.message);
             return;
         }
+
+        // 초기 설정 완료 상태로 설정
+        setSetupComplete(true);
 
         navigation.reset({
             index: 0,
