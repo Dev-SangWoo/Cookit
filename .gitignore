@@ -1,0 +1,32 @@
+# ======================
+# Cookit ignore rules
+# ======================
+
+# 🔐 Environment files
+.env
+.env.*
+*.env
+
+# 📁 Node modules
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# 📦 Build artifacts
+dist/
+build/
+.expo/
+.expo-shared/
+android/
+ios/
+
+# 🧠 IDE / OS junk
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 🔑 Credentials
+google-services.json
+GoogleService-Info.plist

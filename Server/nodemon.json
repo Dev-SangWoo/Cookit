@@ -1,0 +1,11 @@
+{
+  "ignore": [
+    "Server/uploads/*",
+    "Server/thumbnails/*",
+    "Server/result_out/*",
+    "Server/parsed_out/*",
+    "Server/logs/*",
+    "Server/assets/*",
+    "Server/video_files/*"
+  ]
+}
