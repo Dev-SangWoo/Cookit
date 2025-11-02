@@ -65,7 +65,20 @@ const RecipeList = ({
         });
       }
 
-      const newRecipes = response.recipes || [];
+      const newRecipes = (response.recipes || []).map(recipe => ({
+        ...recipe,
+        // 썸네일 URL 생성 (image_urls 배열의 첫 번째 항목 사용)
+        thumbnail: recipe.image_urls?.[0] || null,
+        // ID 통일 (id와 recipe_id 모두 지원)
+        id: recipe.id || recipe.recipe_id,
+        recipe_id: recipe.recipe_id || recipe.id
+      }));
+      
+      console.log('📋 로드된 레시피:', newRecipes.map(r => ({ 
+        id: r.id, 
+        title: r.title, 
+        thumbnail: r.thumbnail 
+      })));
       
       if (pageNum === 1) {
         setRecipes(newRecipes);
@@ -105,14 +118,14 @@ const RecipeList = ({
     }
   };
 
-  // 레시피 카드 터치
+  // 레시피 카드 터치 - Summary 화면으로 이동
   const handleRecipePress = (recipe) => {
-    navigation.navigate('Recipe', { 
-      screen: 'RecipeMain',
-      params: { 
-        recipeId: recipe.recipe_id,
-        recipe: recipe 
-      }
+    const recipeId = recipe.id || recipe.recipe_id;
+    console.log('📋 레시피 선택:', { recipeId, recipe });
+    
+    navigation.navigate('Summary', { 
+      recipeId: recipeId,
+      recipe: recipe 
     });
   };
 

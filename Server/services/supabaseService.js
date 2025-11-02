@@ -3,7 +3,7 @@
  * 일반 Supabase 클라이언트를 통한 데이터베이스 작업
  */
 
-const { supabase } = require('./supabaseClient');
+import { supabase } from './supabaseClient.js';
 
 /**
  * 레시피 데이터베이스 작업을 위한 서비스 클래스
@@ -37,8 +37,6 @@ class SupabaseService {
 
   /**
    * 레시피 목록 조회
-   * @param {Object} options - 조회 옵션
-   * @returns {Promise<Array>} 레시피 목록
    */
   async getRecipes(options = {}) {
     try {
@@ -58,6 +56,7 @@ class SupabaseService {
           servings,
           difficulty_level,
           tags,
+          image_urls,
           source_url,
           ai_generated,
           created_at
@@ -65,18 +64,10 @@ class SupabaseService {
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
-      // AI 생성 레시피만 필터링
-      if (ai_only) {
-        query = query.eq('ai_generated', true);
-      }
+      if (ai_only) query = query.eq('ai_generated', true);
 
       const { data, error } = await query;
-
-      if (error) {
-        console.error('레시피 조회 오류:', error);
-        throw new Error(`레시피 조회 실패: ${error.message}`);
-      }
-
+      if (error) throw new Error(`레시피 조회 실패: ${error.message}`);
       return data || [];
     } catch (error) {
       console.error('SupabaseService.getRecipes 오류:', error);
@@ -86,22 +77,16 @@ class SupabaseService {
 
   /**
    * 레시피 상세 조회
-   * @param {string} recipeId - 레시피 ID
-   * @returns {Promise<Object>} 레시피 상세 정보
    */
   async getRecipeById(recipeId) {
     try {
       const { data, error } = await supabase
         .from('recipes')
         .select('*')
-        .eq('recipe_id', recipeId)
+        .eq('id', recipeId)
         .single();
 
-      if (error) {
-        console.error('레시피 상세 조회 오류:', error);
-        throw new Error(`레시피 조회 실패: ${error.message}`);
-      }
-
+      if (error) throw new Error(`레시피 조회 실패: ${error.message}`);
       return data;
     } catch (error) {
       console.error('SupabaseService.getRecipeById 오류:', error);
@@ -111,9 +96,6 @@ class SupabaseService {
 
   /**
    * 레시피 업데이트
-   * @param {string} recipeId - 레시피 ID
-   * @param {Object} updateData - 업데이트할 데이터
-   * @returns {Promise<Object>} 업데이트된 레시피
    */
   async updateRecipe(recipeId, updateData) {
     try {
@@ -124,11 +106,7 @@ class SupabaseService {
         .select()
         .single();
 
-      if (error) {
-        console.error('레시피 업데이트 오류:', error);
-        throw new Error(`레시피 업데이트 실패: ${error.message}`);
-      }
-
+      if (error) throw new Error(`레시피 업데이트 실패: ${error.message}`);
       return data;
     } catch (error) {
       console.error('SupabaseService.updateRecipe 오류:', error);
@@ -138,8 +116,6 @@ class SupabaseService {
 
   /**
    * 레시피 삭제
-   * @param {string} recipeId - 레시피 ID
-   * @returns {Promise<boolean>} 삭제 성공 여부
    */
   async deleteRecipe(recipeId) {
     try {
@@ -148,11 +124,7 @@ class SupabaseService {
         .delete()
         .eq('recipe_id', recipeId);
 
-      if (error) {
-        console.error('레시피 삭제 오류:', error);
-        throw new Error(`레시피 삭제 실패: ${error.message}`);
-      }
-
+      if (error) throw new Error(`레시피 삭제 실패: ${error.message}`);
       return true;
     } catch (error) {
       console.error('SupabaseService.deleteRecipe 오류:', error);
@@ -161,10 +133,7 @@ class SupabaseService {
   }
 }
 
-// 서비스 인스턴스 생성
+// ✅ ESM export 방식
 const supabaseService = new SupabaseService();
-
-module.exports = {
-  supabaseService,
-  SupabaseService
-};
+export { supabaseService, SupabaseService };
+export default supabaseService;

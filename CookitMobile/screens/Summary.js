@@ -278,29 +278,29 @@ const Summary = () => {
   };
 
   // 레시피 데이터 가져오기
-  const fetchRecipe = async () => {
-    if (!receivedRecipeId) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      console.log('🔍 Summary에서 레시피 로딩 시작:', receivedRecipeId);
-
-      const { data, error } = await supabase
-        .from('recipes')
-        .select('*')
-        .eq('id', receivedRecipeId)
-        .single();
-
-      if (error) {
-        console.error('❌ 레시피 로딩 오류:', error);
+    const fetchRecipe = async () => {
+      if (!receivedRecipeId) {
+        setLoading(false);
         return;
       }
 
-      if (data) {
-        setRecipe(data);
+      try {
+        setLoading(true);
+        console.log('🔍 Summary에서 레시피 로딩 시작:', receivedRecipeId);
+
+        const { data, error } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', receivedRecipeId)
+          .single();
+
+        if (error) {
+          console.error('❌ 레시피 로딩 오류:', error);
+          return;
+        }
+
+        if (data) {
+          setRecipe(data);
         // 초기 영상 URL 설정 - video_url 우선, 없으면 source_url 사용
         const videoUrl = data.video_url || data.source_url;
         if (videoUrl) {
@@ -317,23 +317,23 @@ const Summary = () => {
           } else {
             console.error('❌ Video ID 추출 실패');
           }
-        }
-        console.log('✅ Summary 레시피 데이터 로드 완료:', data.title);
+          }
+          console.log('✅ Summary 레시피 데이터 로드 완료:', data.title);
         console.log('🎥 영상 URL:', videoUrl);
+        }
+      } catch (error) {
+        console.error('❌ 레시피 로딩 예외:', error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('❌ 레시피 로딩 예외:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   // useEffect들
   useEffect(() => {
     if (isYouTubeAnalysis && analysisId) {
       checkAnalysisResult();
     } else if (!isYouTubeAnalysis && receivedRecipeId) {
-      fetchRecipe();
+    fetchRecipe();
     } else {
       setLoading(false);
     }
@@ -447,9 +447,9 @@ const Summary = () => {
         {currentVideoUrl && (
           <View style={styles.videoSection}>
             <View style={styles.videoHeader}>
-              <Text style={styles.sectionTitle}>
-                <Ionicons name="play-circle-outline" size={20} color="#FF6B35" /> 요리 영상
-              </Text>
+            <Text style={styles.sectionTitle}>
+              <Ionicons name="play-circle-outline" size={20} color="#FF6B35" /> 요리 영상
+            </Text>
               
               {/* 자동재생 토글 버튼 */}
               <TouchableOpacity 

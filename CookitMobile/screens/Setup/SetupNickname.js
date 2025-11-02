@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet, TouchableOpacity } from 'react-native';
-import { supabase } from '../../lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { checkNicknameAvailability, updateProfile } from '../../services/userApi';
 
 export default function SetupNickname({ navigation }) {
-  const { user, updateUserProfile } = useAuth();
+  const { user, updateUserProfile, signOut } = useAuth();
   const [nickname, setNickname] = useState(user?.name || '');
   const [cookingLevel, setCookingLevel] = useState(user?.cooking_level || '');
 
@@ -13,6 +14,34 @@ export default function SetupNickname({ navigation }) {
       setNickname(user.name);
     }
   }, [user]);
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      Alert.alert(
+        '설정 취소',
+        '초기 설정을 취소하시겠습니까?',
+        [
+          { text: '아니오', style: 'cancel' },
+          { text: '예', onPress: () => navigation.goBack() }
+        ]
+      );
+    } else {
+      Alert.alert(
+        '로그아웃',
+        '초기 설정을 취소하면 로그아웃됩니다. 계속하시겠습니까?',
+        [
+          { text: '아니오', style: 'cancel' },
+          { 
+            text: '예', 
+            onPress: async () => {
+              await signOut();
+            },
+            style: 'destructive'
+          }
+        ]
+      );
+    }
+  };
 
   const handleNext = async () => {
     if (!nickname.trim()) {
@@ -25,36 +54,31 @@ export default function SetupNickname({ navigation }) {
       return;
     }
 
-    const { data: existingProfiles } = await supabase
-      .from('user_profiles')
-      .select('id')
-      .eq('display_name', nickname);
+    try {
+      // 서버 API를 통해 닉네임 중복 확인
+      const isAvailable = await checkNicknameAvailability(nickname);
+      
+      if (!isAvailable) {
+        Alert.alert('중복된 닉네임', '이미 사용 중인 닉네임입니다.');
+        return;
+      }
 
-    if (existingProfiles && existingProfiles.length > 0) {
-      Alert.alert('중복된 닉네임', '이미 사용 중인 닉네임입니다.');
-      return;
-    }
-
-    const { error: updateError } = await supabase
-      .from('user_profiles')
-      .update({
+      // 서버 API를 통해 프로필 업데이트
+      await updateProfile({
         display_name: nickname,
         cooking_level: cookingLevel,
-        // bio: '닉네임이 설정되었습니다.',
-      })
-      .eq('id', user?.id);
+      });
 
-    if (updateError) {
-      Alert.alert('저장 오류', '닉네임 저장 중 문제가 발생했습니다.');
-      return;
+      await updateUserProfile({
+        display_name: nickname,
+        cooking_level: cookingLevel,
+      });
+
+      navigation.navigate('SetupProfile');
+    } catch (error) {
+      console.error('저장 오류:', error);
+      Alert.alert('저장 오류', error.message || '닉네임 저장 중 문제가 발생했습니다.');
     }
-
-    await updateUserProfile({
-      display_name: nickname,
-      cooking_level: cookingLevel,
-    });
-
-    navigation.replace('SetupProfile');
   };
 
   const cookingOptions = [
@@ -65,6 +89,9 @@ export default function SetupNickname({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+        <Ionicons name="arrow-back" size={28} color="#333" />
+      </TouchableOpacity>
       <Text style={styles.step}>1/4</Text>
       <Text style={styles.title}>닉네임, 요리 실력 설정</Text>
       <Text style={styles.titleText}>개인화된 레시피 추천을 위해{"\n"} 기본 정보를 입력해주세요</Text>
@@ -108,10 +135,18 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
   },
+  backButton: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    zIndex: 10,
+    padding: 8,
+  },
   step: {
     color: 'orange',
     fontSize: 16,
     marginBottom: 10,
+    marginTop: 40,
   },
   title: {
     fontSize: 24,

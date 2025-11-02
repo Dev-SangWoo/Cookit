@@ -1,5 +1,5 @@
-const express = require('express');
-const { supabaseService } = require('../services/supabaseService');
+import express from 'express';
+import supabaseService from '../services/supabaseService.js';
 
 const router = express.Router();
 
@@ -223,4 +223,4 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView, Modal } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import SetupIngredientsModal from '../Setup/SetupIngredientsModal';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import notificationService from '../../services/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getReceiptItems, addReceiptItem, updateReceiptItem, deleteReceiptItem } from '../../services/receiptItemsApi';
 
 export default function Ingredients() {
   const { user } = useAuth();
@@ -15,22 +15,30 @@ export default function Ingredients() {
   const [isSelectionModalVisible, setIsSelectionModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [ingredients, setIngredients] = useState([]);
+  const [selectedLocation, setSelectedLocation] = useState('all'); // 'all', 'fridge', 'freezer', 'room'
   
-  useEffect(() => {
-    fetchIngredients();
-  }, []);
+  // 화면이 focus될 때마다 재료 목록을 새로고침
+  useFocusEffect(
+    useCallback(() => {
+      fetchIngredients();
+    }, [])
+  );
 
   const fetchIngredients = async () => {
-    const { data, error } = await supabase
-      .from('receipt_items')
-      .select('*')
-      .eq('user_id', user?.id)
-      .order('expiry_date', { ascending: true }); 
-
-    if (error) {
-      Alert.alert('오류', '재료를 불러오는 데 실패했습니다.');
-    } else {
-      setIngredients(data);
+    try {
+      const data = await getReceiptItems();
+      // expiry_date 기준으로 정렬 (서버에서 반환하는 expiry_date 또는 expiration_date 사용)
+      const sortedData = data.sort((a, b) => {
+        const dateA = a.expiry_date || a.expiration_date;
+        const dateB = b.expiry_date || b.expiration_date;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return new Date(dateA) - new Date(dateB);
+      });
+      setIngredients(sortedData);
+    } catch (error) {
+      console.error('재료 조회 오류:', error);
+      Alert.alert('오류', error.message || '재료를 불러오는 데 실패했습니다.');
     }
   };
 
@@ -69,55 +77,48 @@ export default function Ingredients() {
 };
 
   const handleAddIngredient = async (newIngredient) => {
-    const { error } = await supabase
-      .from('receipt_items')
-      .insert({
-        user_id: user.id,
-        product_name: newIngredient.name,
+    try {
+      await addReceiptItem({
+        name: newIngredient.name,
         quantity: parseInt(newIngredient.quantity, 10),
         unit: newIngredient.unit,
-        expiry_date: newIngredient.expiry,
+        expiration_date: newIngredient.expiry,
       });
 
-    if (error) {
-      Alert.alert('저장 실패', error.message);
-    } else {
       // 유통기한 알림 스케줄링
       await scheduleExpiryNotification(newIngredient.name, newIngredient.expiry);
       fetchIngredients();
+    } catch (error) {
+      console.error('재료 추가 오류:', error);
+      Alert.alert('저장 실패', error.message || '재료 추가 중 오류가 발생했습니다.');
     }
   };
   
 
   const handleEditIngredient = async (updatedIngredient) => {
-    const { error } = await supabase
-      .from('receipt_items')
-      .update({
-        product_name: updatedIngredient.name,
+    try {
+      await updateReceiptItem(selectedItem.id, {
+        name: updatedIngredient.name,
         quantity: parseInt(updatedIngredient.quantity, 10),
         unit: updatedIngredient.unit,
-        expiry_date: updatedIngredient.expiry,
-      })
-      .eq('id', selectedItem.id);
+        expiration_date: updatedIngredient.expiry,
+      });
 
-    if (error) {
-      Alert.alert('수정 실패', error.message);
-    } else {
       fetchIngredients(); 
-      setIsEditModalVisible(false); 
+      setIsEditModalVisible(false);
+    } catch (error) {
+      console.error('재료 수정 오류:', error);
+      Alert.alert('수정 실패', error.message || '재료 수정 중 오류가 발생했습니다.');
     }
   };
 
   const handleRemoveIngredient = async (item) => {
-    const { error } = await supabase
-      .from('receipt_items')
-      .delete()
-      .eq('id', item.id); 
-
-    if (error) {
-      Alert.alert('삭제 실패', error.message);
-    } else {
+    try {
+      await deleteReceiptItem(item.id);
       setIngredients(ingredients.filter(ing => ing.id !== item.id));
+    } catch (error) {
+      console.error('재료 삭제 오류:', error);
+      Alert.alert('삭제 실패', error.message || '재료 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -131,8 +132,14 @@ export default function Ingredients() {
     }
   };
 
-  const expiredIngredients = ingredients.filter(item => calculateExpiry(item.expiry_date).diffDays < 0);
-  const freshIngredients = ingredients.filter(item => calculateExpiry(item.expiry_date).diffDays >= 0);
+  const expiredIngredients = ingredients.filter(item => {
+    const expiryDate = item.expiry_date || item.expiration_date;
+    return calculateExpiry(expiryDate).diffDays < 0;
+  });
+  const freshIngredients = ingredients.filter(item => {
+    const expiryDate = item.expiry_date || item.expiration_date;
+    return calculateExpiry(expiryDate).diffDays >= 0;
+  });
 
 
   const openEditModal = (item) => {
@@ -179,52 +186,105 @@ export default function Ingredients() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>내 냉장고</Text>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        
-        {expiredIngredients.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionHeader, { color: '#FF0000' }]}> 유통기한 지난 재료</Text>
-            {expiredIngredients.map((ingredient, index) => {
-              const expiryInfo = calculateExpiry(ingredient.expiry_date);
-              return (
-                <TouchableOpacity 
-                  key={ingredient.id || index}
-                  style={[styles.ingredientTag, { backgroundColor: getTagColor(expiryInfo.diffDays) }]}
-                  onPress={() => handleRemoveIngredient(ingredient)}
-                >
-                  <Text style={styles.ingredientName}>{ingredient.product_name}</Text>
-                  <Text style={styles.ingredientQuantity}>{ingredient.quantity}{ingredient.unit}</Text>
-                  <Text style={[styles.ingredientExpiry, { color: expiryInfo.color }]}>
-                    {expiryInfo.text}
-                  </Text>
-                  <TouchableOpacity style={styles.editButton} onPress={() => openEditModal(ingredient)}>
-                    <Text style={styles.editButtonText}>✏️</Text>
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        )}
+      {/* 헤더 */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>내 냉장고</Text>
+      </View>
 
-        {freshIngredients.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionHeader, { color: '#008000' }]}> 신선한 재료</Text>
-            {freshIngredients.map((ingredient, index) => {
-              const expiryInfo = calculateExpiry(ingredient.expiry_date);
+      {/* 위치 탭 */}
+      <View style={styles.locationTabs}>
+        <TouchableOpacity 
+          style={[styles.locationTab, selectedLocation === 'all' && styles.locationTabActive]}
+          onPress={() => setSelectedLocation('all')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.locationTabText, selectedLocation === 'all' && styles.locationTabTextActive]}>
+            🗂️ 전체
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.locationTab, selectedLocation === 'fridge' && styles.locationTabActive]}
+          onPress={() => setSelectedLocation('fridge')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.locationTabText, selectedLocation === 'fridge' && styles.locationTabTextActive]}>
+            ❄️ 냉장
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.locationTab, selectedLocation === 'freezer' && styles.locationTabActive]}
+          onPress={() => setSelectedLocation('freezer')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.locationTabText, selectedLocation === 'freezer' && styles.locationTabTextActive]}>
+            🧊 냉동
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.locationTab, selectedLocation === 'room' && styles.locationTabActive]}
+          onPress={() => setSelectedLocation('room')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.locationTabText, selectedLocation === 'room' && styles.locationTabTextActive]}>
+            🏠 실온
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 재료 그리드 */}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {ingredients.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>📦</Text>
+            <Text style={styles.emptyText}>재료가 없습니다</Text>
+            <Text style={styles.emptySubText}>+ 버튼을 눌러 재료를 추가해보세요</Text>
+          </View>
+        ) : (
+          <View style={styles.ingredientGrid}>
+            {ingredients.map((ingredient, index) => {
+              const expiryDate = ingredient.expiry_date || ingredient.expiration_date;
+              const expiryInfo = calculateExpiry(expiryDate);
+              const productName = ingredient.product_name || ingredient.name;
               return (
                 <TouchableOpacity 
                   key={ingredient.id || index}
-                  style={[styles.ingredientTag, { backgroundColor: getTagColor(expiryInfo.diffDays) }]}
-                  onPress={() => handleRemoveIngredient(ingredient)}
+                  style={styles.ingredientCard}
+                  onPress={() => openEditModal(ingredient)}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.ingredientName}>{ingredient.product_name}</Text>
-                  <Text style={styles.ingredientQuantity}>{ingredient.quantity}{ingredient.unit}</Text>
-                  <Text style={[styles.ingredientExpiry, { color: expiryInfo.color }]}>
-                    {expiryInfo.text}
-                  </Text>
-                  <TouchableOpacity style={styles.editButton} onPress={() => openEditModal(ingredient)}>
-                    <Text style={styles.editButtonText}>✏️</Text>
+                  {/* 유통기한 배지 */}
+                  <View style={[styles.expiryBadge, { backgroundColor: getTagColor(expiryInfo.diffDays) }]}>
+                    <Text style={[styles.expiryBadgeText, { color: expiryInfo.color }]}>
+                      {expiryInfo.text}
+                    </Text>
+                  </View>
+
+                  {/* 재료 정보 */}
+                  <View style={styles.ingredientContent}>
+                    <Text style={styles.ingredientName} numberOfLines={2}>
+                      {productName}
+                    </Text>
+                    <Text style={styles.ingredientQuantity}>
+                      {ingredient.quantity}{ingredient.unit}
+                    </Text>
+                  </View>
+
+                  {/* 삭제 버튼 */}
+                  <TouchableOpacity 
+                    style={styles.deleteButton} 
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      Alert.alert(
+                        '재료 삭제',
+                        `${productName}을(를) 삭제하시겠습니까?`,
+                        [
+                          { text: '취소', style: 'cancel' },
+                          { text: '삭제', onPress: () => handleRemoveIngredient(ingredient), style: 'destructive' }
+                        ]
+                      );
+                    }}
+                  >
+                    <Text style={styles.deleteButtonText}>🗑️</Text>
                   </TouchableOpacity>
                 </TouchableOpacity>
               );
@@ -301,56 +361,136 @@ export default function Ingredients() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#F8F9FA',
   },
-  title: {
+  // 헤더
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+  },
+  headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    fontWeight: '700',
+    color: '#212529',
   },
+  // 위치 탭
+  locationTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+  },
+  locationTab: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    marginHorizontal: 4,
+    borderRadius: 10,
+    backgroundColor: '#F8F9FA',
+    alignItems: 'center',
+  },
+  locationTabActive: {
+    backgroundColor: '#FF6B35',
+  },
+  locationTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6C757D',
+  },
+  locationTabTextActive: {
+    color: '#FFFFFF',
+  },
+  // 스크롤 영역
   scrollContent: {
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 100,
   },
-  section: {
-    marginBottom: 10,
+  // 빈 상태
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#6C757D',
+    marginBottom: 8,
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: '#ADB5BD',
+  },
+  // 재료 그리드
+  ingredientGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-  ingredientTag: {
-    width: '48%',
-    padding: 15,
-    borderRadius: 10,
-    backgroundColor: '#f9f9f9',
-    borderColor: '#ddd',
-    borderWidth: 1,
-    marginBottom: 10,
-    alignItems: 'flex-start',
+  ingredientCard: {
+    width: '23%',
+    aspectRatio: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 8,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
     position: 'relative',
   },
+  expiryBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  expiryBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  ingredientContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   ingredientName: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 5,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#212529',
+    textAlign: 'center',
+    marginBottom: 4,
   },
   ingredientQuantity: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 11,
+    color: '#6C757D',
+    fontWeight: '500',
   },
-  ingredientExpiry: {
-    marginTop: 5,
-    fontWeight: 'bold',
-  },
-  editButton: {
+  deleteButton: {
     position: 'absolute',
-    bottom: 5,
-    right: 5,
-    padding: 5,
+    bottom: 4,
+    right: 4,
+    padding: 4,
   },
-  editButtonText: {
+  deleteButtonText: {
     fontSize: 16,
   },
+  // 추가 버튼
   addButton: {
     position: 'absolute',
     right: 20,
@@ -358,26 +498,19 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: 'orange',
+    backgroundColor: '#FF6B35',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 8,
   },
   addButtonText: {
     color: 'white',
-    fontSize: 30,
-    lineHeight: 30,
-  },
-  sectionHeader: {
-    width: '100%',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 10,
+    fontSize: 32,
+    lineHeight: 32,
   },
   // 선택 모달 스타일
   selectionModalOverlay: {

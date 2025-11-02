@@ -7,6 +7,7 @@ import { Platform, StyleSheet, Text, View, FlatList, Image, TouchableOpacity, Al
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { getMyLikedRecipes, deleteRecipeLike } from '../../services/recipeLikesApi';
 
 // DB의 timestampz 데이터를 순수 자바스크립트 Date 객체를 사용하여 포맷하는 함수
 const formatDate = (dateString) => {
@@ -51,26 +52,12 @@ const ProfileLikes = () => {
         setUserId(user.id);
 
         try {
-            // recipe_likes 테이블을 기준으로 조인하여 레시피 정보(recipes)와 좋아요 생성 날짜(created_at)를 가져옵니다.
-            const { data, error } = await supabase
-                .from('recipe_likes')
-                .select(`
-                    created_at,
-                    recipes (
-                        id,
-                        title,
-                        image_urls
-                    )
-                `)
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false }); // 최근 좋아요 순 정렬
-
-            if (error) {
-                throw error;
-            }
+            // 서버 API를 통해 좋아요한 레시피 목록 가져오기
+            const data = await getMyLikedRecipes();
 
             // 데이터를 평탄화하여 사용하기 쉽게 변환
             const formattedLikes = data.map(item => ({
+                like_id: item.id, // 좋아요 ID 추가 (삭제용)
                 recipe_id: item.recipes.id,
                 title: item.recipes.title,
                 thumbnail: item.recipes.image_urls?.[0] || 'https://via.placeholder.com/100x70/E0E0E0/808080?text=No+Image',
@@ -82,7 +69,7 @@ const ProfileLikes = () => {
 
         } catch (error) {
             console.error('좋아요 레시피 불러오기 오류:', error.message);
-            Alert.alert('오류', '좋아요 목록을 불러오는 데 실패했습니다.');
+            Alert.alert('오류', error.message || '좋아요 목록을 불러오는 데 실패했습니다.');
         } finally {
             setLoading(false);
         }
@@ -99,7 +86,7 @@ const ProfileLikes = () => {
     // [2] 좋아요 취소 함수
     // ----------------------------------------------------------------------
 
-    const handleUnlike = async (recipeId) => {
+    const handleUnlike = async (likeId) => {
         if (!userId) return;
 
         Alert.alert(
@@ -111,13 +98,8 @@ const ProfileLikes = () => {
                     text: '예',
                     onPress: async () => {
                         try {
-                            const { error } = await supabase
-                                .from('recipe_likes')
-                                .delete()
-                                .eq('recipe_id', recipeId)
-                                .eq('user_id', userId);
-
-                            if (error) throw error;
+                            // 서버 API를 통해 좋아요 삭제
+                            await deleteRecipeLike(likeId);
                             
                             // 성공 시 목록을 새로고침
                             Alert.alert('취소 완료', '좋아요가 취소되었습니다.');
@@ -125,7 +107,7 @@ const ProfileLikes = () => {
 
                         } catch (error) {
                             console.error('좋아요 취소 오류:', error.message);
-                            Alert.alert('오류', '좋아요 취소에 실패했습니다.');
+                            Alert.alert('오류', error.message || '좋아요 취소에 실패했습니다.');
                         }
                     },
                 },
@@ -167,7 +149,7 @@ const ProfileLikes = () => {
                         
                         <TouchableOpacity 
                             style={styles.deleteButton}
-                            onPress={() => handleUnlike(item.recipe_id)}
+                            onPress={() => handleUnlike(item.like_id)}
                         >
                             <Text style={styles.deleteButtonText}>삭제 🗑️</Text>
                         </TouchableOpacity>

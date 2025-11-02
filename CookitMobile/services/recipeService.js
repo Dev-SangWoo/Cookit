@@ -129,6 +129,20 @@ class RecipeService {
       throw error;
     }
   }
+
+  /**
+   * 비디오 분석 상태 조회 (폴링용)
+   */
+  async getAnalysisStatus(videoId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ai/status/${videoId}`);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('분석 상태 조회 오류:', error);
+      throw error;
+    }
+  }
 }
 
 export default new RecipeService();

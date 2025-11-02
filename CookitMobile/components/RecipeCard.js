@@ -22,6 +22,7 @@ const RecipeCard = ({
 }) => {
   const {
     recipe_id,
+    id,
     title,
     description,
     cook_time,
@@ -31,8 +32,13 @@ const RecipeCard = ({
     favorite_count,
     ai_generated,
     image_url,
+    thumbnail,
+    image_urls,
     user_relationship
   } = recipe;
+
+  // 썸네일 우선순위: thumbnail > image_url > image_urls[0]
+  const displayImage = thumbnail || image_url || (image_urls && image_urls[0]);
 
   // 서버 데이터 구조에 맞게 필드 매핑
   const cooking_time = cook_time;
@@ -66,8 +72,8 @@ const RecipeCard = ({
     >
       {/* 이미지 영역 */}
       <View style={styles.imageContainer}>
-        {image_url ? (
-          <Image source={{ uri: image_url }} style={styles.image} />
+        {displayImage ? (
+          <Image source={{ uri: displayImage }} style={styles.image} />
         ) : (
           <View style={styles.placeholderImage}>
             <Ionicons name="restaurant-outline" size={32} color="#9E9E9E" />

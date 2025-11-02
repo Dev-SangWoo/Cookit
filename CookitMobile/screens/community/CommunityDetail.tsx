@@ -3,8 +3,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CommunityStackParamList } from './CommunityStack';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { createComment, deleteComment, getComments } from '../../services/commentsApi';
-import { toggleLike } from '../../services/likesApi';
+import { createPostComment, deletePostComment, getPostComments } from '../../services/commentsApi';
+import { togglePostLike, checkPostLike, getPostLikeCount } from '../../services/postLikesApi';
 import { deletePost, getPostById } from '../../services/postsApi';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -51,15 +51,12 @@ export default function CommunityDetail() {
       const data = await getPostById(postId);
       setPost(data);
 
-      const { data: likesData, error: likesError } = await supabase
-        .from('user_post_likes')
-        .select('id, user_id')
-        .eq('post_id', postId);
-
-      if (likesError) throw likesError;
-
-      setLikeCount(likesData?.length || 0);
-      setLiked(likesData?.some((like: { user_id: string; }) => like.user_id === user?.id) || false);
+      // 서버 API를 통해 좋아요 정보 가져오기
+      const count = await getPostLikeCount(postId);
+      const isLiked = await checkPostLike(postId);
+      
+      setLikeCount(count);
+      setLiked(isLiked);
 
     } catch (err) {
       console.error('게시글 로딩 실패:', err);
@@ -71,7 +68,7 @@ export default function CommunityDetail() {
 
   const fetchComments = async () => {
     try {
-      const data = await getComments(postId);
+      const data = await getPostComments(postId);
       setComments(data);
     } catch (err) {
       console.error('댓글 로딩 실패:', err);
@@ -86,9 +83,9 @@ export default function CommunityDetail() {
     }
 
     try {
-      const result = await toggleLike(post.post_id, user.id);
+      const result = await togglePostLike(post.post_id);
       setLiked(result.liked);
-      setLikeCount(prevCount => (result.liked ? prevCount + 1 : prevCount - 1));
+      setLikeCount(result.likeCount);
     } catch (err) {
       console.error('좋아요 실패:', err);
       Alert.alert('오류', '좋아요 처리에 실패했습니다. 다시 시도해 주세요.');
@@ -106,7 +103,7 @@ export default function CommunityDetail() {
     }
 
     try {
-      await createComment(postId, commentInput, user.id);
+      await createPostComment(postId, commentInput);
       setCommentInput('');
       fetchComments();
     } catch (err) {
@@ -126,7 +123,7 @@ export default function CommunityDetail() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteComment(commentId);
+              await deletePostComment(commentId);
               fetchComments();
             } catch (err) {
               console.error('댓글 삭제 실패:', err);

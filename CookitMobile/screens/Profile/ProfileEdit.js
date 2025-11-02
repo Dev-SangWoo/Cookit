@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker'; 
-import SetupPreferenceModal from '../Setup/SetupPreferenceModal'; 
+import SetupPreferenceModal from '../Setup/SetupPreferenceModal';
+import { getMyProfile, updateProfile, checkNicknameAvailability, getRecipeCategoryNames } from '../../services/userApi'; 
 
 export default function ProfileEdit({ navigation }) {
     const { user, updateUserProfile } = useAuth();
@@ -44,36 +44,25 @@ export default function ProfileEdit({ navigation }) {
             }
             setLoading(true);
 
-            // 1-1. 프로필 데이터 로드
-            const { data: profileData, error: profileError } = await supabase
-                .from('user_profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single();
-
-            if (profileError) {
-                Alert.alert('프로필 로딩 실패', profileError.message);
-            } else {
+            try {
+                // 1-1. 서버 API를 통해 프로필 데이터 로드
+                const profileData = await getMyProfile();
                 setInitialProfile(profileData);
                 setDisplayName(profileData.display_name || '');
                 setBio(profileData.bio || '');
                 setFavoriteCuisines(profileData.favorite_cuisines || []);
                 setDietaryRestrictions(profileData.dietary_restrictions || []);
                 setAvatarUrl(profileData.avatar_url || 'https://via.placeholder.com/120');
-            }
 
-            // 1-2. 레시피 카테고리 로드 (선호 재료 선택지)
-            const { data: categoryData, error: categoryError } = await supabase
-                .from('recipe_categories')
-                .select('name');
-            
-            if (categoryError) {
-                console.error("카테고리 로드 오류:", categoryError.message);
-            } else {
-                setFavoriteOptions(categoryData.map(item => item.name));
+                // 1-2. 서버 API를 통해 레시피 카테고리 로드
+                const categoryNames = await getRecipeCategoryNames();
+                setFavoriteOptions(categoryNames);
+            } catch (error) {
+                console.error("데이터 로드 오류:", error);
+                Alert.alert('로딩 실패', error.message || '데이터를 불러오는 중 오류가 발생했습니다.');
+            } finally {
+                setLoading(false);
             }
-
-            setLoading(false);
         };
 
         fetchData();
@@ -112,16 +101,18 @@ export default function ProfileEdit({ navigation }) {
         }
     };
     
-    // 3. 닉네임 중복 확인
-    const checkNicknameAvailability = async (newDisplayName) => {
-        if (!initialProfile || newDisplayName === initialProfile.display_name) return true; 
-
-        const { data: existingProfiles } = await supabase
-            .from('user_profiles')
-            .select('id')
-            .eq('display_name', newDisplayName);
-
-        return !existingProfiles || existingProfiles.length === 0;
+    // 3. 닉네임 중복 확인 (서버 API 사용)
+    const checkNicknameAvailable = async (newDisplayName) => {
+        try {
+            // 현재 닉네임과 같으면 중복 확인 건너뛰기
+            if (initialProfile && newDisplayName === initialProfile.display_name) {
+                return true;
+            }
+            return await checkNicknameAvailability(newDisplayName);
+        } catch (error) {
+            console.error('닉네임 확인 오류:', error);
+            return false;
+        }
     };
 
 
@@ -135,7 +126,7 @@ export default function ProfileEdit({ navigation }) {
     };
 
 
-    // 5. 저장 버튼 핸들러
+    // 5. 저장 버튼 핸들러 (서버 API 사용)
     const handleSave = async () => {
         if (isSaving) return;
         setIsSaving(true);
@@ -151,7 +142,7 @@ export default function ProfileEdit({ navigation }) {
             return;
         }
 
-        const isAvailable = await checkNicknameAvailability(displayName);
+        const isAvailable = await checkNicknameAvailable(displayName);
         if (!isAvailable) {
             Alert.alert('저장 실패', '이미 사용 중인 닉네임입니다.');
             setIsSaving(false);
@@ -164,23 +155,17 @@ export default function ProfileEdit({ navigation }) {
                 bio: bio,
                 favorite_cuisines: favoriteCuisines, 
                 dietary_restrictions: dietaryRestrictions, 
-                avatar_url: avatarUrl, 
-                updated_at: new Date(),
+                avatar_url: avatarUrl,
             };
 
-            const { error: updateError } = await supabase
-                .from('user_profiles')
-                .update(updates)
-                .eq('id', user.id);
+            // 서버 API를 통해 프로필 업데이트
+            await updateProfile(updates);
 
-            if (updateError) {
-                throw updateError;
-            }
-
+            // AuthContext 업데이트
             await updateUserProfile(updates);
 
             Alert.alert('저장 성공', '프로필 정보가 성공적으로 업데이트되었습니다.');
-            navigation.replace('ProfileMain');
+            navigation.goBack(); // ProfileMain으로 돌아가기
             
         } catch (error) {
             Alert.alert('저장 실패', `업데이트 중 오류가 발생했습니다: ${error.message}`);

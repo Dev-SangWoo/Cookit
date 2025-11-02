@@ -1,284 +1,173 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const AIPipelineService = require('../services/aiPipelineService');
-const OCRService = require('../services/ocrService');
-const GeminiService = require('../services/geminiService');
+import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import { exec } from 'child_process';
+import { fileURLToPath } from 'url';
+import { supabase } from '../services/supabaseClient.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-// AI 서비스 인스턴스는 필요할 때 생성하도록 변경
-let aiPipeline = null;
-let ocrService = null;
-let geminiService = null;
 
-// 서비스 인스턴스 초기화 함수
-function initServices() {
-  if (!aiPipeline) aiPipeline = new AIPipelineService();
-  if (!ocrService) ocrService = new OCRService();
-  if (!geminiService) geminiService = new GeminiService();
-}
-
-// 파일 업로드 설정
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({ 
-  storage,
-  limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB 제한
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.fieldname === 'video') {
-      // 비디오 파일 검증
-      if (file.mimetype.startsWith('video/')) {
-        cb(null, true);
-      } else {
-        cb(new Error('비디오 파일만 업로드 가능합니다.'));
-      }
-    } else if (file.fieldname === 'image') {
-      // 이미지 파일 검증
-      if (file.mimetype.startsWith('image/')) {
-        cb(null, true);
-      } else {
-        cb(new Error('이미지 파일만 업로드 가능합니다.'));
-      }
-    } else {
-      cb(null, true);
-    }
-  }
-});
-
-/**
- * @route POST /api/ai/analyze-youtube
- * @desc YouTube 영상을 분석하여 레시피 생성
- * @body {string} url - YouTube URL
- */
+// ===================================================
+// ✅ 1️⃣ YouTube 영상 분석 요청 (중복 검사 → 새 분석 실행)
+// ===================================================
 router.post('/analyze-youtube', async (req, res) => {
   try {
-    initServices(); // 서비스 초기화
-    
     const { url } = req.body;
-    
     if (!url) {
-      return res.status(400).json({
+      return res.status(400).json({ success: false, error: 'YouTube URL이 필요합니다.' });
+    }
+
+    console.log(`🎬 AI 분석 요청 수신: ${url}`);
+
+    // ✅ videoId 추출
+    const videoIdMatch = url.match(/v=([a-zA-Z0-9_-]+)/);
+    const videoId = videoIdMatch ? videoIdMatch[1] : null;
+    if (!videoId) {
+      return res.status(400).json({ success: false, error: '유효한 YouTube URL이 아닙니다.' });
+    }
+
+    // ✅ Supabase에서 중복 분석 여부 확인
+    console.log(`🔍 Supabase 중복 확인 중: video_id = ${videoId}`);
+    const { data: existingRecipe, error: checkError } = await supabase
+      .from('recipes')
+      .select('*')
+      .eq('video_id', videoId)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('❌ Supabase 중복 조회 오류:', checkError.message);
+      return res.status(500).json({
         success: false,
-        error: 'YouTube URL이 필요합니다.'
+        message: 'Supabase 중복 확인 중 오류 발생',
       });
     }
 
-    console.log(`🎬 YouTube 분석 요청: ${url}`);
-    
-    const result = await aiPipeline.analyzeYouTubeVideo(url);
-    
-    res.json(result);
-  } catch (error) {
-    console.error('YouTube 분석 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-/**
- * @route POST /api/ai/analyze-video
- * @desc 업로드된 비디오 파일을 분석하여 레시피 생성
- * @formdata {file} video - 비디오 파일
- */
-router.post('/analyze-video', upload.single('video'), async (req, res) => {
-  try {
-    initServices(); // 서비스 초기화
-    
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: '비디오 파일이 필요합니다.'
+    // ✅ 이미 분석된 영상이면 즉시 기존 결과 반환
+    if (existingRecipe) {
+      console.log(`⚡ 이미 분석된 영상입니다: ${videoId}`);
+      return res.status(200).json({
+        success: true,
+        status: 'completed',
+        message: '이미 분석된 영상입니다. 기존 결과를 반환합니다.',
+        videoId,
+        recipe: existingRecipe,
       });
     }
 
-    console.log(`📹 비디오 분석 요청: ${req.file.originalname}`);
-    
-    const result = await aiPipeline.analyzeUploadedVideo(req.file.path);
-    
-    // 업로드된 파일 삭제
-    if (fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    
-    res.json(result);
-  } catch (error) {
-    console.error('비디오 분석 오류:', error);
-    
-    // 오류 발생 시 업로드된 파일 삭제
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+    // ✅ 중복 아님 → 새 분석 시작
+    console.log(`🚀 새 영상 분석 시작: ${videoId}`);
 
-/**
- * @route POST /api/ai/ocr
- * @desc 이미지에서 텍스트 추출
- * @formdata {file} image - 이미지 파일
- * @body {string} language - OCR 언어 (선택, 기본값: kor+eng)
- */
-router.post('/ocr', upload.single('image'), async (req, res) => {
-  try {
-    initServices(); // 서비스 초기화
-    
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: '이미지 파일이 필요합니다.'
-      });
-    }
+    const serverRoot = path.join(__dirname, '../../Server');
+    const pipelinePath = path.join(serverRoot, 'run_full_pipeline.cjs');
 
-    const { language = 'kor+eng' } = req.body;
-    
-    console.log(`🔍 OCR 분석 요청: ${req.file.originalname}`);
-    
-    const extractedText = await ocrService.extractTextFromImage(req.file.path, language);
-    
-    // 업로드된 파일 삭제
-    if (fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    
-    res.json({
-      success: true,
-      text: extractedText,
-      metadata: {
-        fileName: req.file.originalname,
-        language,
-        fileSize: req.file.size
+    // 로그 디렉토리 생성
+    const logDir = path.join(serverRoot, 'logs');
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+
+    const logFile = path.join(logDir, `${videoId}.log`);
+    console.log(`🧠 백그라운드 실행 (로그 파일: ${logFile})`);
+
+    // 실행 명령어: stdout/stderr을 파일로 리다이렉트
+    const cmd = `node "${pipelinePath}" "${url}" >> "${logFile}" 2>&1`;
+
+    // ✅ 비동기 실행 (백그라운드)
+    exec(cmd, { cwd: serverRoot, windowsHide: true }, (error) => {
+      if (error) {
+        fs.appendFileSync(logFile, `\n❌ 오류 발생: ${error.message}\n`);
+      } else {
+        fs.appendFileSync(logFile, `\n✅ 실행 완료\n`);
       }
     });
-  } catch (error) {
-    console.error('OCR 분석 오류:', error);
-    
-    // 오류 발생 시 업로드된 파일 삭제
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    
-    res.status(500).json({
-      success: false,
-      error: error.message
+
+    // ✅ 요청 즉시 응답
+    return res.status(202).json({
+      success: true,
+      status: 'processing',
+      message: 'AI 분석이 백그라운드에서 실행 중입니다.',
+      youtubeUrl: url,
+      videoId,
     });
+  } catch (error) {
+    console.error('❌ 분석 요청 처리 오류:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
-/**
- * @route POST /api/ai/generate-recipe
- * @desc 텍스트에서 레시피 생성
- * @body {string} text - 분석할 텍스트
- * @body {string} videoUrl - 원본 영상 URL (선택)
- */
-router.post('/generate-recipe', async (req, res) => {
+// ===================================================
+// ✅ 2️⃣ 분석 상태 조회 (폴링용 API)
+// ===================================================
+router.get('/status/:videoId', async (req, res) => {
   try {
-    initServices(); // 서비스 초기화
-    
-    const { text, videoUrl } = req.body;
-    
-    if (!text) {
-      return res.status(400).json({
+    const { videoId } = req.params;
+    if (!videoId) {
+      return res.status(400).json({ success: false, error: 'videoId가 필요합니다.' });
+    }
+
+    // ✅ Supabase에서 바로 확인 (파일 확인보다 정확)
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('*')
+      .eq('video_id', videoId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('❌ Supabase 상태 조회 오류:', error.message);
+      return res.status(500).json({
         success: false,
-        error: '분석할 텍스트가 필요합니다.'
+        status: 'error',
+        message: 'Supabase 상태 조회 중 오류 발생',
       });
     }
 
-    console.log(`🤖 레시피 생성 요청 (텍스트 길이: ${text.length}자)`);
-    
-    const recipe = await geminiService.generateRecipeFromText(text, videoUrl);
-    
-    res.json({
+    if (data) {
+      console.log(`✅ [STATUS] 분석 완료된 영상: ${videoId}`);
+      return res.json({
+        success: true,
+        status: 'completed',
+        message: 'AI 분석이 완료되었습니다.',
+        videoId,
+        recipe: data,
+      });
+    }
+
+    // ✅ 데이터가 없으면 아직 진행 중
+    console.log(`⏳ [STATUS] 분석 중: ${videoId}`);
+    return res.json({
       success: true,
-      recipe,
-      metadata: {
-        textLength: text.length,
-        videoUrl: videoUrl || null
-      }
+      status: 'processing',
+      message: 'AI 분석이 아직 진행 중입니다.',
+      videoId,
     });
   } catch (error) {
-    console.error('레시피 생성 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    console.error('❌ 상태 확인 오류:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-/**
- * @route GET /api/ai/status
- * @desc AI 서비스 상태 확인
- */
+// ===================================================
+// ✅ 3️⃣ 서버 상태 확인용 (기존 유지)
+// ===================================================
 router.get('/status', (req, res) => {
   try {
     res.json({
       success: true,
       status: 'active',
+      version: '1.0.0',
       services: {
-        gemini: !!process.env.GEMINI_API_KEY,
-        ocr: true,
+        newAIPipeline: true,
         whisper: true,
-        ffmpeg: true // TODO: 실제 ffmpeg 설치 확인
+        ocr: true,
+        gemini: true,
       },
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-/**
- * @route GET /api/ai/health
- * @desc AI 서비스 헬스 체크
- */
-router.get('/health', async (req, res) => {
-  try {
-    initServices(); // 서비스 초기화
-    
-    // 간단한 Gemini API 연결 테스트
-    const testResult = await geminiService.generateRecipeFromText(
-      '간단한 테스트 텍스트입니다.', 
-      ''
-    );
-    
-    res.json({
-      success: true,
-      status: 'healthy',
       timestamp: new Date().toISOString(),
-      testResult: !!testResult
     });
   } catch (error) {
-    res.status(503).json({
-      success: false,
-      status: 'unhealthy',
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-module.exports = router;
+export default router;

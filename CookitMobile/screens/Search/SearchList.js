@@ -11,6 +11,7 @@ import SearchInput from '../../components/SearchInput';
 import Sort from '../../components/Sort';
 import YouTubeAnalysisModal from '../../components/YouTubeAnalysisModal';
 import { Ionicons } from '@expo/vector-icons';
+import { useAnalysis } from '../../contexts/AnalysisContext';
 
 const SearchList = () => {
   const navigation = useNavigation();
@@ -107,57 +108,23 @@ const SearchList = () => {
     return number.toString();
   };
 
-  // 영상 분석 시작
-  const startVideoAnalysis = async (video) => {
+  const { startAnalysis } = useAnalysis();
+
+  // 영상 분석 시작: 전역 플로팅에서 비동기 처리
+  const startVideoAnalysis = (video) => {
     try {
       setIsAnalyzing(true);
-      
-      const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000';
-      // API_BASE_URL에 이미 /api가 포함되어 있는지 확인
-      const baseUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
-      const response = await fetch(`${baseUrl}/youtube-analysis/analyze`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          videoId: video.videoId,
-          title: video.title,
-          channelTitle: video.channelTitle,
-          thumbnail: video.thumbnail
-        }),
+      const videoUrl = `https://www.youtube.com/watch?v=${video.videoId}`;
+      startAnalysis(videoUrl, {
+        title: video.title,
+        channelTitle: video.channelTitle,
+        thumbnail: video.thumbnail,
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        Alert.alert(
-          '분석 시작',
-          '영상 분석이 시작되었습니다. 잠시 후 결과를 확인해주세요.',
-          [
-            {
-              text: '확인',
-              onPress: () => {
-                // 분석 결과 화면으로 이동 - Summary.js 사용
-                navigation.navigate('Summary', {
-                  analysisId: data.data.analysisId,
-                  videoId: video.videoId,
-                  title: video.title,
-                  thumbnail: video.thumbnail,
-                  channelTitle: video.channelTitle,
-                  isYouTubeAnalysis: true
-                });
-              }
-            }
-          ]
-        );
-      } else {
-        Alert.alert('오류', data.error || '분석 시작에 실패했습니다.');
-      }
+      setAnalysisModalVisible(false);
+      setIsAnalyzing(false);
     } catch (error) {
-      console.error('영상 분석 오류:', error);
-      Alert.alert('오류', '분석 중 오류가 발생했습니다.');
-    } finally {
+      console.error('영상 분석 이동 오류:', error);
+      Alert.alert('오류', '분석 화면으로 이동 중 문제가 발생했습니다.');
       setIsAnalyzing(false);
       setAnalysisModalVisible(false);
     }
@@ -195,7 +162,7 @@ const SearchList = () => {
       ) : (
         <FlatList
           data={sortedData}
-          keyExtractor={(item) => item.videoId}
+          keyExtractor={(item, index) => `${item.videoId}-${index}`}
           renderItem={({ item }) => (
             <VideoCard video={item} onPress={handleVideoPress} />
           )}

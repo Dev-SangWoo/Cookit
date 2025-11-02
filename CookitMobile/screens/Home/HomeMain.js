@@ -264,12 +264,20 @@ const HomeMain = () => {
       <View style={styles.header}>
         <Image source={require('../../assets/signature.png')} style={styles.signature} />
         <Text style={styles.headerTitle}>Cookit</Text>
-        <TouchableOpacity 
-          style={styles.settingsButton}
-          onPress={() => navigation.navigate('Profile')}
-        >
-          <Ionicons name="person-circle" size={24} color="#FF6B35" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.headerButton}
+            onPress={() => navigation.navigate('AnalysisHistory')}
+          >
+            <Ionicons name="analytics-outline" size={24} color="#FF6B35" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.headerButton}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <Ionicons name="person-circle" size={24} color="#FF6B35" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView 
@@ -398,6 +406,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FF6B35',
     flex: 1,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f8f9fa',
   },
   settingsButton: {
     padding: 8,

@@ -13,6 +13,7 @@ const AIAnalyze = () => {
   const [status, setStatus] = useState('분석을 시작합니다...');
 
   const { videoUrl, analysisType = 'youtube' } = route.params || {};
+  const [pollTimer, setPollTimer] = useState(null);
 
   useEffect(() => {
     if (!videoUrl) {
@@ -22,6 +23,11 @@ const AIAnalyze = () => {
     }
 
     performAnalysis();
+    return () => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
+    };
   }, [videoUrl]);
 
   const performAnalysis = async () => {
@@ -46,30 +52,63 @@ const AIAnalyze = () => {
         throw new Error('업로드된 비디오 분석은 아직 구현되지 않았습니다.');
       }
 
-      setProgress(70);
-      setStatus('레시피를 생성하고 있습니다...');
-
-      if (response && response.success) {
-        setProgress(90);
-        setStatus('완료! 레시피 화면으로 이동합니다...');
-
-        // AI 분석 결과에서 recipeId 추출
-        const recipeId = response.recipe?.recipe_id || response.recipeId;
-        
-        if (recipeId) {
-          // 1초 후 Recipe 화면으로 이동
-          setTimeout(() => {
-            navigation.replace('Recipe', { 
-              recipeId: recipeId,
-              recipe: response.recipe 
-            });
-          }, 1000);
-        } else {
-          throw new Error('레시피 ID를 찾을 수 없습니다.');
-        }
-      } else {
-        throw new Error(response?.error || '분석에 실패했습니다.');
+      if (!response || !response.success) {
+        throw new Error(response?.error || '분석 요청 실패');
       }
+
+      // 즉시 완료된 경우 (이미 분석된 영상)
+      if (response.status === 'completed' && response.recipe) {
+        setProgress(95);
+        setStatus('완료! 레시피 화면으로 이동합니다...');
+        const recipeId = response.recipe.id || response.recipe.recipe_id || response.recipeId;
+        if (!recipeId) throw new Error('레시피 ID를 찾을 수 없습니다.');
+        setTimeout(() => {
+          navigation.replace('Recipe', { 
+            recipeId,
+            recipe: response.recipe
+          });
+        }, 600);
+        return;
+      }
+
+      // 비동기 처리: status 폴링
+      const videoId = response.videoId;
+      if (!videoId) throw new Error('videoId를 확인할 수 없습니다.');
+
+      setProgress(50);
+      setStatus('분석이 진행 중입니다... 잠시만 기다려주세요.');
+
+      let elapsed = 0;
+      const intervalMs = 4000;
+      const timeoutMs = 5 * 60 * 1000; // 5분 타임아웃
+
+      const timerId = setInterval(async () => {
+        try {
+          elapsed += intervalMs;
+          // 진행률을 50→90 사이에서 점진 증가
+          setProgress(p => Math.min(90, p + 5));
+
+          const statusRes = await recipeService.getAnalysisStatus(videoId);
+          if (statusRes?.success && statusRes.status === 'completed' && statusRes.recipe) {
+            clearInterval(timerId);
+            setProgress(98);
+            setStatus('분석 완료! 레시피 화면으로 이동합니다...');
+            const rid = statusRes.recipe.id || statusRes.recipe.recipe_id;
+            if (!rid) throw new Error('레시피 ID를 찾을 수 없습니다.');
+            setTimeout(() => {
+              navigation.replace('Recipe', { recipeId: rid, recipe: statusRes.recipe });
+            }, 600);
+          } else if (elapsed >= timeoutMs) {
+            clearInterval(timerId);
+            throw new Error('분석이 예상보다 오래 걸립니다. 잠시 후 다시 시도해주세요.');
+          }
+        } catch (pollError) {
+          clearInterval(timerId);
+          throw pollError;
+        }
+      }, intervalMs);
+
+      setPollTimer(timerId);
 
     } catch (error) {
       console.error('AI 분석 오류:', error);

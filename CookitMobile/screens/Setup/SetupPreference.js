@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, StyleSheet, Alert, TouchableOpacity } from 'react-native';
-import { supabase } from '../../lib/supabase';
-import ModalSelect from './SetupPreferenceModal';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext'; 
 import { useNavigation } from '@react-navigation/native';
 import SetupPreferenceModal from './SetupPreferenceModal';
+import { getRecipeCategoryNames, updateProfile } from '../../services/userApi';
 
 export default function SetupPreference({ navigation }) {
   const { user, updateUserProfile } = useAuth(); 
@@ -19,48 +19,46 @@ export default function SetupPreference({ navigation }) {
   const [favoriteCuisines, setFavoriteCuisines] = useState(user?.favorite_cuisines || []);
   const [dietaryRestrictions, setDietaryRestrictions] = useState(user?.dietary_restrictions || []);
 
-  // ✅ recipe_categories 불러오기
+  const handleBack = () => {
+    navigation.goBack();
+  };
+
+  // ✅ recipe_categories 불러오기 (서버 API 사용)
   useEffect(() => {
     const fetchCategories = async () => {
-      const { data, error: categoryError } = await supabase
-        .from('recipe_categories')
-        .select('name');
-
-      if (categoryError) {
-        Alert.alert('카테고리 불러오기 실패', categoryError.message);
-        return;
+      try {
+        const categoryNames = await getRecipeCategoryNames();
+        setFavoriteOptions(categoryNames);
+      } catch (error) {
+        console.error('카테고리 불러오기 오류:', error);
+        Alert.alert('카테고리 불러오기 실패', error.message);
       }
-
-      setFavoriteOptions(data.map(item => item.name));
     };
 
     fetchCategories();
   }, []);
 
-  // ✅ 사용자 정보 저장
+  // ✅ 사용자 정보 저장 (서버 API 사용)
   const handleNext = async () => {
-    // 1. Supabase에 데이터 저장
-    const { error: saveError } = await supabase
-      .from('user_profiles')
-      .update({
+    try {
+      // 1. 서버 API를 통해 프로필 업데이트
+      await updateProfile({
         favorite_cuisines: favoriteCuisines,
         dietary_restrictions: dietaryRestrictions
-      })
-      .eq('id', user?.id);
+      });
 
-    if (saveError) {
-      Alert.alert('저장 실패', saveError.message);
-      return;
+      // 2. AuthProvider의 상태를 업데이트합니다.
+      await updateUserProfile({
+        favorite_cuisines: favoriteCuisines,
+        dietary_restrictions: dietaryRestrictions
+      });
+
+      // 3. 다음 화면으로 이동
+      navigation.navigate('SetupIngredients');
+    } catch (error) {
+      console.error('저장 오류:', error);
+      Alert.alert('저장 실패', error.message || '정보 저장 중 문제가 발생했습니다.');
     }
-
-    // 2. AuthProvider의 상태를 업데이트합니다.
-    await updateUserProfile({
-      favorite_cuisines: favoriteCuisines,
-      dietary_restrictions: dietaryRestrictions
-    });
-
-    // 3. 다음 화면으로 이동
-    navigation.replace('SetupIngredients'); 
   };
 
 
@@ -74,28 +72,40 @@ export default function SetupPreference({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+        <Ionicons name="arrow-back" size={28} color="#333" />
+      </TouchableOpacity>
       <Text style={styles.step}>3/4</Text>
       <Text style={styles.title}>취향을 알려주세요</Text>
       <Text style={styles.titleText}>레시피 추천할 때 참고할게요</Text>
 
       <Text style={styles.sectionTitle}>선호하는 재료</Text>
+      <Text style={styles.sectionDescription}>좋아하는 재료를 선택하면 맞춤 레시피를 추천해드려요</Text>
+      
       <View style={styles.tagContainer}>
-        {favoriteCuisines.map((cuisine) => (
-          <TouchableOpacity
-            key={cuisine}
-            style={[styles.tagButton, styles.favoriteTag]}
-            onPress={() => handleRemoveCuisine(cuisine)}
-          >
-            <Text style={[styles.tagText, styles.favoriteText]}>{cuisine}</Text>
-          </TouchableOpacity>
-        ))}
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setCuisineModalVisible(true)}
-        >
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
+        {favoriteCuisines.length > 0 ? (
+          favoriteCuisines.map((cuisine) => (
+            <TouchableOpacity
+              key={cuisine}
+              style={[styles.tagButton, styles.favoriteTag]}
+              onPress={() => handleRemoveCuisine(cuisine)}
+            >
+              <Text style={[styles.tagText, styles.favoriteText]}>{cuisine}</Text>
+              <Ionicons name="close-circle" size={18} color="#38a169" style={styles.tagIcon} />
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={styles.emptyText}>선택된 재료가 없습니다</Text>
+        )}
       </View>
+
+      <TouchableOpacity
+        style={styles.selectButton}
+        onPress={() => setCuisineModalVisible(true)}
+      >
+        <Ionicons name="add-circle-outline" size={24} color="orange" />
+        <Text style={styles.selectButtonText}>선호 재료 선택하기</Text>
+      </TouchableOpacity>
 
       <SetupPreferenceModal
         visible={isCuisineModalVisible}
@@ -103,33 +113,45 @@ export default function SetupPreference({ navigation }) {
         selected={favoriteCuisines}
         onClose={() => setCuisineModalVisible(false)}
         onSelect={setFavoriteCuisines}
+        title="선호하는 재료 선택"
       />
       
 
       <Text style={styles.sectionTitle}>비선호하는 재료</Text>
+      <Text style={styles.sectionDescription}>알러지가 있거나 싫어하는 재료를 선택해주세요</Text>
+      
       <View style={styles.tagContainer}>
-        {dietaryRestrictions.map((allergen) => (
-          <TouchableOpacity
-            key={allergen}
-            style={[styles.tagButton, styles.dietaryTag]}
-            onPress={() => handleRemoveAllergen(allergen)}
-          >
-            <Text style={[styles.tagText, styles.dietaryText]}>{allergen}</Text>
-          </TouchableOpacity>
-        ))}
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setAllergenModalVisible(true)}
-        >
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
+        {dietaryRestrictions.length > 0 ? (
+          dietaryRestrictions.map((allergen) => (
+            <TouchableOpacity
+              key={allergen}
+              style={[styles.tagButton, styles.dietaryTag]}
+              onPress={() => handleRemoveAllergen(allergen)}
+            >
+              <Text style={[styles.tagText, styles.dietaryText]}>{allergen}</Text>
+              <Ionicons name="close-circle" size={18} color="#e53e3e" style={styles.tagIcon} />
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={styles.emptyText}>선택된 재료가 없습니다</Text>
+        )}
       </View>
+
+      <TouchableOpacity
+        style={styles.selectButton}
+        onPress={() => setAllergenModalVisible(true)}
+      >
+        <Ionicons name="add-circle-outline" size={24} color="orange" />
+        <Text style={styles.selectButtonText}>비선호 재료 선택하기</Text>
+      </TouchableOpacity>
+
       <SetupPreferenceModal
         visible={isAllergenModalVisible}
         options={allergenOptions}
         selected={dietaryRestrictions}
         onClose={() => setAllergenModalVisible(false)}
         onSelect={setDietaryRestrictions}
+        title="비선호하는 재료 선택"
       />
 
       <View style={styles.buttonWrapper}>
@@ -150,10 +172,18 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
   },
+  backButton: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    zIndex: 10,
+    padding: 8,
+  },
   step: {
     color: 'orange',
     fontSize: 16,
     marginBottom: 10,
+    marginTop: 40,
   },
   title: {
     fontSize: 24,
@@ -168,19 +198,46 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginTop: 20,
-    marginBottom: 8,
+    marginTop: 24,
+    marginBottom: 4,
+  },
+  sectionDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
   },
   tagContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    borderColor: '#ccc',
+    borderColor: '#e0e0e0',
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    minHeight: 120, // 최소 높이 설정
-    alignItems: 'flex-start',
-    gap: 8, // 태그 사이의 간격
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 80,
+    backgroundColor: '#f9f9f9',
+    gap: 8,
+  },
+  emptyText: {
+    color: '#999',
+    fontSize: 14,
+    fontStyle: 'italic',
+    alignSelf: 'center',
+    marginVertical: 8,
+  },
+  tagButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 2,
+  },
+  tagText: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  tagIcon: {
+    marginLeft: 6,
   },
   favoriteTag: {
     backgroundColor: '#e6f7e9',
@@ -189,8 +246,6 @@ const styles = StyleSheet.create({
   favoriteText: {
     color: '#38a169',
   },
-
-  // ⭐️ 비선호하는 재료 태그 스타일 (붉은색 느낌)
   dietaryTag: {
     backgroundColor: '#fde8e8',
     borderColor: '#e53e3e',
@@ -198,28 +253,23 @@ const styles = StyleSheet.create({
   dietaryText: {
     color: '#e53e3e',
   },
-  tagButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  tagText: {
-    color: '#333',
-  },
-  addButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    justifyContent: 'center',
+  selectButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF4E6',
+    borderWidth: 2,
+    borderColor: 'orange',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginTop: 12,
+    gap: 8,
   },
-  addButtonText: {
-    fontSize: 20,
-    color: '#ccc',
-    lineHeight: 20,
+  selectButtonText: {
+    color: 'orange',
+    fontSize: 16,
+    fontWeight: '600',
   },
 
 

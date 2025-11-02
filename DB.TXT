@@ -1,0 +1,163 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.receipt_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  product_name text NOT NULL,
+  quantity integer NOT NULL DEFAULT 1,
+  created_at timestamp with time zone DEFAULT now(),
+  expiry_date date,
+  unit text,
+  CONSTRAINT receipt_items_pkey PRIMARY KEY (id),
+  CONSTRAINT receipt_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
+);
+CREATE TABLE public.recipe_categories (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  description text,
+  image_url text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT recipe_categories_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.recipe_comments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  recipe_id uuid,
+  content text NOT NULL,
+  parent_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT recipe_comments_pkey PRIMARY KEY (id),
+  CONSTRAINT recipe_comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
+  CONSTRAINT recipe_comments_recipe_id_fkey FOREIGN KEY (recipe_id) REFERENCES public.recipes(id),
+  CONSTRAINT recipe_comments_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.recipe_comments(id)
+);
+CREATE TABLE public.recipe_likes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  recipe_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT recipe_likes_pkey PRIMARY KEY (id),
+  CONSTRAINT recipe_likes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
+  CONSTRAINT recipe_likes_recipe_id_fkey FOREIGN KEY (recipe_id) REFERENCES public.recipes(id)
+);
+CREATE TABLE public.recipe_stats (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  recipe_id uuid NOT NULL,
+  view_count integer DEFAULT 0,
+  favorite_count integer DEFAULT 0,
+  custom_count integer DEFAULT 0,
+  cook_count integer DEFAULT 0,
+  average_rating numeric DEFAULT 0.00,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT recipe_stats_pkey PRIMARY KEY (id),
+  CONSTRAINT recipe_stats_recipe_id_fkey FOREIGN KEY (recipe_id) REFERENCES public.recipes(id)
+);
+CREATE TABLE public.recipes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  title text NOT NULL,
+  description text,
+  ingredients jsonb NOT NULL,
+  instructions jsonb NOT NULL,
+  prep_time integer,
+  cook_time integer,
+  servings integer,
+  difficulty_level text CHECK (difficulty_level = ANY (ARRAY['easy'::text, 'medium'::text, 'hard'::text])),
+  category_id uuid,
+  image_urls ARRAY,
+  tags ARRAY,
+  nutrition_info jsonb,
+  is_public boolean DEFAULT true,
+  source_url character varying,
+  ai_generated boolean DEFAULT false,
+  ai_analysis_data jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  video_url text,
+  ai_prompt text,
+  CONSTRAINT recipes_pkey PRIMARY KEY (id),
+  CONSTRAINT recipes_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.recipe_categories(id),
+  CONSTRAINT recipes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
+);
+CREATE TABLE public.user_category_preferences (
+  user_id uuid NOT NULL,
+  category_id uuid NOT NULL,
+  CONSTRAINT user_category_preferences_pkey PRIMARY KEY (category_id, user_id),
+  CONSTRAINT user_category_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
+  CONSTRAINT user_category_preferences_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.recipe_categories(id)
+);
+CREATE TABLE public.user_favorites (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  recipe_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_favorites_pkey PRIMARY KEY (id),
+  CONSTRAINT user_favorites_recipe_id_fkey FOREIGN KEY (recipe_id) REFERENCES public.recipes(id),
+  CONSTRAINT user_favorites_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
+);
+CREATE TABLE public.user_post_comments (
+  comment_id uuid NOT NULL DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL,
+  content text NOT NULL,
+  parent_comment_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  CONSTRAINT user_post_comments_pkey PRIMARY KEY (id),
+  CONSTRAINT user_post_comments_parent_comment_id_fkey FOREIGN KEY (parent_comment_id) REFERENCES public.user_post_comments(id),
+  CONSTRAINT user_post_comments_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.user_posts(post_id),
+  CONSTRAINT user_post_comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
+);
+CREATE TABLE public.user_post_likes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  post_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  user_id uuid,
+  CONSTRAINT user_post_likes_pkey PRIMARY KEY (id),
+  CONSTRAINT user_post_likes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
+  CONSTRAINT user_post_likes_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.user_posts(post_id)
+);
+CREATE TABLE public.user_posts (
+  post_id uuid NOT NULL DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  content text NOT NULL,
+  image_urls ARRAY,
+  tags ARRAY,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  recipe_id uuid,
+  user_id uuid,
+  CONSTRAINT user_posts_pkey PRIMARY KEY (post_id),
+  CONSTRAINT user_posts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
+  CONSTRAINT user_posts_recipe_id_fkey FOREIGN KEY (recipe_id) REFERENCES public.recipes(id)
+);
+CREATE TABLE public.user_profiles (
+  id uuid NOT NULL,
+  email text,
+  display_name text,
+  avatar_url text,
+  bio text,
+  cooking_level text CHECK (cooking_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text])),
+  favorite_cuisines ARRAY,
+  dietary_restrictions ARRAY,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT user_profiles_id_fkey FOREIGN KEY (id)ㄴ REFERENCES auth.users(id)
+);
+CREATE TABLE public.user_recipe_activities (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  recipe_id uuid NOT NULL,
+  activity_type text NOT NULL CHECK (activity_type = ANY (ARRAY['viewed'::text, 'favorited'::text, 'cooked'::text, 'shared'::text, 'rated'::text])),
+  activity_data jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  status text DEFAULT 'viewed'::text,
+  CONSTRAINT user_recipe_activities_pkey PRIMARY KEY (id),
+  CONSTRAINT user_recipe_activities_recipe_id_fkey FOREIGN KEY (recipe_id) REFERENCES public.recipes(id),
+  CONSTRAINT user_recipe_activities_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
+);

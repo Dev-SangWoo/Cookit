@@ -1,8 +1,13 @@
-const { createClient } = require('@supabase/supabase-js');
+// ✅ 반드시 맨 위에 추가!
+import dotenv from 'dotenv';
+dotenv.config();
+
+import { createClient } from '@supabase/supabase-js';
 
 // 환경변수에서 Supabase 설정 가져오기
-const supabaseUrl = process.env.SUPABASE_URL || 'https://ujqdizvpkrjunyrcpvtf.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
 
 console.log('🔍 Supabase 환경변수 확인:');
 console.log('SUPABASE_URL:', supabaseUrl);
@@ -13,12 +18,10 @@ if (!supabaseUrl || !supabaseServiceKey) {
   console.error('SUPABASE_URL과 SUPABASE_SERVICE_KEY를 .env에 설정해주세요.');
 }
 
-// Supabase 클라이언트 생성 (서버용 - 서비스 키 사용)
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+// Supabase 클라이언트 생성
+export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
-    persistSession: false
-  }
+    persistSession: false,
+  },
 });
-
-module.exports = { supabase };

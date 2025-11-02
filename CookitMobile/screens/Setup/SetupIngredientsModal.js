@@ -1,17 +1,17 @@
 // 재료 추가/수정 모달
 
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import DatePicker from 'react-native-modern-datepicker';
+import { Modal, View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import WheelDatePicker from '../../components/WheelDatePicker';
 
 const SetupIngredientsModal = ({ visible, onClose, onAddIngredient, isEditing, initialData }) => {
   const [ingredientName, setIngredientName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedUnit, setSelectedUnit] = useState('개');
-  const [isUnitPickerVisible, setUnitPickerVisible] = useState(false);
 
-  const units = ['개', 'ml', 'g', 'L', 'kg', '봉', '컵', '팩', '캔', '통'];
+  const units = ['개', 'g', 'kg', 'ml', 'L', '봉', '팩', '컵', '캔', '통'];
 
 
   useEffect(() => {
@@ -47,9 +47,10 @@ const SetupIngredientsModal = ({ visible, onClose, onAddIngredient, isEditing, i
     onClose();
   };
 
-  const handleUnitSelect = (unit) => {
-    setSelectedUnit(unit);
-    setUnitPickerVisible(false);
+  const formatDate = (dateString) => {
+    if (!dateString) return '유통기한 선택';
+    const [year, month, day] = dateString.split('/');
+    return `${year}년 ${month}월 ${day}일`;
   };
 
   return (
@@ -59,85 +60,110 @@ const SetupIngredientsModal = ({ visible, onClose, onAddIngredient, isEditing, i
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={modalStyles.centeredView}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={modalStyles.modalView}
-        >
-          <Text style={modalStyles.modalTitle}>재료 등록</Text>
-          <TextInput
-            style={modalStyles.input}
-            placeholder="재료 이름"
-            value={ingredientName}
-            onChangeText={setIngredientName}
-          />
-
-          <View style={modalStyles.quantityContainer}>
-            <TextInput
-              style={modalStyles.quantityInput}
-              placeholder="개수"
-              value={quantity}
-              onChangeText={setQuantity}
-              keyboardType="numeric"
-            />
-            <TouchableOpacity
-              style={modalStyles.unitPickerButton}
-              onPress={() => setUnitPickerVisible(true)}
-            >
-              <Text style={modalStyles.unitText}>{selectedUnit}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={modalStyles.datePickerLabel}>유통기한 선택</Text>
-          <DatePicker
-            mode="calendar"
-            onDateChange={setSelectedDate}
-            onSelectedChange={() => { }}
-            options={{
-              mainColor: '#FFC107',
-              locale: {
-                months: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'],
-                days: ['일', '월', '화', '수', '목', '금', '토']
-              }
-            }}
-            isGregorian={true}
-          />
-
-          <View style={modalStyles.buttonContainer}>
-            <TouchableOpacity style={modalStyles.cancelButton} onPress={onClose}>
-              <Text style={modalStyles.buttonText}>취소</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={modalStyles.addButton} onPress={handleAdd}>
-              <Text style={modalStyles.buttonText}>추가</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </View>
-
-      {/* Unit Picker Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={isUnitPickerVisible}
-        onRequestClose={() => setUnitPickerVisible(false)}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={modalStyles.centeredView}
       >
-        <TouchableOpacity
-          style={modalStyles.unitPickerOverlay}
-          onPress={() => setUnitPickerVisible(false)}
-        >
-          <View style={modalStyles.unitPickerContainer}>
-            {units.map((unit, index) => (
-              <TouchableOpacity
-                key={index}
-                style={modalStyles.unitPickerItem}
-                onPress={() => handleUnitSelect(unit)}
-              >
-                <Text style={modalStyles.unitPickerText}>{unit}</Text>
-              </TouchableOpacity>
-            ))}
+        <View style={modalStyles.modalView}>
+          {/* Header */}
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.modalTitle}>
+              <Ionicons name="basket-outline" size={24} color="#FF8C00" /> 재료 등록
+            </Text>
+            <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
+              <Ionicons name="close" size={28} color="#666" />
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </Modal>
+
+          <ScrollView style={modalStyles.scrollContent} showsVerticalScrollIndicator={false}>
+            {/* 재료 이름 */}
+            <View style={modalStyles.section}>
+              <Text style={modalStyles.label}>
+                <Ionicons name="pricetag-outline" size={16} color="#666" /> 재료 이름
+              </Text>
+              <TextInput
+                style={modalStyles.input}
+                placeholder="예: 양파, 당근, 우유..."
+                value={ingredientName}
+                onChangeText={setIngredientName}
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            {/* 수량 */}
+            <View style={modalStyles.section}>
+              <Text style={modalStyles.label}>
+                <Ionicons name="scale-outline" size={16} color="#666" /> 수량
+              </Text>
+              <View style={modalStyles.quantityContainer}>
+                <TextInput
+                  style={modalStyles.quantityInput}
+                  placeholder="예: 100"
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  keyboardType="numeric"
+                  placeholderTextColor="#999"
+                />
+                <View style={modalStyles.unitSelector}>
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={modalStyles.unitScrollContent}
+                  >
+                    {units.map((unit) => (
+                      <TouchableOpacity
+                        key={unit}
+                        style={[
+                          modalStyles.unitButton,
+                          selectedUnit === unit && modalStyles.unitButtonSelected
+                        ]}
+                        onPress={() => setSelectedUnit(unit)}
+                      >
+                        <Text style={[
+                          modalStyles.unitButtonText,
+                          selectedUnit === unit && modalStyles.unitButtonTextSelected
+                        ]}>
+                          {unit}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+            </View>
+
+            {/* 유통기한 */}
+            <View style={modalStyles.section}>
+              <Text style={modalStyles.label}>
+                <Ionicons name="calendar-outline" size={16} color="#666" /> 유통기한
+              </Text>
+              <View style={modalStyles.datePickerContainer}>
+                <WheelDatePicker
+                  onDateChange={setSelectedDate}
+                  initialDate={selectedDate}
+                />
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* Footer Buttons */}
+          <View style={modalStyles.buttonContainer}>
+            <TouchableOpacity 
+              style={[modalStyles.button, modalStyles.cancelButton]} 
+              onPress={onClose}
+            >
+              <Text style={modalStyles.cancelButtonText}>취소</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[modalStyles.button, modalStyles.addButton]} 
+              onPress={handleAdd}
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Text style={modalStyles.addButtonText}>추가하기</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -147,111 +173,139 @@ export default SetupIngredientsModal;
 const modalStyles = StyleSheet.create({
   centeredView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalView: {
-    width: '90%',
     backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-    marginTop: 20,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 20,
+    color: '#333',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 10,
   },
   input: {
-    width: '100%',
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    marginBottom: 20,
-  },
-  datePickerLabel: {
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    padding: 14,
     fontSize: 16,
-    marginBottom: 10,
-    fontWeight: 'bold',
+    backgroundColor: '#f9f9f9',
+  },
+  quantityContainer: {
+    gap: 12,
+  },
+  quantityInput: {
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+  },
+  unitSelector: {
+    marginTop: 8,
+  },
+  unitScrollContent: {
+    gap: 8,
+    paddingVertical: 4,
+  },
+  unitButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 2,
+    borderColor: '#f0f0f0',
+  },
+  unitButtonSelected: {
+    backgroundColor: '#FFF4E6',
+    borderColor: '#FF8C00',
+  },
+  unitButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#666',
+  },
+  unitButtonTextSelected: {
+    color: '#FF8C00',
+    fontWeight: '700',
+  },
+  datePickerContainer: {
+    marginTop: 8,
+    borderRadius: 16,
+    backgroundColor: '#f9f9f9',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
   },
   buttonContainer: {
     flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  button: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 6,
   },
   cancelButton: {
-    backgroundColor: '#ccc',
-    borderRadius: 20,
-    padding: 10,
-    marginHorizontal: 10,
+    backgroundColor: '#f0f0f0',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
   },
   addButton: {
-    backgroundColor: 'orange',
-    borderRadius: 20,
-    padding: 10,
-    marginHorizontal: 10,
+    backgroundColor: '#FF8C00',
   },
-  buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 20,
-  },
-  quantityInput: {
-    flex: 0.8,
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderTopLeftRadius: 8,
-    borderBottomLeftRadius: 8,
-    paddingHorizontal: 10,
-    marginRight: -1,
-  },
-  unitPickerButton: {
-    flex: 0.2,
-    height: 40,
-    backgroundColor: '#eee',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderTopRightRadius: 8,
-    borderBottomRightRadius: 8,
-  },
-  unitText: {
-    fontWeight: 'bold',
-  },
-  unitPickerOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  unitPickerContainer: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 10,
-    width: 200,
-  },
-  unitPickerItem: {
-    padding: 10,
-    alignItems: 'center',
-  },
-  unitPickerText: {
+  addButtonText: {
+    color: '#fff',
     fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

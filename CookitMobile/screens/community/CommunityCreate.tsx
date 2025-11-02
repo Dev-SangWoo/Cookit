@@ -1,56 +1,74 @@
-import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as ImagePicker from 'expo-image-picker';
-import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import 'react-native-get-random-values';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
+  Image,
+  FlatList,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { v4 as uuid } from 'uuid';
 import { useNavigation } from '@react-navigation/native';
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import RecipeSelectModal from '../../components/RecipeSelectModal';
+import { useAuth } from '../../contexts/AuthContext';
+import { createPost } from '../../services/postsApi';
 
-const decode = (str: string) => {
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(str, 'base64');
-  } else {
-    const binaryString = atob(str);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes.buffer;
-  }
-};
+interface Recipe {
+  id: string;
+  recipe_id: string;
+  title: string;
+  image_urls?: string[];
+  thumbnail?: string;
+}
 
 export default function CommunityCreate() {
   const { user } = useAuth();
   const navigation = useNavigation();
 
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [images, setImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  
+  // 게시글 작성 관련 state
+  const [postTitle, setPostTitle] = useState('');
+  const [postContent, setPostContent] = useState('');
+  const [postType, setPostType] = useState<'01' | '10'>('01'); // '01' = 커뮤니티, '10' = 질문
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [isRecipeModalVisible, setIsRecipeModalVisible] = useState(false);
 
-  const handlePickImage = async () => {
+  useEffect(() => {
+    if (user) {
+      setUserId(user.id);
+    }
+  }, [user]);
+
+  const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('권한 필요', '앨범 접근 권한이 필요합니다.');
+      Alert.alert('권한 필요', '사진 라이브러리 접근 권한이 필요합니다.');
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
-      quality: 1,
+      quality: 0.8,
+      selectionLimit: 5,
     });
 
-    if (!result.canceled) {
-      setImages([...images, ...result.assets]);
+    if (!result.canceled && result.assets) {
+      const newImages = result.assets.map(asset => asset.uri);
+      setSelectedImages(prev => [...prev, ...newImages].slice(0, 5)); // 최대 5장
     }
   };
 
-  const handleTakePhoto = async () => {
+  const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('권한 필요', '카메라 접근 권한이 필요합니다.');
@@ -60,233 +78,445 @@ export default function CommunityCreate() {
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 1,
+      quality: 0.8,
     });
 
-    if (!result.canceled) {
-      setImages([...images, ...result.assets]);
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const newImage = result.assets[0].uri;
+      setSelectedImages(prev => [...prev, newImage].slice(0, 5)); // 최대 5장
     }
   };
 
-  const uploadImages = async () => {
-    const uploadedUrls: string[] = [];
-    setIsUploading(true);
-
-    for (const image of images) {
-      try {
-        const fileExt = image.uri.split('.').pop();
-        const fileName = `${uuid()}.${fileExt}`;
-        const filePath = `posts/${user?.id}/${fileName}`;
-        const contentType = image.mimeType || 'image/jpeg';
-
-        const base64 = await FileSystem.readAsStringAsync(image.uri, {
-          encoding: 'base64',
-        });
-        
-        const binaryData = decode(base64);
-
-        const { error } = await supabase.storage
-          .from('user-post-images')
-          .upload(filePath, binaryData, {
-            contentType,
-            upsert: true,
-          });
-
-        if (error) {
-          console.error('이미지 업로드 실패:', error);
-          Alert.alert('이미지 업로드 실패', error.message);
-          setIsUploading(false);
-          return [];
-        }
-
-        const { data } = supabase.storage.from('user-post-images').getPublicUrl(filePath);
-        uploadedUrls.push(data.publicUrl);
-      } catch (err) {
-        console.error('이미지 처리 중 오류 발생:', err);
-        Alert.alert('이미지 처리 실패', '이미지를 업로드하는 중 오류가 발생했습니다.');
-        setIsUploading(false);
-        return [];
-      }
-    }
-    setIsUploading(false);
-    return uploadedUrls;
+  const removeImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async () => {
-    if (!user) return;
-    setIsUploading(true);
-
-    if (!title || !content) {
-      Alert.alert('오류', '제목과 내용을 모두 입력해주세요.');
-      setIsUploading(false);
+  const handleSave = async () => {
+    if (!userId) {
+      Alert.alert('오류', '로그인이 필요합니다.');
       return;
     }
 
-    const imageUrls = await uploadImages();
-    if (imageUrls.length !== images.length) {
-      setIsUploading(false);
+    if (!postTitle.trim()) {
+      Alert.alert('필수 입력', '제목을 입력해 주세요.');
       return;
     }
 
-    const { error } = await supabase.from('user_posts').insert({
-      user_id: user.id,
-      title,
-      content,
-      image_urls: imageUrls,
-    });
+    setLoading(true);
 
-    if (error) {
-      console.error('게시글 등록 실패:', error);
-      Alert.alert('게시글 등록 실패', error.message);
-    } else {
-      Alert.alert(
-        '등록 완료',
-        '게시글이 등록되었습니다.',
-        [
-          {
-            text: '확인',
-            onPress: () => {
-              console.log('확인 버튼이 눌렸습니다. 이전 화면으로 돌아갑니다.');
-              navigation.goBack();
-            },
-          },
-        ]
-      );
+    try {
+      // 서버 API를 통해 게시글 생성 (이미지 업로드는 postsApi 내부에서 처리)
+      await createPost({
+        title: postTitle,
+        content: postContent,
+        recipe_id: selectedRecipe?.recipe_id || selectedRecipe?.id || undefined,
+        images: selectedImages,
+        user_id: userId,
+        tags: postType, // '01' 또는 '10'
+      });
+
+      Alert.alert('저장 완료', '게시글이 저장되었습니다!', [
+        { text: '확인', onPress: () => navigation.goBack() }
+      ]);
+
+    } catch (error: any) {
+      console.error('저장 중 오류 발생:', error);
+      Alert.alert('저장 실패', '데이터 저장 중 오류가 발생했습니다: ' + error.message);
+    } finally {
+      setLoading(false);
     }
-    setIsUploading(false);
   };
+
+  if (!userId) {
+    return <ActivityIndicator size="large" style={{ flex: 1, justifyContent: 'center' }} />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <TextInput
-        style={styles.input}
-        placeholder="제목"
-        placeholderTextColor="#999"
-        value={title}
-        onChangeText={setTitle}
-      />
-      <TextInput
-        style={styles.textarea}
-        placeholder="내용"
-        placeholderTextColor="#999"
-        value={content}
-        onChangeText={setContent}
-        multiline
-      />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* 레시피 정보 헤더 (레시피 선택 시 표시) */}
+        {selectedRecipe && (
+          <View style={styles.recipeHeader}>
+            {selectedRecipe.thumbnail || selectedRecipe.image_urls?.[0] ? (
+              <Image 
+                source={{ uri: selectedRecipe.thumbnail || selectedRecipe.image_urls?.[0] }} 
+                style={styles.recipeThumbnail} 
+              />
+            ) : (
+              <View style={styles.thumbnailPlaceholder}>
+                <Ionicons name="restaurant-outline" size={32} color="#ccc" />
+              </View>
+            )}
+            <View style={styles.recipeInfo}>
+              <Text style={styles.recipeTitle} numberOfLines={2}>
+                {selectedRecipe.title}
+              </Text>
+              <Text style={styles.recipeSubtitle}>연결된 레시피</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setSelectedRecipe(null)}
+              style={styles.removeRecipeButton}
+            >
+              <Ionicons name="close-circle" size={24} color="#F44336" />
+            </TouchableOpacity>
+          </View>
+        )}
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.imageButton} onPress={handlePickImage} disabled={isUploading}>
-          <Text style={styles.imageButtonText}>앨범에서 선택</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.imageButton} onPress={handleTakePhoto} disabled={isUploading}>
-          <Text style={styles.imageButtonText}>사진 촬영</Text>
-        </TouchableOpacity>
-      </View>
+        <Text style={styles.header}>게시글 작성 📝</Text>
 
-      <ScrollView horizontal contentContainerStyle={styles.preview}>
-        {images.map((img, idx) => (
-          <Image
-            key={idx}
-            source={{ uri: img.uri }}
-            style={styles.previewImage}
+        {/* 게시글 유형 선택 */}
+        <View style={styles.typeContainer}>
+          <TouchableOpacity
+            style={styles.typeButton}
+            onPress={() => setPostType('01')}
+          >
+            <Text style={[styles.typeText, postType === '01' && styles.typeTextActive]}>
+              커뮤니티
+            </Text>
+            {postType === '01' && <View style={styles.underline} />}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.typeButton}
+            onPress={() => setPostType('10')}
+          >
+            <Text style={[styles.typeText, postType === '10' && styles.typeTextActive]}>
+              질문
+            </Text>
+            {postType === '10' && <View style={styles.underline} />}
+          </TouchableOpacity>
+        </View>
+
+        {/* 레시피 선택 */}
+        <Text style={styles.subHeader}>레시피 연결 (선택)</Text>
+        <TouchableOpacity
+          style={styles.recipeSelectButton}
+          onPress={() => setIsRecipeModalVisible(true)}
+        >
+          <Ionicons 
+            name={selectedRecipe ? "checkmark-circle" : "add-circle-outline"} 
+            size={20} 
+            color={selectedRecipe ? "#4CAF50" : "#999"} 
           />
-        ))}
+          <Text style={[styles.recipeSelectText, selectedRecipe && styles.recipeSelectedText]}>
+            {selectedRecipe ? selectedRecipe.title : '레시피 선택하기'}
+          </Text>
+          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+        </TouchableOpacity>
+
+        {/* 제목 입력 */}
+        <Text style={styles.subHeader}>제목 *</Text>
+        <TextInput
+          style={styles.titleInput}
+          placeholder="게시글 제목을 입력해주세요"
+          value={postTitle}
+          onChangeText={setPostTitle}
+          maxLength={50}
+        />
+        <Text style={styles.charCount}>{postTitle.length} / 50</Text>
+
+        {/* 내용 입력 */}
+        <Text style={styles.subHeader}>내용 (선택)</Text>
+        <TextInput
+          style={styles.contentInput}
+          multiline
+          placeholder="게시글 내용을 입력해주세요"
+          value={postContent}
+          onChangeText={setPostContent}
+          maxLength={500}
+        />
+        <Text style={styles.charCount}>{postContent.length} / 500</Text>
+
+        {/* 사진 추가 */}
+        <Text style={styles.subHeader}>사진 추가 (선택, 최대 5장)</Text>
+        <View style={styles.imagePickerRow}>
+          <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
+            <Ionicons name="images-outline" size={24} color="#FF6B35" />
+            <Text style={styles.imagePickerText}>앨범에서 선택</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.imagePickerButton} onPress={takePhoto}>
+            <Ionicons name="camera-outline" size={24} color="#FF6B35" />
+            <Text style={styles.imagePickerText}>사진 촬영</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 선택된 이미지 미리보기 */}
+        {selectedImages.length > 0 && (
+          <FlatList
+            data={selectedImages}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item, index) => `image-${index}`}
+            renderItem={({ item, index }) => (
+              <View style={styles.imagePreviewContainer}>
+                <Image source={{ uri: item }} style={styles.imagePreview} />
+                <TouchableOpacity 
+                  style={styles.removeImageButton}
+                  onPress={() => removeImage(index)}
+                >
+                  <Ionicons name="close-circle" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            )}
+            contentContainerStyle={styles.imageList}
+          />
+        )}
+
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.cancelButtonText}>취소</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.saveButton, (loading || !postTitle.trim()) && styles.disabledButton]}
+            onPress={handleSave}
+            disabled={loading || !postTitle.trim()}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.saveButtonText}>저장하기</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
-      <TouchableOpacity
-        style={[styles.submitButton, isUploading || images.length === 0 && styles.disabledButton]}
-        onPress={handleSubmit}
-        disabled={isUploading || images.length === 0}
-      >
-        <Text style={styles.submitButtonText}>{isUploading ? "등록 중..." : "등록하기"}</Text>
-      </TouchableOpacity>
+      {/* 레시피 선택 모달 */}
+      <RecipeSelectModal
+        visible={isRecipeModalVisible}
+        onClose={() => setIsRecipeModalVisible(false)}
+        onSelect={(recipe) => setSelectedRecipe(recipe)}
+      />
     </SafeAreaView>
   );
 }
 
+// decode 함수는 더 이상 필요 없음 (postsApi에서 처리)
+
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  recipeHeader: {
+    flexDirection: 'row',
     backgroundColor: '#fff',
-    flex: 1,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
-    backgroundColor: '#f9f9f9',
-    fontSize: 16,
-    color: '#333',
-  },
-  textarea: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 15,
-    height: 150,
-    marginBottom: 15,
-    textAlignVertical: 'top',
-    backgroundColor: '#f9f9f9',
-    fontSize: 16,
-    color: '#333',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  imageButton: {
-    flex: 1,
-    marginHorizontal: 5,
-    backgroundColor: '#FFC107',
-    padding: 15,
-    borderRadius: 10,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
-  imageButtonText: {
-    color: 'white',
-    fontSize: 14,
+  recipeThumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  thumbnailPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  recipeInfo: {
+    flex: 1,
+  },
+  recipeTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 4,
+  },
+  recipeSubtitle: {
+    fontSize: 13,
+    color: '#999',
+  },
+  removeRecipeButton: {
+    padding: 4,
+  },
+  header: {
+    fontSize: 24,
     fontWeight: 'bold',
-  },
-  preview: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  previewImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 8,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#eee',
-    resizeMode: 'cover',
-  },
-  submitButton: {
-    backgroundColor: '#FFC107',
-    padding: 18,
-    borderRadius: 10,
-    alignItems: 'center',
     marginTop: 20,
+    marginBottom: 16,
+    marginHorizontal: 20,
+    color: '#333',
+  },
+  typeContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  typeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#CCCCCC',
+  },
+  typeTextActive: {
+    color: '#333333',
+    fontWeight: '700',
+  },
+  underline: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: '#FF6B35',
+  },
+  subHeader: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 8,
+    marginBottom: 8,
+    marginHorizontal: 20,
+    color: '#333',
+  },
+  recipeSelectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    marginBottom: 20,
+    gap: 12,
+  },
+  recipeSelectText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#999',
+  },
+  recipeSelectedText: {
+    color: '#333',
+    fontWeight: '500',
+  },
+  titleInput: {
+    marginHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
+    marginBottom: 4,
+  },
+  contentInput: {
+    marginHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
+    height: 120,
+    textAlignVertical: 'top',
+    marginBottom: 4,
+  },
+  charCount: {
+    textAlign: 'right',
+    marginHorizontal: 20,
+    color: '#888',
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  imagePickerRow: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginBottom: 12,
+    gap: 12,
+  },
+  imagePickerButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#FF6B35',
+    borderStyle: 'dashed',
+    gap: 8,
+  },
+  imagePickerText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FF6B35',
+  },
+  imageList: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  imagePreviewContainer: {
+    marginRight: 12,
+    position: 'relative',
+  },
+  imagePreview: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#F44336',
+    borderRadius: 12,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 20,
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#E0E0E0',
+    padding: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButton: {
+    flex: 2,
+    backgroundColor: '#4CAF50',
+    padding: 16,
+    borderRadius: 10,
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
     elevation: 5,
-  },
-  submitButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
   },
   disabledButton: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#a5d6a7',
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

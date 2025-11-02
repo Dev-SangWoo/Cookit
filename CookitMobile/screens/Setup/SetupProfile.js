@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { updateProfile } from '../../services/userApi';
 
 export default function SetupProfile({ navigation }) {
     const { user, updateUserProfile } = useAuth();
     const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '');
     const [bio, setBio] = useState(user?.bio || '');
+
+    const handleBack = () => {
+        navigation.goBack();
+    };
 
     const pickImage = async () => {
         const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -33,33 +38,31 @@ export default function SetupProfile({ navigation }) {
             return;
         }
 
-        // Supabase에 프로필 정보 업데이트
-        const { error: updateError } = await supabase
-            .from('user_profiles')
-            .update({
+        try {
+            // 서버 API를 통해 프로필 업데이트
+            await updateProfile({
                 avatar_url: avatarUrl,
                 bio,
-            })
-            .eq('id', user?.id);
+            });
 
-        if (updateError) {
-            console.error('Supabase 업데이트 오류:', updateError);
-            Alert.alert('저장 오류', `프로필 정보 저장 중 문제가 발생했습니다: ${updateError.message}`);
-            return;
+            // AuthProvider의 상태를 업데이트합니다.
+            await updateUserProfile({
+                avatar_url: avatarUrl,
+                bio,
+            });
+
+            navigation.navigate('SetupPreference');
+        } catch (error) {
+            console.error('저장 오류:', error);
+            Alert.alert('저장 오류', error.message || '프로필 정보 저장 중 문제가 발생했습니다.');
         }
-
-        // AuthProvider의 상태를 업데이트합니다.
-        await updateUserProfile({
-            avatar_url: avatarUrl,
-            bio,
-        });
-
-
-        navigation.replace('SetupPreference') ; 
     };
 
     return (
         <View style={styles.container}>
+            <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+                <Ionicons name="arrow-back" size={28} color="#333" />
+            </TouchableOpacity>
             <Text style={styles.step}>2/4</Text>
             <Text style={styles.title}>프로필 사진, 자기소개</Text>
             <Text style={styles.titleText}>본인을 표현할 수 있는{"\n"}프로필 사진과 자기소개를 입력해주세요</Text>
@@ -103,10 +106,18 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 60,
   },
+    backButton: {
+        position: 'absolute',
+        top: 60,
+        left: 20,
+        zIndex: 10,
+        padding: 8,
+    },
     step: {
         color: 'orange',
         fontSize: 16,
         marginBottom: 10,
+        marginTop: 40,
     },
     title: {
         fontSize: 24,

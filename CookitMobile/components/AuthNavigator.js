@@ -20,11 +20,16 @@ import RecipeStack from '../screens/Recipe/RecipeStack';
 import SearchStack from '../screens/Search/SearchStack';
 import ReceiptStack from '../screens/Receipt/ReceiptStack';
 import SettingsStack from '../screens/Settings/SettingsStack';
+import CommunityStack from '../screens/community/CommunityStack';
 import ProfileMain from '../screens/Profile/ProfileMain';
 import ProfileEdit from '../screens/Profile/ProfileEdit';
 import ProfileAlarm from '../screens/Profile/ProfileAlarm';
 import ProfileHistory from '../screens/Profile/ProfileHistory';
 import ProfileLikes from '../screens/Profile/ProfileLikes';
+import ProfileRecentViewed from '../screens/Profile/ProfileRecentViewed';
+import ProfileWeekRecipes from '../screens/Profile/ProfileWeekRecipes';
+import AnalysisFloatingBar from './AnalysisFloatingBar';
+import AnalysisHistory from '../screens/AnalysisHistory';
 
 const Stack = createNativeStackNavigator();
 
@@ -74,14 +79,20 @@ export default function AuthNavigator() {
             <Stack.Screen name="Search" component={SearchStack} />
             <Stack.Screen name="Receipt" component={ReceiptStack} />
             <Stack.Screen name="Settings" component={SettingsStack} />
+            <Stack.Screen name="Community" component={CommunityStack} />
             <Stack.Screen name="Profile" component={ProfileMain} />
             <Stack.Screen name="ProfileEdit" component={ProfileEdit} />
             <Stack.Screen name="ProfileAlarm" component={ProfileAlarm} />
             <Stack.Screen name="ProfileHistory" component={ProfileHistory} />
             <Stack.Screen name="ProfileLikes" component={ProfileLikes} />
+            <Stack.Screen name="ProfileRecentViewed" component={ProfileRecentViewed} />
+            <Stack.Screen name="ProfileWeekRecipes" component={ProfileWeekRecipes} />
+            <Stack.Screen name="AnalysisHistory" component={AnalysisHistory} />
           </>
         )}
       </Stack.Navigator>
+      {/* 전역 분석 플로팅 바 */}
+      <AnalysisFloatingBar />
     </NavigationContainer>
   );
 }

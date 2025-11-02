@@ -1,5 +1,9 @@
-const express = require('express');
-const { supabase } = require('../services/supabaseClient');
+// ===============================================
+// userRecipes.js (ESM 변환 완료 버전)
+// ===============================================
+
+import express from 'express';
+import { supabase } from '../services/supabaseClient.js';
 
 const router = express.Router();
 
@@ -15,7 +19,7 @@ const requireAuth = async (req, res, next) => {
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error } = await supabase.auth.getUser(token);
-    
+
     if (error || !user) {
       return res.status(401).json({ error: '유효하지 않은 토큰입니다.' });
     }
@@ -38,13 +42,9 @@ router.get('/my', requireAuth, async (req, res) => {
     const userId = req.user.id;
 
     let whereClause = '';
-    if (type === 'saved') {
-      whereClause = "AND ur.relationship_type = 'saved'";
-    } else if (type === 'favorited') {
-      whereClause = "AND ur.relationship_type = 'favorited'";
-    } else if (type === 'created') {
-      whereClause = "AND ur.relationship_type = 'created'";
-    }
+    if (type === 'saved') whereClause = "AND ur.relationship_type = 'saved'";
+    else if (type === 'favorited') whereClause = "AND ur.relationship_type = 'favorited'";
+    else if (type === 'created') whereClause = "AND ur.relationship_type = 'created'";
 
     const { data: recipes, error } = await supabase
       .from('user_recipes')
@@ -75,9 +75,7 @@ router.get('/my', requireAuth, async (req, res) => {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     res.json({
       success: true,
@@ -100,10 +98,7 @@ router.get('/my', requireAuth, async (req, res) => {
 
   } catch (error) {
     console.error('사용자 레시피 조회 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -117,23 +112,15 @@ router.post('/save', requireAuth, async (req, res) => {
     const userId = req.user.id;
 
     if (!recipe_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'recipe_id가 필요합니다.'
-      });
+      return res.status(400).json({ success: false, error: 'recipe_id가 필요합니다.' });
     }
 
     if (!['saved', 'favorited'].includes(type)) {
-      return res.status(400).json({
-        success: false,
-        error: 'type은 saved 또는 favorited만 가능합니다.'
-      });
+      return res.status(400).json({ success: false, error: 'type은 saved 또는 favorited만 가능합니다.' });
     }
 
-    // 사용자 프로필 확인/생성
     await ensureUserProfile(userId, req.user);
 
-    // 중복 확인
     const { data: existing } = await supabase
       .from('user_recipes')
       .select('id')
@@ -143,18 +130,14 @@ router.post('/save', requireAuth, async (req, res) => {
       .single();
 
     if (existing) {
-      return res.status(409).json({
-        success: false,
-        error: '이미 저장된 레시피입니다.'
-      });
+      return res.status(409).json({ success: false, error: '이미 저장된 레시피입니다.' });
     }
 
-    // 레시피 저장
     const { data, error } = await supabase
       .from('user_recipes')
       .insert({
         user_id: userId,
-        recipe_id: recipe_id,
+        recipe_id,
         relationship_type: type,
         notes: notes || null,
         rating: rating || null
@@ -162,16 +145,12 @@ router.post('/save', requireAuth, async (req, res) => {
       .select()
       .single();
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
-    // 즐겨찾기 카운트 업데이트
     if (type === 'favorited') {
       await supabase.rpc('increment_favorite_count', { recipe_id });
     }
 
-    // 활동 로그 기록
     await logActivity(userId, recipe_id, 'saved');
 
     res.json({
@@ -182,10 +161,7 @@ router.post('/save', requireAuth, async (req, res) => {
 
   } catch (error) {
     console.error('레시피 저장 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -208,49 +184,30 @@ router.delete('/:recipe_id', requireAuth, async (req, res) => {
       .select()
       .single();
 
-    if (error) {
-      throw error;
-    }
-
+    if (error) throw error;
     if (!data) {
-      return res.status(404).json({
-        success: false,
-        error: '저장된 레시피를 찾을 수 없습니다.'
-      });
+      return res.status(404).json({ success: false, error: '저장된 레시피를 찾을 수 없습니다.' });
     }
 
-    // 즐겨찾기 카운트 감소
     if (type === 'favorited') {
       await supabase.rpc('decrement_favorite_count', { recipe_id });
     }
 
-    res.json({
-      success: true,
-      message: '레시피가 삭제되었습니다.'
-    });
+    res.json({ success: true, message: '레시피가 삭제되었습니다.' });
 
   } catch (error) {
     console.error('레시피 삭제 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
 /**
  * @route GET /api/user-recipes/public
- * @desc 공개 레시피 목록 (모든 사용자)
+ * @desc 공개 레시피 목록
  */
 router.get('/public', async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      category, 
-      difficulty, 
-      sort = 'latest' 
-    } = req.query;
+    const { page = 1, limit = 10, category, difficulty, sort = 'latest' } = req.query;
     const offset = (page - 1) * limit;
 
     let query = supabase
@@ -277,108 +234,63 @@ router.get('/public', async (req, res) => {
       `)
       .eq('is_public', true);
 
-    // 필터링
-    if (category) {
-      query = query.ilike('category', `%${category}%`);
-    }
-    if (difficulty) {
-      query = query.eq('difficulty', difficulty);
-    }
+    if (category) query = query.ilike('category', `%${category}%`);
+    if (difficulty) query = query.eq('difficulty', difficulty);
 
-    // 정렬
     switch (sort) {
-      case 'popular':
-        query = query.order('favorite_count', { ascending: false });
-        break;
-      case 'views':
-        query = query.order('view_count', { ascending: false });
-        break;
-      case 'latest':
-      default:
-        query = query.order('created_at', { ascending: false });
+      case 'popular': query = query.order('favorite_count', { ascending: false }); break;
+      case 'views': query = query.order('view_count', { ascending: false }); break;
+      default: query = query.order('created_at', { ascending: false });
     }
 
-    const { data: recipes, error } = await query
-      .range(offset, offset + limit - 1);
-
-    if (error) {
-      throw error;
-    }
+    const { data: recipes, error } = await query.range(offset, offset + limit - 1);
+    if (error) throw error;
 
     res.json({
       success: true,
-      recipes: recipes.map(recipe => ({
-        ...recipe,
-        creator: recipe.user_profiles || null
-      })),
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: recipes.length
-      }
+      recipes: recipes.map(r => ({ ...r, creator: r.user_profiles || null })),
+      pagination: { page: parseInt(page), limit: parseInt(limit), total: recipes.length }
     });
 
   } catch (error) {
     console.error('공개 레시피 조회 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
 /**
  * @route GET /api/user-recipes/detail/:recipe_id
- * @desc 레시피 상세 정보 (재료, 단계 포함)
+ * @desc 레시피 상세 정보
  */
 router.get('/detail/:recipe_id', async (req, res) => {
   try {
     const { recipe_id } = req.params;
-    const userId = req.user?.id; // 선택적 인증
+    const userId = req.user?.id;
 
-    // 조회수 증가
     await supabase.rpc('increment_view_count', { recipe_id });
 
-    // 레시피 상세 정보
     const { data: recipe, error: recipeError } = await supabase
       .from('recipes')
-      .select(`
-        *,
-        user_profiles!left (
-          display_name,
-          avatar_url
-        )
-      `)
+      .select(`*, user_profiles!left (display_name, avatar_url)`)
       .eq('recipe_id', recipe_id)
       .eq('is_public', true)
       .single();
 
-    if (recipeError) {
-      throw recipeError;
-    }
+    if (recipeError) throw recipeError;
+    if (!recipe) return res.status(404).json({ success: false, error: '레시피를 찾을 수 없습니다.' });
 
-    if (!recipe) {
-      return res.status(404).json({
-        success: false,
-        error: '레시피를 찾을 수 없습니다.'
-      });
-    }
-
-    // 재료 정보
     const { data: ingredients } = await supabase
       .from('ingredients')
       .select('*')
       .eq('recipe_id', recipe_id)
       .order('order_index');
 
-    // 조리 단계
     const { data: steps } = await supabase
       .from('recipe_steps')
       .select('*')
       .eq('recipe_id', recipe_id)
       .order('step_number');
 
-    // 사용자 관계 정보 (인증된 경우)
     let userRelationship = null;
     if (userId) {
       const { data: relationship } = await supabase
@@ -388,8 +300,6 @@ router.get('/detail/:recipe_id', async (req, res) => {
         .eq('recipe_id', recipe_id);
 
       userRelationship = relationship;
-
-      // 활동 로그 기록
       await logActivity(userId, recipe_id, 'viewed');
     }
 
@@ -406,10 +316,7 @@ router.get('/detail/:recipe_id', async (req, res) => {
 
   } catch (error) {
     console.error('레시피 상세 조회 오류:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -424,14 +331,12 @@ async function ensureUserProfile(userId, user) {
     .single();
 
   if (!profile) {
-    await supabase
-      .from('user_profiles')
-      .insert({
-        id: userId,
-        email: user.email,
-        display_name: user.user_metadata?.name || user.user_metadata?.full_name,
-        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture
-      });
+    await supabase.from('user_profiles').insert({
+      id: userId,
+      email: user.email,
+      display_name: user.user_metadata?.name || user.user_metadata?.full_name,
+      avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture
+    });
   }
 }
 
@@ -442,14 +347,10 @@ async function logActivity(userId, recipeId, activityType) {
   try {
     await supabase
       .from('recipe_activity_logs')
-      .insert({
-        user_id: userId,
-        recipe_id: recipeId,
-        activity_type: activityType
-      });
+      .insert({ user_id: userId, recipe_id: recipeId, activity_type: activityType });
   } catch (error) {
     console.warn('활동 로그 기록 실패:', error.message);
   }
 }
 
-module.exports = router;
+export default router;

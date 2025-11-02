@@ -1,4 +1,4 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
 
 // 회원가입
@@ -69,4 +69,4 @@ router.post('/logout', (req, res) => {
   }
 });
 
-module.exports = router; 
+export default router;

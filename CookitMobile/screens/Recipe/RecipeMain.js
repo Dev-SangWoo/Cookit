@@ -356,6 +356,17 @@ const Recipe = ({ route }) => {
     }
   };
 
+  // 마지막 단계인지 확인하는 함수
+  const isLastStep = () => {
+    return currentStepIndex === totalSteps - 1 && 
+           currentActionIndex === (currentStep?.actions?.length || 1) - 1;
+  };
+
+  // 요리 완성 버튼 클릭 핸들러
+  const handleCompleteCooking = () => {
+    navigation.navigate('RecipeRating', { recipeId: recipeId });
+  };
+
   const handlePrev = () => {
     // 현재 step의 이전 action이 있는지 확인
     if (currentActionIndex > 0) {
@@ -389,8 +400,8 @@ const Recipe = ({ route }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* YouTube 영상 (단계별 타임스탬프 적용) */}
-        <View style={styles.videoWrapper}>
+      {/* YouTube 영상 (단계별 타임스탬프 적용) */}
+      <View style={styles.videoWrapper}>
         {videoId && !videoError ? (
           <WebView
             key={`video-${videoId}-${currentStepIndex}-${currentActionIndex}`}  // videoId와 step/action만으로 key 생성
@@ -569,7 +580,7 @@ const Recipe = ({ route }) => {
           <Text style={styles.stepTitleText}>Step {currentStepIndex + 1}</Text>
           <Text style={styles.currentStepTitle}>
             {currentStep?.title || currentStep?.instruction || '제목 없음'}
-          </Text>
+      </Text>
           <Text style={styles.actionCounter}>
             {currentActionIndex + 1}/{currentStep?.actions?.length || 1}
           </Text>
@@ -590,7 +601,7 @@ const Recipe = ({ route }) => {
                     <View key={index} style={styles.currentActionIngredientTag}>
                       <Text style={styles.currentActionIngredientText}>
                         {ingredient.name} {ingredient.quantity}
-                      </Text>
+          </Text>
                     </View>
                   ))}
                 </View>
@@ -602,7 +613,7 @@ const Recipe = ({ route }) => {
               <View style={styles.actionTimeContainer}>
                 <Text style={styles.actionTimeText}>
                   ⏰ 시작 시간: {currentAction.start_time}
-                </Text>
+        </Text>
               </View>
             )}
           </View>
@@ -612,8 +623,8 @@ const Recipe = ({ route }) => {
         {!currentAction && (
           <View style={styles.stepDescriptionContainer}>
             <Text style={styles.stepDescription}>
-              {recipe ? currentStep?.instruction || currentStep?.description || '설명 없음' : currentStep?.description}
-            </Text>
+          {recipe ? currentStep?.instruction || currentStep?.description || '설명 없음' : currentStep?.description}
+        </Text>
           </View>
         )}
       </View>
@@ -640,7 +651,7 @@ const Recipe = ({ route }) => {
                   stepIndex === currentStepIndex && styles.allStepNumberTextActive
                 ]}>
                   {step.step || stepIndex + 1}
-                </Text>
+            </Text>
               </View>
               <View style={styles.allStepContent}>
                 <Text style={[
@@ -660,9 +671,9 @@ const Recipe = ({ route }) => {
                 <View style={styles.currentStepIndicator}>
                   <Text style={styles.currentStepIndicatorText}>
                     Action {currentActionIndex + 1}
-                  </Text>
-                </View>
-              )}
+            </Text>
+          </View>
+        )}
             </TouchableOpacity>
           )) || recipeSteps.map((step, stepIndex) => (
             <TouchableOpacity 
@@ -683,7 +694,7 @@ const Recipe = ({ route }) => {
                 ]}>
                   {stepIndex + 1}
                 </Text>
-              </View>
+      </View>
               <View style={styles.allStepContent}>
                 <Text style={[
                   styles.allStepTitle,
@@ -710,38 +721,43 @@ const Recipe = ({ route }) => {
 
       {/* 하단 네비게이션 버튼들 - 고정 */}
       <View style={styles.bottomButtonsContainer}>
-        {/* 네비게이션 버튼 */}
-        <View style={styles.navButtons}>
-          <TouchableOpacity 
-            onPress={handlePrev} 
+      {/* 네비게이션 버튼 */}
+      <View style={styles.navButtons}>
+        <TouchableOpacity 
+          onPress={handlePrev} 
             disabled={currentStepIndex === 0 && currentActionIndex === 0} 
             style={[styles.button, (currentStepIndex === 0 && currentActionIndex === 0) && styles.buttonDisabled]}
-          >
-            <Text style={styles.buttonText}>← 이전</Text>
-          </TouchableOpacity>
+        >
+          <Text style={styles.buttonText}>← 이전</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity 
-            onPress={handleNext} 
-            disabled={currentStepIndex === totalSteps - 1 && currentActionIndex === (currentStep?.actions?.length || 1) - 1} 
-            style={[styles.button, (currentStepIndex === totalSteps - 1 && currentActionIndex === (currentStep?.actions?.length || 1) - 1) && styles.buttonDisabled]}
+        <TouchableOpacity 
+            onPress={isLastStep() ? handleCompleteCooking : handleNext} 
+            style={[
+              styles.button, 
+              isLastStep() ? styles.completeButton : styles.nextButton,
+              (currentStepIndex === totalSteps - 1 && currentActionIndex === (currentStep?.actions?.length || 1) - 1) && styles.buttonDisabled
+            ]}
           >
-            <Text style={styles.buttonText}>다음 →</Text>
-          </TouchableOpacity>
-        </View>
+            <Text style={[styles.buttonText, isLastStep() && styles.completeButtonText]}>
+              {isLastStep() ? '🎉 요리 완성!' : '다음 →'}
+            </Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* 요약 보기 버튼 */}
-        <View style={styles.summaryButtonContainer}>
-          <TouchableOpacity 
-            style={styles.summaryButton}
-            onPress={() => {
-              navigation.navigate('Summary', { 
-                recipeId: recipeId,
-                recipe: recipe 
-              });
-            }}
-          >
-            <Text style={styles.summaryButtonText}>📋 요약 보기</Text>
-          </TouchableOpacity>
+      {/* 요약 보기 버튼 */}
+      <View style={styles.summaryButtonContainer}>
+        <TouchableOpacity 
+          style={styles.summaryButton}
+          onPress={() => {
+            navigation.navigate('Summary', { 
+              recipeId: recipeId,
+              recipe: recipe 
+            });
+          }}
+        >
+          <Text style={styles.summaryButtonText}>📋 요약 보기</Text>
+        </TouchableOpacity>
         </View>
       </View>
     </SafeAreaView>
@@ -1291,5 +1307,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+  },
+  completeButton: {
+    backgroundColor: '#4CAF50', // 초록색
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  nextButton: {
+    backgroundColor: '#FF6B35', // 기본 주황색
+  },
+  completeButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });

@@ -4,11 +4,11 @@
 
 import React, { useEffect, useState, useRef } from 'react'; 
 import { View, Text, Image, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
-import { supabase } from '../../lib/supabase';
 import ProfileSettingModal from './ProfileSettingModal'; 
 import { useAuth } from '../../contexts/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { getMyProfile, getUserPosts, getUserStats, getWeekRecipes } from '../../services/userApi';
 
 export default function ProfileMain() {
   const [showSettingModal, setShowSettingModal] = useState(false);
@@ -39,6 +39,41 @@ export default function ProfileMain() {
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
+  const [stats, setStats] = useState({
+    weekCompletedRecipes: 0,
+    savedRecipes: 0,
+    cookingLevel: 'beginner'
+  });
+
+  // 쿠킹 레벨 한글 변환 함수
+  const getCookingLevelText = (level) => {
+    const levelMap = {
+      'beginner': '초급',
+      'intermediate': '중급',
+      'advanced': '고급'
+    };
+    return levelMap[level] || '초급';
+  };
+
+  // 이번 주 완성한 요리 보기
+  const handleViewWeekRecipes = async () => {
+    try {
+      const recipes = await getWeekRecipes();
+      if (recipes.length === 0) {
+        Alert.alert('알림', '이번 주에 완성한 요리가 없습니다.');
+        return;
+      }
+      navigation.navigate('ProfileWeekRecipes', { recipes });
+    } catch (error) {
+      console.error('이번 주 요리 조회 오류:', error);
+      Alert.alert('오류', error.message || '이번 주 요리를 불러오는 데 실패했습니다.');
+    }
+  };
+
+  // 좋아하는 레시피 보기
+  const handleViewFavoriteRecipes = () => {
+    navigation.navigate('ProfileLikes');
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -47,27 +82,25 @@ export default function ProfileMain() {
         return;
       }
 
-      const { data: profileData, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) {
-        Alert.alert('프로필 로딩 실패', profileError.message);
-      } else {
+      try {
+        // 서버 API를 통해 프로필 조회
+        const profileData = await getMyProfile();
         setProfile(profileData);
-      }
 
-      const { data: postData, error: postError } = await supabase
-        .from('user_posts')
-        .select('post_id, image_urls')
-        .eq('user_id', user.id);
-
-      if (postError) {
-        console.log('게시물 로딩 실패:', postError.message);
-      } else {
+        // 서버 API를 통해 게시글 조회
+        const postData = await getUserPosts(user.id);
         setPosts(postData);
+
+        // 서버 API를 통해 통계 조회
+        const statsData = await getUserStats();
+        setStats({
+          weekCompletedRecipes: statsData.weekCompletedRecipes || 0,
+          savedRecipes: statsData.savedRecipes || 0,
+          cookingLevel: statsData.cookingLevel || 0
+        });
+      } catch (error) {
+        console.error('데이터 로딩 오류:', error);
+        Alert.alert('로딩 실패', error.message || '데이터를 불러오는 중 오류가 발생했습니다.');
       }
     };
 
@@ -84,15 +117,16 @@ export default function ProfileMain() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.headerRow}>
-          <Text style={styles.nickname}>마이페이지</Text>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        {/* 헤더 */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>마이페이지</Text>
           <TouchableOpacity 
             ref={settingsButtonRef} 
             style={styles.settingsButton} 
             onPress={handleSettingsPress}
           > 
-            <Text style={styles.settingsText}>설정</Text>
+            <Text style={styles.settingsText}>⚙️</Text>
           </TouchableOpacity>
           
           <ProfileSettingModal
@@ -106,219 +140,386 @@ export default function ProfileMain() {
             buttonPosition={buttonPosition} 
           />
         </View>
-        <View style={styles.divider} />
-        <View style={styles.profileRow}>
+
+        {/* 프로필 카드 */}
+        <View style={styles.profileCard}>
           <Image
             source={{ uri: profile.avatar_url || 'https://via.placeholder.com/100' }}
             style={styles.avatar}
           />
-          <View style={styles.infoColumn}>
-            <Text style={styles.nickname}>{profile.display_name || '닉네임 없음'} 님</Text>
-            <Text style={styles.bio}>{profile.bio || '자기소개가 없습니다.'}</Text>
+          <View style={styles.profileInfo}>
+            <Text style={styles.displayName}>{profile.display_name || '닉네임 없음'}</Text>
+            <Text style={styles.bio}>{profile.bio || '자기소개를 작성해주세요.'}</Text>
           </View>
         </View>
 
-        <View style={styles.row}>
-          <View style={styles.column}>
-            <Text style={styles.label}>선호 요리</Text>
-            <Text style={styles.tag}>{profile.favorite_cuisines || '없음'}</Text>
+        {/* 선호 정보 */}
+        <View style={styles.preferencesSection}>
+          <View style={styles.preferenceCard}>
+            <View style={styles.preferenceHeader}>
+              <Text style={styles.preferenceLabel}>🍳 선호 요리</Text>
+            </View>
+            <View style={styles.tagsContainer}>
+              {profile.favorite_cuisines && profile.favorite_cuisines.length > 0 ? (
+                profile.favorite_cuisines.map((cuisine, index) => (
+                  <View key={index} style={[styles.tag, styles.favoriteTag]}>
+                    <Text style={styles.favoriteTagText}>{cuisine}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>등록된 선호 요리가 없습니다</Text>
+              )}
+            </View>
           </View>
-          <View style={styles.column}>
-            <Text style={styles.label}>알레르기</Text>
-            <Text style={styles.tag}>{profile.dietary_restrictions || '없음'}</Text>
+          
+          <View style={styles.preferenceCard}>
+            <View style={styles.preferenceHeader}>
+              <Text style={styles.preferenceLabel}>⚠️ 알레르기</Text>
+            </View>
+            <View style={styles.tagsContainer}>
+              {profile.dietary_restrictions && profile.dietary_restrictions.length > 0 ? (
+                profile.dietary_restrictions.map((restriction, index) => (
+                  <View key={index} style={[styles.tag, styles.allergyTag]}>
+                    <Text style={styles.allergyTagText}>{restriction}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>등록된 알레르기가 없습니다</Text>
+              )}
+            </View>
           </View>
         </View>
 
-
-        <View style={styles.activityContainer}>
-          <Text style={styles.sectionTitle}>이번 주 요리 활동</Text>
+        {/* 이번 주 요리 활동 */}
+        <View style={styles.activitySection}>
+          <Text style={styles.sectionTitle}>📊 이번 주 요리 활동</Text>
           <View style={styles.activityRow}>
-            <View style={styles.activityBox}>
-              <Text style={styles.boxText}></Text>
-              <Text style={styles.subText}>요리 완성</Text>
-            </View>
-            <View style={styles.activityBox}>
-              <Text style={styles.boxText}></Text>
-              <Text style={styles.subText}>저장된 레시피</Text>
-            </View>
-            <View style={styles.activityBox}>
-              <Text style={styles.boxText}></Text>
-              <Text style={styles.subText}>요리 레벨</Text>
-            </View>
-          </View>
-        </View>
-        <View style={styles.cookSection}>
-          <Text style={styles.sectionTitle}>내 요리</Text>
-          </View>
-        <TouchableOpacity 
-        style={styles.cookBox}
-        onPress={() => handleNavigation('ProfileLikes')}
-        >
-          <Text style={styles.cookText}>좋아요 누른 레시피</Text>
-          <Text style={styles.Arrow}>▶</Text>
-        </TouchableOpacity>
-        <View style={styles.divider} />
-        <TouchableOpacity 
-        style={styles.cookBox}
-        onPress={() => handleNavigation('ProfileHistory')}
-        >
-          <Text style={styles.cookText}>요리 기록</Text>
-                  <Text style={styles.Arrow}>▶</Text>
-        </TouchableOpacity>
-
-        {/* 게시물 */}
-        <Text style={styles.label}>커뮤니티에 올린 사진들</Text>
-        <View style={styles.postGrid}>
-          {posts.map((post) => (
-            <TouchableOpacity key={post.post_id} onPress={() => navigation.navigate('CommunityDetail', { postId: post.post_id })}>
-              <Image
-                source={{ uri: post.image_urls[0] }}
-                style={styles.postImage}
-              />
+            <TouchableOpacity 
+              style={styles.activityCard} 
+              onPress={handleViewWeekRecipes}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.activityNumber}>{stats.weekCompletedRecipes}</Text>
+              <Text style={styles.activityLabel}>요리 완성</Text>
             </TouchableOpacity>
-          ))}
+            <TouchableOpacity 
+              style={styles.activityCard}
+              onPress={handleViewFavoriteRecipes}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.activityNumber}>{stats.savedRecipes}</Text>
+              <Text style={styles.activityLabel}>좋아하는 레시피</Text>
+            </TouchableOpacity>
+            <View style={styles.activityCard}>
+              <Text style={styles.activityNumber}>{getCookingLevelText(stats.cookingLevel)}</Text>
+              <Text style={styles.activityLabel}>요리 레벨</Text>
+            </View>
+          </View>
         </View>
+
+        {/* 내 요리 메뉴 */}
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>👨‍🍳 내 요리</Text>
+          <View style={styles.menuCard}>
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => handleNavigation('ProfileRecentViewed')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.menuIcon}>🔍</Text>
+              <Text style={styles.menuText}>최근에 조회한 레시피</Text>
+              <Text style={styles.menuArrow}>›</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity 
+              style={styles.menuItem}
+              onPress={() => handleNavigation('ProfileHistory')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.menuIcon}>📖</Text>
+              <Text style={styles.menuText}>요리 기록</Text>
+              <Text style={styles.menuArrow}>›</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 커뮤니티 게시물 */}
+        {posts.length > 0 && (
+          <View style={styles.postsSection}>
+            <Text style={styles.sectionTitle}>📸 커뮤니티 게시물</Text>
+            <View style={styles.postGrid}>
+              {posts.map((post) => (
+                <TouchableOpacity 
+                  key={post.post_id} 
+                  onPress={() => {
+                    // Community 스택으로 이동하여 게시물 상세로 네비게이션
+                    navigation.navigate('Community', {
+                      screen: 'CommunityDetail',
+                      params: { postId: post.post_id }
+                    });
+                  }}
+                  activeOpacity={0.9}
+                >
+                  <Image
+                    source={{ uri: post.image_urls[0] }}
+                    style={styles.postImage}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  avatar: { width: 100, height: 100, borderRadius: 25, marginBottom: 10 },
-  nickname: { fontSize: 20, fontWeight: 'bold' },
+  // 기본 레이아웃
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
-    paddingHorizontal: 15,
+    backgroundColor: '#F8F9FA',
   },
   container: {
-    paddingBottom: 20,
-  },
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginVertical: 10,
-  },
-  infoColumn: {
-    flex: 1,
-    marginLeft: 15,
-    justifyContent: 'center',
-  },
-
-  bio: {
-    fontSize: 14,
-    color: '#444',
-  },
-  settingsText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  settingsButton: { 
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    backgroundColor: '#aaa',
-    borderRadius: 8,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 20
-  },
-  tag: {
-    fontSize: 14,
-    color: '#555'
+    paddingBottom: 30,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F8F9FA',
   },
   loadingText: {
     fontSize: 16,
-    color: '#555',
+    color: '#6C757D',
+    marginTop: 10,
   },
-  headerRow: {
+
+  // 헤더
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    width: '100%',
-    marginTop: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
   },
-  row: {
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#212529',
+  },
+  settingsButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F8F9FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsText: {
+    fontSize: 20,
+  },
+
+  // 프로필 카드
+  profileCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 20,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: '#FF6B35',
+  },
+  profileInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  displayName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#212529',
+    marginBottom: 6,
+  },
+  bio: {
+    fontSize: 14,
+    color: '#6C757D',
+    lineHeight: 20,
+  },
+
+  // 선호 정보
+  preferencesSection: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 16,
+  },
+  preferenceCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  preferenceHeader: {
+    marginBottom: 12,
+  },
+  preferenceLabel: {
+    fontSize: 15,
+    color: '#212529',
+    fontWeight: '700',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  tag: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 2,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  favoriteTag: {
+    backgroundColor: '#E6F7E9',
+    borderColor: '#38A169',
+  },
+  favoriteTagText: {
+    fontSize: 12,
+    color: '#38A169',
+    fontWeight: '600',
+  },
+  allergyTag: {
+    backgroundColor: '#FDE8E8',
+    borderColor: '#E53E3E',
+  },
+  allergyTagText: {
+    fontSize: 12,
+    color: '#E53E3E',
+    fontWeight: '600',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#ADB5BD',
+    fontStyle: 'italic',
+  },
+
+  // 이번 주 요리 활동
+  activitySection: {
+    marginHorizontal: 16,
     marginTop: 20,
   },
-  column: {
-    width: '48%',
-  },
-  divider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: '#ccc',
-    marginVertical: 10,
-  },
-  activityContainer: {
-    backgroundColor: '#f0ddf3ff',
-    padding: 10,
-    marginVertical: 10,
-  },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#212529',
+    marginBottom: 12,
   },
   activityRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  activityBox: {
-    width: '30%',
-    backgroundColor: '#fff',
-    padding: 10,
-  },
-  boxText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  subText: {
-    fontSize: 12,
-    color: '#939292ff',
-    textAlign: 'center',
-  },
-  cookSection: {
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  cookBox: {
-    padding: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  activityCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 4,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  cookText: {
-    fontSize: 14,
+  activityNumber: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#FF6B35',
+    marginBottom: 8,
   },
-  Arrow: {
-    fontSize: 14,
-    color: '#939292ff',
+  activityLabel: {
+    fontSize: 12,
+    color: '#6C757D',
+    textAlign: 'center',
+    fontWeight: '600',
   },
-  // 게시물 그리드 스타일
+
+  // 내 요리 메뉴
+  menuSection: {
+    marginHorizontal: 16,
+    marginTop: 20,
+  },
+  menuCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  menuIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  menuText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#212529',
+    fontWeight: '500',
+  },
+  menuArrow: {
+    fontSize: 24,
+    color: '#ADB5BD',
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#E9ECEF',
+    marginHorizontal: 16,
+  },
+
+  // 커뮤니티 게시물
+  postsSection: {
+    marginHorizontal: 16,
+    marginTop: 20,
+  },
   postGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginTop: 8,
   },
   postImage: {
-    width: '30%',
-    height: 100,
-    borderRadius: 8,
-    marginBottom: 10,
+    width: 110,
+    height: 110,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#E9ECEF',
   },
 });

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import SetupIngredientsModal from './SetupIngredientsModal';
-import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import { addReceiptItemsBulk } from '../../services/receiptItemsApi';
 
 // Ingredients.js에서 가져온 유통기한 계산 함수 (타입 주석 제거)
 const calculateExpiry = (expiryDate) => {
@@ -39,6 +40,10 @@ export default function SetupIngredients() {
     // 타입 주석 <any[]> 제거
     const [ingredients, setIngredients] = useState([]);
 
+    const handleBack = () => {
+        navigation.goBack();
+    };
+
     // 인자 타입 주석 제거
     const handleAddIngredient = (newIngredient) => {
         setIngredients([...ingredients, { ...newIngredient, expiry: newIngredient.expiry }]);
@@ -54,77 +59,110 @@ export default function SetupIngredients() {
     };
 
 
-    // Supabase 저장 시 expiry_date를 포함하도록 수정
+    // 서버 API를 통한 재료 저장
     const handleStart = async () => {
         if (ingredients.length === 0) {
             Alert.alert('오류', '재료를 하나 이상 등록해주세요.');
             return;
         }
 
-        const receiptItems = ingredients.map(ing => ({
-            user_id: user?.id,
-            product_name: ing.name,
-            quantity: ing.quantity,
-            unit: ing.unit,
-            expiry_date: ing.expiry,
-        }));
+        try {
+            const receiptItems = ingredients.map(ing => ({
+                name: ing.name,
+                quantity: ing.quantity,
+                unit: ing.unit,
+                expiration_date: ing.expiry,
+            }));
 
-        const { error } = await supabase
-            .from('receipt_items')
-            .insert(receiptItems);
+            await addReceiptItemsBulk(receiptItems);
 
-        if (error) {
-            Alert.alert('저장 실패', error.message);
-            return;
+            // 초기 설정 완료 상태로 설정
+            setSetupComplete(true);
+
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'HomeTab' }],
+            });
+        } catch (error) {
+            console.error('재료 저장 오류:', error);
+            Alert.alert('저장 실패', error.message || '재료 저장 중 오류가 발생했습니다.');
         }
-
-        // 초기 설정 완료 상태로 설정
-        setSetupComplete(true);
-
-        navigation.reset({
-            index: 0,
-            routes: [{ name: 'HomeTab' }],
-        });
     };
 
     return (
         <View style={styles.container}>
+            <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+                <Ionicons name="arrow-back" size={28} color="#333" />
+            </TouchableOpacity>
             <Text style={styles.step}>4/4</Text>
             <Text style={styles.title}>냉장고 등록</Text>
-            <Text style={styles.titleText}>현재 보유한 재료와{"\n"}유통기한을 등록해 주세요</Text>
-            <Text style={styles.sectionTitle}>현재 보유한 재료</Text>
-
-            <View style={styles.tagWrapper}>
-                <ScrollView style={styles.scrollArea}>
-                    {ingredients.map((ingredient, index) => {
-                        const formattedExpiryDate = ingredient.expiry.replace(/\//g, '-');
-                        const expiryInfo = calculateExpiry(formattedExpiryDate);
-                        return (
-                            <TouchableOpacity
-                                key={index}
-                                style={[styles.ingredientTag, { backgroundColor: getTagColor(expiryInfo.diffDays) }]}
-                                onPress={() => handleRemoveIngredient(ingredient)}
-                            >
-                                <View style={styles.tagLeft}>
-                                    <Text style={styles.ingredientName}>{ingredient.name}</Text>
-                                    <Text style={styles.ingredientQuantity}>
-                                        {ingredient.quantity} {ingredient.unit}
-                                    </Text>
-                                </View>
-                                <Text style={[styles.ingredientExpiry, { color: expiryInfo.color }]}>
-                                    {expiryInfo.text}
-                                </Text>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </ScrollView>
-                <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={() => setIsModalVisible(true)}
-                >
-                    <Text style={styles.addButtonText}>+</Text>
-                </TouchableOpacity>
+            <Text style={styles.titleText}>현재 보유한 재료와 유통기한을 등록해 주세요</Text>
+            
+            <View style={styles.infoBox}>
+                <Ionicons name="information-circle-outline" size={20} color="#FF8C00" />
+                <Text style={styles.infoText}>
+                    재료를 탭하면 삭제됩니다
+                </Text>
             </View>
+
+            <Text style={styles.sectionTitle}>
+                <Ionicons name="basket-outline" size={20} color="#333" /> 
+                {' '}등록된 재료 ({ingredients.length}개)
+            </Text>
+
+            <View style={styles.ingredientsContainer}>
+                {ingredients.length > 0 ? (
+                    <ScrollView 
+                        style={styles.scrollArea}
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {ingredients.map((ingredient, index) => {
+                            const formattedExpiryDate = ingredient.expiry.replace(/\//g, '-');
+                            const expiryInfo = calculateExpiry(formattedExpiryDate);
+                            return (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={[styles.ingredientCard, { borderColor: expiryInfo.color }]}
+                                    onPress={() => handleRemoveIngredient(ingredient)}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={styles.ingredientHeader}>
+                                        <View style={styles.ingredientIcon}>
+                                            <Ionicons name="nutrition-outline" size={24} color="#FF8C00" />
+                                        </View>
+                                        <View style={styles.ingredientInfo}>
+                                            <Text style={styles.ingredientName}>{ingredient.name}</Text>
+                                            <Text style={styles.ingredientQuantity}>
+                                                {ingredient.quantity} {ingredient.unit}
+                                            </Text>
+                                        </View>
+                                        <View style={[styles.expiryBadge, { backgroundColor: getTagColor(expiryInfo.diffDays) }]}>
+                                            <Text style={[styles.ingredientExpiry, { color: expiryInfo.color }]}>
+                                                {expiryInfo.text}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+                ) : (
+                    <View style={styles.emptyState}>
+                        <Ionicons name="basket-outline" size={64} color="#ccc" />
+                        <Text style={styles.emptyText}>등록된 재료가 없습니다</Text>
+                        <Text style={styles.emptySubText}>아래 버튼을 눌러 재료를 추가해보세요</Text>
+                    </View>
+                )}
+            </View>
+            
+            <TouchableOpacity
+                style={styles.addIngredientButton}
+                onPress={() => setIsModalVisible(true)}
+            >
+                <Ionicons name="add-circle" size={24} color="#fff" />
+                <Text style={styles.addIngredientButtonText}>재료 추가하기</Text>
+            </TouchableOpacity>
 
             <SetupIngredientsModal
                 visible={isModalVisible}
@@ -151,10 +189,18 @@ const styles = StyleSheet.create({
         padding: 20,
         paddingTop: 60,
     },
+    backButton: {
+        position: 'absolute',
+        top: 60,
+        left: 20,
+        zIndex: 10,
+        padding: 8,
+    },
     step: {
         color: 'orange',
         fontSize: 16,
         marginBottom: 10,
+        marginTop: 40,
     },
     title: {
         fontSize: 24,
@@ -166,68 +212,127 @@ const styles = StyleSheet.create({
         color: '#555',
         marginBottom: 20,
     },
+    infoBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFF4E6',
+        padding: 12,
+        borderRadius: 10,
+        marginBottom: 16,
+        gap: 8,
+    },
+    infoText: {
+        fontSize: 13,
+        color: '#FF8C00',
+        flex: 1,
+    },
     sectionTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        marginTop: 20,
-        marginBottom: 8,
+        marginTop: 8,
+        marginBottom: 12,
+        color: '#333',
     },
-    tagWrapper: {
-        borderColor: '#ccc',
-        borderWidth: 1,
-        borderRadius: 8,
-        padding: 10,
-        minHeight: 450,
-        maxHeight: 800, 
-        flexDirection: 'column',
+    ingredientsContainer: {
+        flex: 1,
+        borderRadius: 16,
+        borderWidth: 2,
+        borderColor: '#e0e0e0',
+        backgroundColor: '#f9f9f9',
+        padding: 12,
+        marginBottom: 16,
     },
     scrollArea: {
         flex: 1,
+    },
+    scrollContent: {
+        alignItems: 'flex-start',
+    },
+    ingredientCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 14,
         marginBottom: 10,
-    },
-    ingredientTag: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center', 
+        borderWidth: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
+        alignSelf: 'stretch',
         width: '100%',
-        padding: 15,
-        borderRadius: 10,
-       
-        borderColor: '#ddd',
-        borderWidth: 1,
-        marginBottom: 8,
     },
-    tagLeft: {
+    ingredientHeader: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 12,
     },
-    ingredientName: {
-        fontWeight: 'bold',
-        color: '#333',
-        marginRight: 10,
-    },
-    ingredientQuantity: {
-        color: '#555',
-        fontSize: 14,
-    },
-    // 유통기한 텍스트 스타일 추가
-    ingredientExpiry: {
-        fontWeight: 'bold',
-        fontSize: 15,
-    },
-    addButton: {
-        width: '100%',
-        height: 50,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: '#ccc',
+    ingredientIcon: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#FFF4E6',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    addButtonText: {
-        fontSize: 20,
+    ingredientInfo: {
+        flex: 1,
+    },
+    ingredientName: {
+        fontSize: 16,
+        fontWeight: '700',
         color: '#333',
-        lineHeight: 20,
+        marginBottom: 4,
+    },
+    ingredientQuantity: {
+        fontSize: 14,
+        color: '#666',
+        fontWeight: '500',
+    },
+    expiryBadge: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 16,
+    },
+    ingredientExpiry: {
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    emptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 60,
+    },
+    emptyText: {
+        fontSize: 16,
+        color: '#999',
+        marginTop: 16,
+        fontWeight: '600',
+    },
+    emptySubText: {
+        fontSize: 14,
+        color: '#bbb',
+        marginTop: 8,
+    },
+    addIngredientButton: {
+        flexDirection: 'row',
+        backgroundColor: '#FF8C00',
+        borderRadius: 12,
+        paddingVertical: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
+        shadowColor: '#FF8C00',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    addIngredientButtonText: {
+        color: '#fff',
+        fontSize: 17,
+        fontWeight: 'bold',
     },
     buttonWrapper: {
         justifyContent: 'flex-end',
