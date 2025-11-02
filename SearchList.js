@@ -1,155 +1,240 @@
-// 검색 내용을 보여주는 부분
-
-import React, { useEffect, useState, useCallback } from 'react';
-import { Platform, StyleSheet, Text, View, FlatList, Image, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Platform, StyleSheet, Text, View, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // AsyncStorage 임포트
 import SearchInput from '../../components/SearchInput';
-import Sort from '../../components/SearchSort';
-import { supabase } from '../../lib/supabase';
-
-
-const SEARCH_KEY = '@recent_searches';
-const MAX_SEARCH_COUNT = 5; // SearchMain과 동일하게 5개로 제한
+import Sort from '../../components/Sort';
+import YouTubeAnalysisModal from '../../components/YouTubeAnalysisModal';
+import { Ionicons } from '@expo/vector-icons';
 
 const SearchList = () => {
-    const navigation = useNavigation();
-    const route = useRoute();
-    const initialQuery = route.params?.query || ''; 
-    const [query, setQuery] = useState(initialQuery);
-    const [recipes, setRecipes] = useState([]);
-    const [sortBy, setSortBy] = useState('인기순');
+  const navigation = useNavigation();
+  const route = useRoute();
+  const initialQuery = route.params?.query || '';
+  const [query, setQuery] = useState(initialQuery);
+  const [videos, setVideos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [sortBy, setSortBy] = useState('관련성순');
+  const [nextPageToken, setNextPageToken] = useState(null);
+  const [analysisModalVisible, setAnalysisModalVisible] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // --- 최근 검색어 저장 로직 ---
-  
-  // 1. AsyncStorage에서 현재 저장된 최근 검색어 목록을 불러옵니다.
-  const loadSearches = async () => {
+  // YouTube 검색 API 호출
+  const searchYouTubeVideos = async (searchQuery, pageToken = null) => {
     try {
-      const data = await AsyncStorage.getItem(SEARCH_KEY);
-      return data ? JSON.parse(data) : [];
-    } catch (e) {
-      console.error("Failed to load searches:", e);
-      return [];
+      setLoading(true);
+
+      const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+      // API_BASE_URL에 이미 /api가 포함되어 있는지 확인
+      const baseUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
+      const response = await fetch(`${baseUrl}/youtube/search?query=${encodeURIComponent(searchQuery)}&maxResults=20${pageToken ? `&pageToken=${pageToken}` : ''}`);
+      const data = await response.json();
+
+      if (data.success) {
+        if (pageToken) {
+          setVideos(prev => [...prev, ...data.data.items]);
+        } else {
+          setVideos(data.data.items);
+        }
+        setNextPageToken(data.data.nextPageToken);
+      } else {
+        console.error('YouTube 검색 실패:', data.error);
+      }
+    } catch (error) {
+      console.error('YouTube 검색 오류:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 2. 검색어를 목록에 추가하고, 5개로 제한하여 저장합니다.
-  const saveSearchKeyword = async (newQuery) => {
-    if (!newQuery.trim()) return;
-
-    try {
-      const existingSearches = await loadSearches();
-      
-      // 새 검색어를 기존 목록에 추가 (중복 제거 및 최신화)
-      const updatedSearches = [
-        newQuery, 
-        ...existingSearches.filter(item => item !== newQuery)
-      ].slice(0, MAX_SEARCH_COUNT); // 최대 5개로 제한
-      
-      await AsyncStorage.setItem(SEARCH_KEY, JSON.stringify(updatedSearches));
-    } catch (e) {
-      console.error("Failed to save search keyword:", e);
-    }
-  };
-  
-  // --- 데이터 패치 및 검색 로직 ---
-  
-  // 3. 쿼리가 변경되거나 컴포넌트가 처음 로드될 때 실행
   useEffect(() => {
-    // 쿼리가 유효할 때만 데이터 패치 및 저장 로직 실행
     if (query.trim()) {
-      // 3-1. 검색어 저장 (최근 검색어 업데이트)
-      saveSearchKeyword(query); 
-
-      // 3-2. 데이터 패치
-const fetchRecipes = async () => {
-
-    const { data, error } = await supabase
-      .from('recipes')
-      .select('id, title, description, image_urls') 
-      
-      .contains('tags', [query.trim()]); 
-
-    if (error) {
-        console.error('검색 오류:', error);
-        setRecipes([]);
-        return;
+      searchYouTubeVideos(query);
     }
+  }, [query]);
 
-        setRecipes(data || []);
-      };
-
-      fetchRecipes();
-    } else {
-      // 검색어가 비어있을 경우 목록을 비움
-      setRecipes([]);
-    }
-  }, [query]); // query가 변경될 때마다 실행
-
-  // 4. 정렬 함수
-  const sortedData = [...recipes].sort((a, b) => {
-    // view, date, subscriber 필드가 null일 경우를 대비하여 0 또는 다른 기본값으로 처리
-    const aView = a.view || 0;
-    const bView = b.view || 0;
-    const aSubscriber = a.subscriber || 0;
-    const bSubscriber = b.subscriber || 0;
-    const aDate = new Date(a.date || 0);
-    const bDate = new Date(b.date || 0);
-    
-    if (sortBy === '인기순') return bView - aView;
-    if (sortBy === '최신순') return bDate - aDate;
-    if (sortBy === '구독자순') return bSubscriber - aSubscriber;
+  // 정렬 함수
+  const sortedData = [...videos].sort((a, b) => {
+    if (sortBy === '관련성순') return 0; // YouTube API에서 이미 관련성 순으로 정렬됨
+    if (sortBy === '조회수순') return parseInt(b.viewCount) - parseInt(a.viewCount);
+    if (sortBy === '최신순') return new Date(b.publishedAt) - new Date(a.publishedAt);
+    if (sortBy === '좋아요순') return parseInt(b.likeCount) - parseInt(a.likeCount);
     return 0;
   });
 
+  // 더 많은 영상 로드
+  const loadMoreVideos = () => {
+    if (nextPageToken && !loading) {
+      searchYouTubeVideos(query, nextPageToken);
+    }
+  };
+
+  // 영상 카드 컴포넌트
+  const VideoCard = ({ video, onPress }) => (
+    <TouchableOpacity style={styles.videoCard} onPress={() => onPress(video)} activeOpacity={0.8}>
+      <Image source={{ uri: video.thumbnail }} style={styles.thumbnail} />
+      <View style={styles.videoInfo}>
+        <Text style={styles.videoTitle} numberOfLines={2}>{video.title}</Text>
+        <Text style={styles.channelTitle}>{video.channelTitle}</Text>
+        <View style={styles.videoStats}>
+          <View style={styles.statItem}>
+            <Ionicons name="eye-outline" size={14} color="#666" />
+            <Text style={styles.statText}>{formatNumber(video.viewCount)}</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Ionicons name="thumbs-up-outline" size={14} color="#666" />
+            <Text style={styles.statText}>{formatNumber(video.likeCount)}</Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  // 숫자 포맷팅 함수
+  const formatNumber = (num) => {
+    const number = parseInt(num);
+    if (number >= 1000000) {
+      return (number / 1000000).toFixed(1) + 'M';
+    } else if (number >= 1000) {
+      return (number / 1000).toFixed(1) + 'K';
+    }
+    return number.toString();
+  };
+
+  // 영상 분석 시작
+  const startVideoAnalysis = async (video) => {
+    try {
+      setIsAnalyzing(true);
+
+      const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+      // API_BASE_URL에 이미 /api가 포함되어 있는지 확인
+      const baseUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
+      const response = await fetch(`${baseUrl}/youtube-analysis/analyze`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          videoId: video.videoId,
+          title: video.title,
+          channelTitle: video.channelTitle,
+          thumbnail: video.thumbnail
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // 추가한 부분(히스토리로 레시피 데이터 보내기)
+        navigation.navigate('SearchMain', {
+          recipeHistory: {
+            videoId: video.videoId,
+            title: video.title,
+            thumbnail: video.thumbnail,
+            channelTitle: video.channelTitle,
+            // analysisId는 Summary로 이동할 때 필요하며, 히스토리 저장용으로는
+            // 필수적이지 않지만, 나중에 필요할 수 있으므로 함께 저장하는 것을 권장합니다.
+            analysisId: data.data.analysisId || null
+          }
+        });
+
+        Alert.alert(
+          '분석 시작',
+          '영상 분석이 시작되었습니다. 잠시 후 결과를 확인해주세요.',
+          [
+            {
+              text: '확인',
+              onPress: () => {
+                // 분석 결과 화면으로 이동 - Summary.js 사용
+                navigation.navigate('Summary', {
+                  analysisId: data.data.analysisId,
+                  videoId: video.videoId,
+                  title: video.title,
+                  thumbnail: video.thumbnail,
+                  channelTitle: video.channelTitle,
+                  isYouTubeAnalysis: true
+                });
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('오류', data.error || '분석 시작에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('영상 분석 오류:', error);
+      Alert.alert('오류', '분석 중 오류가 발생했습니다.');
+    } finally {
+      setIsAnalyzing(false);
+      setAnalysisModalVisible(false);
+    }
+  };
+
+  // 영상 선택 핸들러
+  const handleVideoPress = (video) => {
+    setSelectedVideo(video);
+    setAnalysisModalVisible(true);
+  };
+
+  // 분석 모달 닫기
+  const closeAnalysisModal = () => {
+    setAnalysisModalVisible(false);
+    setSelectedVideo(null);
+    setIsAnalyzing(false);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <SearchInput
-    value={query}
-    onChange={setQuery}
-    onClear={() => setQuery('')}
-    onBack={() => navigation.goBack()}
-    onSubmitEditing={() => setQuery(query)} 
-/>
+        value={query}
+        onChange={setQuery}
+        onClear={() => setQuery('')}
+        onBack={() => navigation.goBack()}
+        onSubmitEditing={() => searchYouTubeVideos(query)}
+      />
       <Sort sortBy={sortBy} setSortBy={setSortBy} />
-      <View style={styles.listContainer}> {/* 스타일 이름 변경하여 혼동 방지 */}
-        {sortedData.length === 0 && query.trim() ? (
-          <Text style={styles.noResultText}>
-            검색 결과가 없습니다. 다른 키워드로 시도해보세요!
-          </Text>
-        ) : (
-          <FlatList
-            data={sortedData}
-            keyExtractor={(item) => item.id}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.card}
-                onPress={() =>
-                  navigation.navigate('SearchSummary', {
-                    recipeId: item.id,
-                    title: item.title,
-                    thumbnail: item.image_urls?.[0] || 'https://via.placeholder.com/100x70', 
-                    creator: item.channel,
-                    description: item.description,
-                  })
-                }
-              >
-                <Image 
-                  source={{ uri: item.image_urls?.[0] || 'https://via.placeholder.com/100x70' }} 
-                  style={styles.thumbnail} 
-                />
-                <View style={styles.textBox}>
-                  <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-                  <Text style={styles.channel}>{item.channel} | 조회 {item.view?.toLocaleString() || 0}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          />
-        )}
-      </View>
+
+      {loading && videos.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF6B6B" />
+          <Text style={styles.loadingText}>요리 영상을 검색하는 중...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={sortedData}
+          keyExtractor={(item) => item.videoId}
+          renderItem={({ item }) => (
+            <VideoCard video={item} onPress={handleVideoPress} />
+          )}
+          onEndReached={loadMoreVideos}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={() =>
+            loading && videos.length > 0 ? (
+              <View style={styles.loadingMore}>
+                <ActivityIndicator size="small" color="#FF6B6B" />
+                <Text style={styles.loadingMoreText}>더 많은 영상을 불러오는 중...</Text>
+              </View>
+            ) : null
+          }
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="search-outline" size={64} color="#CCC" />
+              <Text style={styles.emptyTitle}>검색 결과가 없습니다</Text>
+              <Text style={styles.emptySubtitle}>다른 검색어로 시도해보세요</Text>
+            </View>
+          )}
+        />
+      )}
+
+      {/* YouTube 영상 분석 모달 */}
+      <YouTubeAnalysisModal
+        visible={analysisModalVisible}
+        onClose={closeAnalysisModal}
+        onConfirm={() => startVideoAnalysis(selectedVideo)}
+        video={selectedVideo}
+        isAnalyzing={isAnalyzing}
+      />
     </SafeAreaView>
   );
 };
@@ -162,41 +247,87 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: Platform.OS === 'android' ? 10 : 0,
     backgroundColor: '#fff',
+    paddingHorizontal: 16,
   },
-  listContainer: {
+  loadingContainer: {
     flex: 1,
-    paddingHorizontal: 16, // FlatList를 감싸는 View에 패딩 적용
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
   },
-  noResultText: {
-    textAlign: 'center', 
-    marginTop: 20, 
-    color: '#555',
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
   },
-  card: {
+  loadingMore: {
     flexDirection: 'row',
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-    paddingBottom: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 8,
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+  },
+  videoCard: {
+    backgroundColor: 'white',
+    margin: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   thumbnail: {
-    width: 100,
-    height: 70,
-    borderRadius: 8,
+    width: '100%',
+    height: 200,
   },
-  textBox: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: 'center',
+  videoInfo: {
+    padding: 12,
   },
-  title: {
-    fontSize: 15,
-    fontWeight: '600',
+  videoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#333',
+    marginBottom: 4,
   },
-  channel: {
-    fontSize: 13,
-    color: '#777',
-    marginTop: 4,
+  channelTitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  videoStats: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statText: {
+    fontSize: 12,
+    color: '#666',
   },
 });
