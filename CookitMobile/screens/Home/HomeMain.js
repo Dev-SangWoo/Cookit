@@ -1,8 +1,5 @@
 //메인 화면
 
-
-
-
 import { StyleSheet, Text, View, TouchableOpacity, Platform, Image, ActivityIndicator } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -20,8 +17,6 @@ const HomeMain = () => {
   const [hotRecipes, setHotRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
 
-
-
   useEffect(() => {
     fetchRecipes();
   }, []);
@@ -29,27 +24,38 @@ const HomeMain = () => {
   const fetchRecipes = async () => {
     try {
       setLoading(true);
-      
-      // 추천 레시피 (최신 2개)
-      const recommendResponse = await recipeService.getPublicRecipes({
-        page: 1,
-        limit: 2
-      });
-      
-      // 인기 레시피 (AI 생성 레시피 중 3개)
+
+      // ✅ 현재 로그인된 유저 정보 가져오기
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+
+      let recommendData = [];
+
+      if (userId) {
+        console.log(`📡 추천 레시피 요청: ${userId}`);
+        const recommendations = await recipeService.getRecommendedRecipes(userId);
+
+        // ✅ 추천 결과 변환
+        recommendData = recommendations.map(recipe => ({
+          id: recipe.id,
+          title: recipe.title,
+          description: recipe.description || '맛있는 레시피입니다',
+          thumbnail: recipe.image_urls?.[0] || 'https://via.placeholder.com/300x200?text=No+Image'
+        }));
+
+        // ✅ 추가된 부분: 추천 레시피를 매번 랜덤하게 섞기
+        recommendData = recommendData.sort(() => Math.random() - 0.5);
+
+      } else {
+        console.warn('⚠️ 로그인된 유저 없음 — 기본 추천 사용');
+      }
+
+      // ✅ 인기 레시피 (AI 생성 레시피 중 3개)
       const hotResponse = await recipeService.getPublicRecipes({
         page: 1,
         limit: 3,
         ai_only: true
       });
-
-      // 데이터 변환
-      const recommendData = recommendResponse.recipes?.map(recipe => ({
-        id: recipe.id,
-        title: recipe.title,
-        description: recipe.description || '맛있는 레시피입니다',
-        thumbnail: recipe.image_urls?.[0] || 'https://via.placeholder.com/300x200?text=No+Image'
-      })) || [];
 
       const hotData = hotResponse.recipes?.map(recipe => ({
         id: recipe.id,
@@ -58,12 +64,30 @@ const HomeMain = () => {
         thumbnail: recipe.image_urls?.[0] || 'https://via.placeholder.com/300x200?text=No+Image'
       })) || [];
 
+      // ✅ 추천 섹션 기본 대체 데이터
+      if (recommendData.length === 0) {
+        recommendData = [
+          {
+            id: 'fallback1',
+            title: '계란말이',
+            description: '든든한 한끼! 촉촉한 계란말이 레시피',
+            thumbnail: 'https://via.placeholder.com/300x200?text=계란말이',
+          },
+          {
+            id: 'fallback2',
+            title: '비빔국수',
+            description: '매콤새콤! 여름 입맛을 돋우는 국수 레시피',
+            thumbnail: 'https://via.placeholder.com/300x200?text=비빔국수',
+          },
+        ];
+      }
+
       setRecommendRecipes(recommendData);
       setHotRecipes(hotData);
-      
+
     } catch (error) {
       console.error('레시피 로딩 실패:', error);
-      
+
       // 오류 시 기본 데이터 사용
       const fallbackRecommend = [
         {
@@ -87,16 +111,13 @@ const HomeMain = () => {
           thumbnail: 'https://via.placeholder.com/300x200?text=불고기',
         },
       ];
-      
+
       setRecommendRecipes(fallbackRecommend);
       setHotRecipes(fallbackHot);
     } finally {
       setLoading(false);
     }
   };
-
-
-
 
   const RecipeCard = ({ recipe, onPress }) => (
     <TouchableOpacity style={styles.card} onPress={() => onPress(recipe)} activeOpacity={0.8}>
@@ -123,59 +144,65 @@ const HomeMain = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Image source={require('../../assets/signature.png')} style={styles.signature} />
-          <Text style={styles.headerTitle}>Cookit</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.inputButton}
-          onPress={() => navigation.navigate('SearchMain')}
-        >
-          <Text style={styles.ButtonText}>🔍 검색어를 입력하세요</Text>
-        </TouchableOpacity>
+      <View style={styles.header}>
+        <Image source={require('../../assets/signature.png')} style={styles.signature} />
+        <Text style={styles.headerTitle}>Cookit</Text>
+      </View>
 
-        <View style={styles.recommendBox}>
-          <Text style={styles.homeText}>추천 요리</Text>
-          <View style={styles.recommendRow}>
-            {recommendRecipes.slice(0, 2).map((item, idx) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.miniCard}
-                onPress={() => navigation.navigate('Summary', { 
-                  recipeId: item.id, 
-                  recipe: item 
-                })}
-                activeOpacity={0.8}
-              >
-                <Image source={{ uri: item.thumbnail }} style={styles.miniThumbnail} />
-                <View style={styles.divider} />
-                <Text style={styles.miniTitle}>{item.title}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-        <View style={styles.hotBox}>
-          <Text style={styles.homeText}>오늘의 인기 요리</Text>
-          {hotRecipes.map((item, idx) => (
-            <RecipeCard
+      <TouchableOpacity
+        style={styles.inputButton}
+        onPress={() => navigation.navigate('Search', { screen: 'SearchMain' })}
+      >
+        <Text style={styles.ButtonText}>🔍 검색어를 입력하세요</Text>
+      </TouchableOpacity>
+
+      {/* ✅ 추천 요리 섹션 */}
+      <View style={styles.recommendBox}>
+        <Text style={styles.homeText}>추천 요리</Text>
+        <View style={styles.recommendRow}>
+          {recommendRecipes.slice(0, 2).map((item, idx) => (
+            <TouchableOpacity
               key={item.id}
-              recipe={item}
-              onPress={(r) => navigation.navigate('Summary', { 
-                recipeId: r.id, 
-                recipe: r 
+              style={styles.miniCard}
+              onPress={() => navigation.navigate('SearchSummary', {
+                recipeId: item.id,
+                title: item.title,
+                creator: 'AI Generated',
+                thumbnail: item.thumbnail
               })}
-            />
+              activeOpacity={0.8}
+            >
+              <Image source={{ uri: item.thumbnail }} style={styles.miniThumbnail} />
+              <View style={styles.divider} />
+              <Text style={styles.miniTitle}>{item.title}</Text>
+            </TouchableOpacity>
           ))}
         </View>
+      </View>
 
-      </SafeAreaView>
-  )
-}
+      {/* 인기 요리 섹션 */}
+      <View style={styles.hotBox}>
+        <Text style={styles.homeText}>오늘의 인기 요리</Text>
+        {hotRecipes.map((item, idx) => (
+          <RecipeCard
+            key={item.id}
+            recipe={item}
+            onPress={(r) => navigation.navigate('SearchSummary', {
+              recipeId: r.id,
+              title: r.title,
+              creator: 'AI Generated',
+              thumbnail: r.thumbnail
+            })}
+          />
+        ))}
+      </View>
+    </SafeAreaView>
+  );
+};
 
-export default HomeMain
+export default HomeMain;
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
     paddingHorizontal: 24
@@ -196,13 +223,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'orange',
   },
-
-  profileButton: {
-    position: 'absolute',
-    right: 10,
-    top: 5
-  },
-
   inputButton: {
     width: '100%',
     height: 48,
@@ -211,7 +231,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     backgroundColor: '#fff',
-
   },
   ButtonText: {
     color: '#888',
@@ -252,7 +271,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-
   },
   card: {
     backgroundColor: '#fff',
@@ -298,4 +316,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-})
+});

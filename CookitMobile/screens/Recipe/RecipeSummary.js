@@ -1,6 +1,3 @@
-// 요약한 내용을 보여주는 곳 TEXT로 정리
-// 재료랑 필요한 양이 나와있는데 원한다면 재료 구매 탭 만들기도 가능(쿠팡으로 보내기)
-
 import { ScrollView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RecipeCancelModal from './RecipeCancelModal';
 import { supabase } from '../../lib/supabase';
+import recipeService from '../../services/recipeService'; // ✅ 추가됨
 
 const RecipeSummary = () => {
   const insets = useSafeAreaInsets();
@@ -19,11 +17,17 @@ const RecipeSummary = () => {
   const { recipeId, recipe: initialRecipe } = route.params || {};
   const [recipe, setRecipe] = React.useState(initialRecipe || null);
 
-  // ✅ recipe가 없을 때만 Supabase에서 fetch
+  // ✅ recipe가 없을 때 Supabase에서 fetch
   React.useEffect(() => {
     const fetchRecipe = async () => {
-      if (recipe) return; // 이미 데이터 있으면 패스
+      if (recipe) {
+        // 이미 recipe가 전달된 경우에도 조회수는 증가시켜야 함
+        console.log(`📈 레시피(${recipeId}) 초기 데이터 있음 — view_count 증가 시도`);
+        await recipeService.incrementViewCount(recipeId);
+        return;
+      }
 
+      console.log(`🔍 Supabase에서 recipe_id=${recipeId} 데이터 조회 중...`);
       const { data, error } = await supabase
         .from('recipes')
         .select('*')
@@ -35,7 +39,13 @@ const RecipeSummary = () => {
         return;
       }
 
-      if (data) setRecipe(data);
+      if (data) {
+        console.log('✅ Supabase에서 레시피 로드 완료');
+        setRecipe(data);
+
+        // ✅ Supabase에서 가져온 경우도 조회수 증가
+        await recipeService.incrementViewCount(recipeId);
+      }
     };
 
     if (recipeId) fetchRecipe();

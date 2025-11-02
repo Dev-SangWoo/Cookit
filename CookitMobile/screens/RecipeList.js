@@ -17,17 +17,17 @@ import RecipeCard from '../components/RecipeCard';
 import recipeService from '../services/recipeService';
 import { useAuth } from '../contexts/AuthContext';
 
-const RecipeList = ({ 
-  route: { params = {} } 
+const RecipeList = ({
+  route: { params = {} }
 }) => {
   const navigation = useNavigation();
   const { user } = useAuth();
-  
-  const { 
+
+  const {
     type = 'public', // 'public', 'my', 'saved', 'favorited'
     title = '레시피 목록',
     category,
-    difficulty 
+    difficulty
   } = params;
 
   const [recipes, setRecipes] = useState([]);
@@ -36,6 +36,9 @@ const RecipeList = ({
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // ✅ 환경변수 로드
+  const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
   // 레시피 목록 로드
   const loadRecipes = async (pageNum = 1, isRefresh = false) => {
@@ -47,7 +50,7 @@ const RecipeList = ({
       }
 
       let response;
-      
+
       if (type === 'public') {
         response = await recipeService.getPublicRecipes({
           page: pageNum,
@@ -66,7 +69,7 @@ const RecipeList = ({
       }
 
       const newRecipes = response.recipes || [];
-      
+
       if (pageNum === 1) {
         setRecipes(newRecipes);
       } else {
@@ -105,15 +108,33 @@ const RecipeList = ({
     }
   };
 
-  // 레시피 카드 터치
-  const handleRecipePress = (recipe) => {
-    navigation.navigate('Recipe', { 
-      screen: 'RecipeMain',
-      params: { 
-        recipeId: recipe.recipe_id,
-        recipe: recipe 
+  // ✅ 레시피 카드 터치 시: 조회수 증가 후 RecipeSummary.js로 이동
+  const handleRecipePress = async (recipe) => {
+    try {
+      if (!recipe?.recipe_id) {
+        Alert.alert('오류', '유효하지 않은 레시피입니다.');
+        return;
       }
-    });
+
+      // ✅ 1️⃣ view_count 증가 API 호출
+      await fetch(`${API_URL}/recipes/${recipe.recipe_id}/view`, {
+        method: 'PATCH',
+      });
+      console.log(`📈 조회수 +1 완료 (recipe_id: ${recipe.recipe_id})`);
+
+      // ✅ 2️⃣ 요약 화면으로 이동
+      navigation.navigate('Recipe', {
+        screen: 'RecipeSummary',
+        params: {
+          recipeId: recipe.recipe_id,
+          recipe: recipe
+        }
+      });
+
+    } catch (err) {
+      console.error('❌ 조회수 증가 실패:', err.message);
+      Alert.alert('오류', '레시피 조회 중 문제가 발생했습니다.');
+    }
   };
 
   // 즐겨찾기 토글
@@ -129,7 +150,7 @@ const RecipeList = ({
       } else {
         await recipeService.removeRecipe(recipeId, 'favorited');
       }
-      
+
       // 목록 새로고침
       loadRecipes(1);
     } catch (error) {
@@ -150,7 +171,7 @@ const RecipeList = ({
       } else {
         await recipeService.removeRecipe(recipeId, 'saved');
       }
-      
+
       // 목록 새로고침
       loadRecipes(1);
     } catch (error) {
@@ -164,13 +185,13 @@ const RecipeList = ({
       <Ionicons name="restaurant-outline" size={64} color="#CCC" />
       <Text style={styles.emptyTitle}>레시피가 없습니다</Text>
       <Text style={styles.emptySubtitle}>
-        {type === 'public' 
+        {type === 'public'
           ? '아직 등록된 레시피가 없어요'
           : type === 'saved'
-          ? '저장한 레시피가 없어요'
-          : type === 'favorited'
-          ? '즐겨찾기한 레시피가 없어요'
-          : '생성한 레시피가 없어요'
+            ? '저장한 레시피가 없어요'
+            : type === 'favorited'
+              ? '즐겨찾기한 레시피가 없어요'
+              : '생성한 레시피가 없어요'
         }
       </Text>
     </View>
@@ -179,7 +200,7 @@ const RecipeList = ({
   // 푸터 렌더링 (로딩 더보기)
   const renderFooter = () => {
     if (!loadingMore) return null;
-    
+
     return (
       <View style={styles.loadingMore}>
         <ActivityIndicator size="small" color="#FF6B6B" />
@@ -191,20 +212,20 @@ const RecipeList = ({
   // 헤더 렌더링
   const renderHeader = () => (
     <View style={styles.header}>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.backButton}
         onPress={() => navigation.goBack()}
       >
         <Ionicons name="arrow-back" size={24} color="#333" />
       </TouchableOpacity>
-      
+
       <Text style={styles.headerTitle}>{title}</Text>
-      
+
       <View style={styles.headerActions}>
         <TouchableOpacity style={styles.headerAction}>
           <Ionicons name="search-outline" size={24} color="#666" />
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.headerAction}>
           <Ionicons name="filter-outline" size={24} color="#666" />
         </TouchableOpacity>
@@ -227,7 +248,7 @@ const RecipeList = ({
   return (
     <SafeAreaView style={styles.container}>
       {renderHeader()}
-      
+
       <FlatList
         data={recipes}
         keyExtractor={(item, index) => `recipe-${item.recipe_id || item.id || index}`}
@@ -236,8 +257,8 @@ const RecipeList = ({
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
+          <RefreshControl
+            refreshing={refreshing}
             onRefresh={onRefresh}
             colors={['#FF6B6B']}
             tintColor="#FF6B6B"

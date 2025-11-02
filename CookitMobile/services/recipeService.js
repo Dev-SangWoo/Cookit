@@ -3,14 +3,16 @@ import { supabase } from '../lib/supabase';
 import Constants from 'expo-constants';
 
 // 서버 API 기본 URL (.env에서 가져오기)
-const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl ;
+const API_BASE_URL =
+  Constants.expoConfig?.extra?.apiBaseUrl ||
+  process.env.EXPO_PUBLIC_API_BASE_URL;
+
 // 디버깅: 환경변수 값 확인
 console.log('🔍 API_BASE_URL:', API_BASE_URL);
 console.log('🔍 Constants.expoConfig?.extra?.apiBaseUrl:', Constants.expoConfig?.extra?.apiBaseUrl);
 console.log('🔍 process.env.EXPO_PUBLIC_API_BASE_URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
 
 class RecipeService {
-  
   /**
    * 인증 토큰 가져오기
    */
@@ -53,7 +55,6 @@ class RecipeService {
    * 내 레시피 목록 조회 (임시로 공개 레시피와 동일하게 처리)
    */
   async getMyRecipes(params = {}) {
-    // 현재는 인증이 구현되지 않았으므로 공개 레시피를 반환
     return this.getPublicRecipes(params);
   }
 
@@ -80,7 +81,6 @@ class RecipeService {
    * 레시피 저장/즐겨찾기 (임시 구현)
    */
   async saveRecipe(recipeId, type = 'saved', options = {}) {
-    // 현재는 임시로 성공 응답만 반환
     console.log(`레시피 ${recipeId}를 ${type}으로 저장 요청`);
     return {
       success: true,
@@ -94,7 +94,6 @@ class RecipeService {
    * 저장된 레시피 삭제 (임시 구현)
    */
   async removeRecipe(recipeId, type = 'saved') {
-    // 현재는 임시로 성공 응답만 반환
     console.log(`레시피 ${recipeId}를 ${type}에서 삭제 요청`);
     return {
       success: true,
@@ -127,6 +126,64 @@ class RecipeService {
     } catch (error) {
       console.error('YouTube 분석 오류:', error);
       throw error;
+    }
+  }
+
+  /**
+   * 🔸 [추가됨] 추천 레시피 가져오기 (개인화 추천)
+   */
+  async getRecommendedRecipes(userId) {
+    try {
+      if (!userId) {
+        console.warn('⚠️ userId가 없습니다. 기본 추천을 반환합니다.');
+        return [];
+      }
+
+      const response = await fetch(`${API_BASE_URL}/recommendations/user/${userId}`);
+      const data = await response.json();
+
+      if (!data.success) {
+        console.warn('⚠️ 추천 레시피 API 응답 실패:', data.message);
+        return [];
+      }
+
+      console.log(`✅ 추천 레시피 ${data.recommendations?.length || 0}개 로드됨`);
+      return data.recommendations || [];
+    } catch (error) {
+      console.error('추천 레시피 가져오기 실패:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 🔸 [추가됨] 레시피 조회수 증가
+   */
+  async incrementViewCount(recipeId) {
+    try {
+      if (!recipeId) {
+        console.warn('⚠️ recipeId가 없습니다. 조회수 증가 요청을 건너뜁니다.');
+        return;
+      }
+
+      const url = `${API_BASE_URL}/recipes/${recipeId}/view`;
+      console.log('📡 조회수 증가 요청 URL:', url);
+
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('❌ 서버 응답 오류:', text);
+        return;
+      }
+
+      const result = await response.json();
+      console.log('✅ 조회수 증가 성공:', result);
+      return result;
+    } catch (error) {
+      console.warn('⚠️ 조회수 증가 실패 (RecipeSummary):', error.message);
     }
   }
 }

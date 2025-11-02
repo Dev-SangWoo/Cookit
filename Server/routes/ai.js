@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 const router = express.Router();
 
 // ✅ Supabase 클라이언트 설정
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
 // ===================================================
 // ✅ 1️⃣ YouTube 영상 분석 요청 (중복 검사 → 새 분석 실행)
@@ -77,15 +77,46 @@ router.post('/analyze-youtube', async (req, res) => {
     const cmd = `node "${pipelinePath}" "${url}" >> "${logFile}" 2>&1`;
 
     // ✅ 비동기 실행 (백그라운드)
-    exec(cmd, { cwd: serverRoot, windowsHide: true }, (error) => {
+    exec(cmd, { cwd: serverRoot, windowsHide: true }, async (error) => {
       if (error) {
         fs.appendFileSync(logFile, `\n❌ 오류 발생: ${error.message}\n`);
       } else {
         fs.appendFileSync(logFile, `\n✅ 실행 완료\n`);
+
+        // ✅ 파이프라인 실행 완료 후 recipes 테이블에서 결과 조회
+        const { data: newRecipe, error: recipeError } = await supabase
+          .from('recipes')
+          .select('id, video_id')
+          .eq('video_id', videoId)
+          .maybeSingle();
+
+        if (recipeError) {
+          fs.appendFileSync(logFile, `\n⚠️ recipes 조회 실패: ${recipeError.message}\n`);
+        }
+
+        if (newRecipe) {
+          // ✅ recipe_stats 자동 생성
+          const { error: statsError } = await supabase.from('recipe_stats').insert([
+            {
+              recipe_id: newRecipe.id,
+              view_count: 0,
+              favorite_count: 0,
+              custom_count: 0,
+              cook_count: 0,
+              average_rating: 0.0,
+            },
+          ]);
+
+          if (statsError) {
+            fs.appendFileSync(logFile, `\n⚠️ recipe_stats 생성 실패: ${statsError.message}\n`);
+          } else {
+            fs.appendFileSync(logFile, `\n📊 recipe_stats 초기화 완료 (recipe_id: ${newRecipe.id})\n`);
+          }
+        }
       }
     });
 
-    // ✅ 요청 즉시 응답
+    // ✅ 요청 즉시 응답 (비동기 실행)
     return res.status(202).json({
       success: true,
       status: 'processing',

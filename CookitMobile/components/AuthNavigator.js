@@ -18,13 +18,13 @@ import RecipeList from '../screens/RecipeList';
 import AIAnalyze from '../screens/AIAnalyze';
 import RecipeStack from '../screens/Recipe/RecipeStack';
 import SearchStack from '../screens/Search/SearchStack';
+import SearchSummary from '../screens/Search/SearchSummary';  // ✅ 추가
 
 const Stack = createNativeStackNavigator();
 
 export default function AuthNavigator() {
   const { user, loading, isSetupComplete } = useAuth();
 
-  // 디버깅 로그
   console.log('🔍 AuthNavigator 상태:', {
     user: user ? '로그인됨' : '로그인 안됨',
     loading,
@@ -32,7 +32,6 @@ export default function AuthNavigator() {
     userEmail: user?.email
   });
 
-  // 로딩 중일 때 스피너 표시
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -43,28 +42,25 @@ export default function AuthNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator 
+      <Stack.Navigator
         screenOptions={{ headerShown: false }}
-        initialRouteName={!user ? "Auth" : "SetupNickname"} // 테스트용: 인증된 사용자는 SetupNickname으로 시작
+        initialRouteName={!user ? "Auth" : "SetupNickname"}
       >
-        {/* 인증되지 않은 사용자 - 로그인 화면 */}
         {!user ? (
           <Stack.Screen name="Auth" component={AuthScreen} />
         ) : (
-          // 테스트용: 인증된 사용자는 무조건 Setup 화면으로 이동
           <>
             <Stack.Screen name="SetupNickname" component={SetupNickname} />
             <Stack.Screen name="SetupProfile" component={SetupProfile} />
             <Stack.Screen name="SetupPreference" component={SetupPreference} />
             <Stack.Screen name="SetupIngredients" component={SetupIngredients} />
-            
-            {/* Setup 완료 후 사용할 메인 앱 화면들 */}
             <Stack.Screen name="HomeTab" component={HomeTab} />
             <Stack.Screen name="Summary" component={Summary} />
             <Stack.Screen name="RecipeList" component={RecipeList} />
             <Stack.Screen name="AIAnalyze" component={AIAnalyze} />
             <Stack.Screen name="Recipe" component={RecipeStack} />
             <Stack.Screen name="Search" component={SearchStack} />
+            <Stack.Screen name="SearchSummary" component={SearchSummary} />
           </>
         )}
       </Stack.Navigator>

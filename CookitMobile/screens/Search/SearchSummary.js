@@ -42,7 +42,10 @@ const SearchSummary = ({ route, navigation }) => {
         isVisible={isModalVisible}
         onComplete={() => {
           setIsModalVisible(false);
-          navigation.navigate('RecipeSummary', { recipeId });
+          navigation.navigate('Recipe', { 
+            screen: 'RecipeSummary',
+            params: { recipeId }
+          });
         }}
       />
     </SafeAreaView>

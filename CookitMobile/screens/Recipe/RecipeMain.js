@@ -273,9 +273,12 @@ const Recipe = ({ route }) => {
         <TouchableOpacity
           style={styles.summaryButton}
           onPress={() => {
-            navigation.navigate('RecipeSummary', {
-              recipeId,
-              recipe,
+            navigation.navigate('Recipe', {   // ✅ 중첩 네비게이터 접근
+              screen: 'RecipeSummary',        // ✅ 내부 스택의 실제 화면 이름
+              params: {
+                recipeId,
+                recipe,
+              },
             });
           }}
         >

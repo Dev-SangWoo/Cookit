@@ -61,6 +61,10 @@ function generatePromptText(url, title, combinedText) {
    - 난이도(difficulty_level): easy, medium, hard 중 선택
    - 영양 정보(nutrition_info): 칼로리, 탄수화물, 단백질, 지방을 g 또는 kcal 단위로 추정
 8. 요리의 주재료, 조리법, 카테고리를 반영한 태그(tags)를 3~6개 작성하세요.
+9. ⚡ **요리의 종류를 판단하여 아래 목록 중 하나의 category_name으로 선택하세요:** 
+    - "한식", "양식", "중식", "일식", "디저트", "베이킹", "간식", "샐러드", "스프", "음료" 
+    - 반드시 하나만 선택하며, 없으면 null을 반환하지 말고 가장 유사한 항목을 선택하세요. 
+    - 예: 오야코동 → "일식", 불고기 → "한식", 초코쿠키 → "베이킹"
 
 ※ 타임라인은 가능한 한 시각적으로 동작이 시작되는 순간 또는 조리 동작이 언어로 언급되는 순간을 기준으로 가장 먼저 등장한 시점을 사용하세요.
 
@@ -117,6 +121,7 @@ function generatePromptText(url, title, combinedText) {
   "servings": number (인분 수, 없으면 null),
   "difficulty_level": "easy | medium | hard",
   "tags": ["AI-Generated", "YouTube", "요리명", "카테고리", "조리법"],
+  "category_name": "한식 | 양식 | 중식 | 일식 | 디저트 | 베이킹 | 간식 | 샐러드 | 스프 | 음료 중 하나",
   "nutrition_info": {
     "calories": "0 kcal",
     "carbs": "0 g",

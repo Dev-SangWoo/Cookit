@@ -16,14 +16,19 @@ class SupabaseService {
    */
   async saveRecipe(recipeData) {
     try {
+      console.log("🚀 Supabase 'recipes' 테이블에 업로드 중...");
+
+      // 🧩 [추가] category_name 같은 임시 필드는 DB에 없으므로 제외
+      const { category_name, ...cleanRecipeData } = recipeData;
+
       const { data, error } = await supabase
         .from('recipes')
-        .insert([recipeData])
+        .insert([cleanRecipeData]) // category_name 제거된 데이터만 업로드
         .select()
         .single();
 
       if (error) {
-        console.error('레시피 저장 오류:', error);
+        console.error('❌ 레시피 저장 오류:', error);
         throw new Error(`레시피 저장 실패: ${error.message}`);
       }
 

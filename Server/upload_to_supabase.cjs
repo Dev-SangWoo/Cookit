@@ -131,10 +131,35 @@ const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fet
     recipeData.image_urls = imageUrls.length > 0 ? imageUrls : null;
     recipeData.video_id = videoId;
 
+    // 🧩 [추가 1] category_name → category_id 자동 매핑
+    if (recipeData.category_name) {
+      console.log(`🔍 카테고리 이름(${recipeData.category_name})에 해당하는 ID 조회 중...`);
+      const { data: catData, error: catError } = await supabase
+        .from("recipe_categories")
+        .select("id, name")
+        .ilike("name", `%${recipeData.category_name}%`)
+        .limit(1)
+        .maybeSingle();
+
+      if (catError) {
+        console.warn(`⚠️ category_id 조회 오류: ${catError.message}`);
+      } else if (catData) {
+        recipeData.category_id = catData.id;
+        console.log(`✅ category_id 매핑 완료: ${catData.id}`);
+      } else {
+        console.warn(`⚠️ 일치하는 category_name 없음 — category_id는 null로 유지됩니다.`);
+      }
+    }
+
+    // 🧩 [추가 2] category_name 제거 (DB에는 존재하지 않음)
+    if (recipeData.category_name) {
+      delete recipeData.category_name;
+    }
+
     console.log("🚀 Supabase 'recipes' 테이블에 업로드 중...");
     const { data, error } = await supabase
       .from("recipes")
-      .upsert([recipeData], { onConflict: "video_id" }) // ✅ 중복 시 update
+      .upsert([recipeData], { onConflict: "video_id" })
       .select()
       .single();
 
