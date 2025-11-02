@@ -31,6 +31,7 @@ const RecipeRating = () => {
   const [isLiked, setIsLiked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [recipeData, setRecipeData] = useState(recipe || null);
 
   useEffect(() => {
     const getUserId = async () => {
@@ -46,6 +47,56 @@ const RecipeRating = () => {
     };
     getUserId();
   }, [recipeId]);
+
+  // recipe가 없으면 DB에서 불러오기
+  useEffect(() => {
+    const loadRecipe = async () => {
+      if (recipeData || !recipeId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('id', recipeId)
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setRecipeData(data);
+        }
+      } catch (error) {
+        console.error('레시피 로드 오류:', error);
+      }
+    };
+
+    loadRecipe();
+  }, [recipeId, recipeData]);
+
+  // 썸네일 URL 가져오기
+  const getThumbnailUrl = () => {
+    const currentRecipe = recipeData || recipe;
+    if (!currentRecipe) return null;
+
+    // thumbnail이 있으면 사용
+    if (currentRecipe.thumbnail) {
+      return currentRecipe.thumbnail.startsWith('http') 
+        ? currentRecipe.thumbnail 
+        : supabase.storage.from('recipe-images').getPublicUrl(currentRecipe.thumbnail).data.publicUrl;
+    }
+
+    // image_urls 배열의 첫 번째 이미지 사용
+    const imageUrl = currentRecipe.image_urls?.[0];
+    if (!imageUrl) return null;
+
+    // 이미 전체 URL이면 그대로 사용
+    if (imageUrl.startsWith('http')) {
+      return imageUrl;
+    }
+
+    // Supabase Storage 경로면 Public URL 생성
+    const { data } = supabase.storage.from('recipe-images').getPublicUrl(imageUrl);
+    return data.publicUrl;
+  };
 
   // 좋아요 상태 확인
   const checkLikeStatus = async (userId) => {
@@ -128,10 +179,11 @@ const RecipeRating = () => {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* 레시피 정보 헤더 */}
         <View style={styles.recipeHeader}>
-          {recipe?.thumbnail || recipe?.image_urls?.[0] ? (
+          {getThumbnailUrl() ? (
             <Image 
-              source={{ uri: recipe.thumbnail || recipe.image_urls?.[0] }} 
-              style={styles.recipeThumbnail} 
+              source={{ uri: getThumbnailUrl() }} 
+              style={styles.recipeThumbnail}
+              resizeMode="cover"
             />
           ) : (
             <View style={styles.thumbnailPlaceholder}>
@@ -140,7 +192,7 @@ const RecipeRating = () => {
           )}
           <View style={styles.recipeInfo}>
             <Text style={styles.recipeTitle} numberOfLines={2}>
-              {recipe?.title || '레시피'}
+              {recipeData?.title || recipe?.title || '레시피'}
             </Text>
             <Text style={styles.recipeSubtitle}>요리 평가하기</Text>
           </View>

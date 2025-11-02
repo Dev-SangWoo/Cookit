@@ -207,7 +207,13 @@ router.get('/:postId', async (req, res) => {
       .select(`
         post_id, title, content, image_urls, created_at, updated_at, tags,
         user_profiles ( id, display_name, avatar_url ),
-        recipe_id
+        recipe_id,
+        recipes (
+          id,
+          title,
+          description,
+          image_urls
+        )
       `)
       .eq('post_id', postId)
       .single();

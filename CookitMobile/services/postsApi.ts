@@ -41,30 +41,30 @@ async function uploadImages(images: string[]): Promise<string[]> {
     try {
       const fileExt = uri.split('.').pop() || 'jpg';
       const fileName = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-      const filePath = `user-post-images/${fileName}`;
+    const filePath = `user-post-images/${fileName}`;
 
       // React Native에서는 FileSystem을 사용하여 base64로 읽기
-      const base64 = await FileSystem.readAsStringAsync(uri, {
+    const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',
-      });
+    });
       
       // base64를 바이너리 데이터로 디코딩
       const binaryData = decode(base64);
 
-      const { error: uploadError } = await supabase.storage
-        .from('user-post-images')
+    const { error: uploadError } = await supabase.storage
+      .from('user-post-images')
         .upload(filePath, binaryData, {
           contentType: 'image/jpeg',
           upsert: true,
-        });
+      });
 
-      if (uploadError) throw uploadError;
+    if (uploadError) throw uploadError;
 
-      const { data: publicUrlData } = supabase.storage
-        .from('user-post-images')
-        .getPublicUrl(filePath);
+    const { data: publicUrlData } = supabase.storage
+      .from('user-post-images')
+      .getPublicUrl(filePath);
 
-      imageUrls.push(publicUrlData.publicUrl);
+    imageUrls.push(publicUrlData.publicUrl);
     } catch (error) {
       console.error('이미지 업로드 실패:', error);
       throw error;

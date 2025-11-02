@@ -127,11 +127,8 @@ const ProfileLikes = () => {
             <TouchableOpacity
                 style={styles.card}
                 onPress={() =>
-                    navigation.navigate('SearchSummary', {
+                    navigation.navigate('Summary', {
                         recipeId: item.recipe_id,
-                        title: item.title,
-                        thumbnail: item.thumbnail, 
-                        creator: item.channel,
                     })
                 }
             >

@@ -110,7 +110,7 @@ const RecipeRecord = () => {
       // 서버 API를 통해 게시글 생성 (이미지 업로드는 postsApi 내부에서 처리)
       // RecipeRecord는 공개/비공개로 구분 (isPublic: true = '01', false = '00')
       const tags = isPublic ? '01' : '00';
-      
+
       await createPost({
         title: postTitle,
         content: postContent,
@@ -225,14 +225,14 @@ const RecipeRecord = () => {
         {/* 사진 추가 */}
         <Text style={styles.subHeader}>사진 추가 (선택, 최대 5장)</Text>
         <View style={styles.imagePickerRow}>
-          <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
+        <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
             <Ionicons name="images-outline" size={24} color="#FF6B35" />
             <Text style={styles.imagePickerText}>앨범에서 선택</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.imagePickerButton} onPress={takePhoto}>
-            <Ionicons name="camera-outline" size={24} color="#FF6B35" />
+          <Ionicons name="camera-outline" size={24} color="#FF6B35" />
             <Text style={styles.imagePickerText}>사진 촬영</Text>
-          </TouchableOpacity>
+        </TouchableOpacity>
         </View>
 
         {/* 선택된 이미지 미리보기 */}

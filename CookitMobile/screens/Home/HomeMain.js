@@ -1,8 +1,4 @@
-//메인 화면
-
-
-
-
+//메인 화면 - 리디자인 버전
 import { StyleSheet, Text, View, TouchableOpacity, Platform, Image, ActivityIndicator, ScrollView, Dimensions } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -15,233 +11,192 @@ const { width } = Dimensions.get('window');
 
 const HomeMain = () => {
   const route = useRoute();
-  const initialQuery = route.params?.query || '';
-  const [query, setQuery] = React.useState(initialQuery);
   const navigation = useNavigation();
-  const [recommendRecipes, setRecommendRecipes] = useState([]);
-  const [hotRecipes, setHotRecipes] = useState([]);
+  
+  // 4개 섹션 State
+  const [personalizedRecipes, setPersonalizedRecipes] = useState([]);
+  const [difficultyRecipes, setDifficultyRecipes] = useState([]);
+  const [popularRecipes, setPopularRecipes] = useState([]);
+  const [similarRecipes, setSimilarRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Supabase Storage에서 이미지 URL 생성
   const getImageUrl = (imagePath) => {
-    console.log('🔍 이미지 경로 확인:', imagePath);
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath;
     
-    if (!imagePath) {
-      console.log('❌ 이미지 경로 없음, 로컬 기본 이미지 사용');
-      return null; // null을 반환해서 기본 이미지 컴포넌트 사용
-    }
-    
-    // 이미 전체 URL인 경우
-    if (imagePath.startsWith('http')) {
-      console.log('✅ 전체 URL 사용:', imagePath);
-      return imagePath;
-    }
-    
-    // Supabase Storage 경로인 경우
     if (imagePath.startsWith('recipes/')) {
       const { data } = supabase.storage.from('recipe-images').getPublicUrl(imagePath);
-      console.log('📁 Supabase Storage URL 생성:', data.publicUrl);
       return data.publicUrl;
     }
     
-    // 다른 경로인 경우도 시도해보기
-    console.log('🔄 다른 경로로 시도:', imagePath);
     const { data } = supabase.storage.from('recipe-images').getPublicUrl(imagePath);
-    console.log('📁 생성된 URL:', data.publicUrl);
     return data.publicUrl;
   };
 
-
-
   useEffect(() => {
-    fetchRecipes();
+    fetchAllRecipes();
   }, []);
 
-  const fetchRecipes = async () => {
+  const fetchAllRecipes = async () => {
     try {
       setLoading(true);
       
-      // 추천 레시피 (최신 4개)
-      const recommendResponse = await recipeService.getPublicRecipes({
-        page: 1,
-        limit: 4
+      // 🎯 1. 개인화 추천 (선호/비선호 재료 고려)
+      const personalizedResponse = await recipeService.getRecommendedRecipes();
+      console.log('✨ 개인화 추천:', personalizedResponse.total, '개');
+
+      // 🎓 2. 난이도 기반 추천
+      const difficultyResponse = await recipeService.getRecipesByDifficulty(6);
+      console.log('🎓 난이도 기반:', difficultyResponse.total, '개');
+
+      // 🔥 3. 실시간 인기 레시피
+      const popularResponse = await recipeService.getPopularRecipes(4);
+      console.log('🔥 인기 레시피:', popularResponse.total, '개');
+
+      // 👨‍🍳 4. 유사 레시피 (완성한 요리 기반)
+      const similarResponse = await recipeService.getSimilarToCookedRecipes(6);
+      console.log('👨‍🍳 유사 레시피:', similarResponse.total, '개');
+
+      // 데이터 변환
+      const transformRecipe = (recipe) => ({
+        id: recipe.id,
+        title: recipe.title,
+        description: recipe.description || '맛있는 레시피입니다',
+        thumbnail: getImageUrl(recipe.image_urls?.[0]),
+        prep_time: recipe.prep_time,
+        cook_time: recipe.cook_time,
+        servings: recipe.servings,
+        difficulty_level: recipe.difficulty_level,
+        tags: recipe.tags || [],
+        ai_generated: recipe.ai_generated,
+        source_url: recipe.source_url,
+        video_url: recipe.video_url,
+        created_at: recipe.created_at,
       });
-      
-      // 인기 레시피 (AI 생성 레시피 중 6개)
-      const hotResponse = await recipeService.getPublicRecipes({
-        page: 1,
-        limit: 6,
-        ai_only: true
-      });
 
-      // 데이터 변환 - 더 많은 정보 포함
-      const recommendData = recommendResponse.recipes?.map(recipe => {
-        console.log('📋 추천 레시피 데이터:', {
-          id: recipe.id,
-          title: recipe.title,
-          image_urls: recipe.image_urls
-        });
-        
-        return {
-          id: recipe.id,
-          title: recipe.title,
-          description: recipe.description || '맛있는 레시피입니다',
-          thumbnail: getImageUrl(recipe.image_urls?.[0]),
-          prep_time: recipe.prep_time,
-          cook_time: recipe.cook_time,
-          servings: recipe.servings,
-          difficulty_level: recipe.difficulty_level,
-          tags: recipe.tags || [],
-          ai_generated: recipe.ai_generated,
-          source_url: recipe.source_url,
-          video_url: recipe.video_url,
-          created_at: recipe.created_at
-        };
-      }) || [];
+      setPersonalizedRecipes((personalizedResponse.recipes || []).slice(0, 6).map(transformRecipe));
+      setDifficultyRecipes((difficultyResponse.recipes || []).map(transformRecipe));
+      setPopularRecipes((popularResponse.recipes || []).map(transformRecipe));
+      setSimilarRecipes((similarResponse.recipes || []).map(transformRecipe));
 
-      const hotData = hotResponse.recipes?.map(recipe => {
-        console.log('🔥 인기 레시피 데이터:', {
-          id: recipe.id,
-          title: recipe.title,
-          image_urls: recipe.image_urls
-        });
-        
-        return {
-          id: recipe.id,
-          title: recipe.title,
-          description: recipe.description || '맛있는 레시피입니다',
-          thumbnail: getImageUrl(recipe.image_urls?.[0]),
-          prep_time: recipe.prep_time,
-          cook_time: recipe.cook_time,
-          servings: recipe.servings,
-          difficulty_level: recipe.difficulty_level,
-          tags: recipe.tags || [],
-          ai_generated: recipe.ai_generated,
-          source_url: recipe.source_url,
-          video_url: recipe.video_url,
-          created_at: recipe.created_at
-        };
-      }) || [];
-
-      setRecommendRecipes(recommendData);
-      setHotRecipes(hotData);
-      
     } catch (error) {
       console.error('레시피 로딩 실패:', error);
-      
-      // 오류 시 기본 데이터 사용
-      const fallbackRecommend = [
-        {
-          id: 'fallback1',
-          title: '계란말이',
-          description: '든든한 한끼! 촉촉한 계란말이 레시피',
-          thumbnail: getImageUrl(null),
-        },
-        {
-          id: 'fallback2',
-          title: '비빔국수',
-          description: '매콤새콤! 여름 입맛을 돋우는 국수 레시피',
-          thumbnail: getImageUrl(null),
-        },
-      ];
-      const fallbackHot = [
-        {
-          id: 'fallback3',
-          title: '불고기',
-          description: '달달하고 짭짤한 불고기 한 끼',
-          thumbnail: getImageUrl(null),
-        },
-      ];
-      
-      setRecommendRecipes(fallbackRecommend);
-      setHotRecipes(fallbackHot);
     } finally {
       setLoading(false);
     }
   };
 
-
-
-
-  const RecipeCard = ({ recipe, onPress }) => {
-    const [imageLoading, setImageLoading] = useState(true);
-    const [imageError, setImageError] = useState(false);
-
-    return (
-      <TouchableOpacity style={styles.card} onPress={() => onPress(recipe)} activeOpacity={0.8}>
-        <View style={styles.imageContainer}>
-          {recipe.thumbnail ? (
-            <Image 
-              source={{ uri: recipe.thumbnail }} 
-              style={styles.thumbnail}
-              onLoadStart={() => setImageLoading(true)}
-              onLoadEnd={() => setImageLoading(false)}
-              onError={() => {
-                setImageError(true);
-                setImageLoading(false);
-              }}
-            />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Ionicons name="restaurant-outline" size={60} color="#ccc" />
-              <Text style={styles.imagePlaceholderText}>이미지 없음</Text>
-            </View>
-          )}
-          {imageLoading && (
-            <View style={styles.imageLoadingOverlay}>
-              <ActivityIndicator size="small" color="#FF6B35" />
-            </View>
-          )}
-          {imageError && (
-            <View style={styles.imageErrorOverlay}>
-              <Ionicons name="image-outline" size={40} color="#ccc" />
-              <Text style={styles.imageErrorText}>이미지 없음</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.cardContent}>
-          <Text style={styles.title}>{recipe.title}</Text>
-          <Text style={styles.description} numberOfLines={2}>{recipe.description}</Text>
-          
-          {/* 레시피 정보 */}
-          <View style={styles.recipeInfo}>
-            {(recipe.prep_time || recipe.cook_time) && (
-              <View style={styles.infoItem}>
-                <Ionicons name="time-outline" size={14} color="#FF6B35" />
-                <Text style={styles.infoText}>
-                  {recipe.prep_time && `${recipe.prep_time}분`}
-                  {recipe.prep_time && recipe.cook_time && ' + '}
-                  {recipe.cook_time && `${recipe.cook_time}분`}
-                </Text>
-              </View>
-            )}
-            {recipe.servings && (
-              <View style={styles.infoItem}>
-                <Ionicons name="people-outline" size={14} color="#FF6B35" />
-                <Text style={styles.infoText}>{recipe.servings}인분</Text>
-              </View>
-            )}
-            {recipe.difficulty_level && (
-              <View style={styles.infoItem}>
-                <Ionicons name="star-outline" size={14} color="#FF6B35" />
-                <Text style={styles.infoText}>
-                  {recipe.difficulty_level === 'easy' ? '쉬움' : 
-                   recipe.difficulty_level === 'medium' ? '보통' : '어려움'}
-                </Text>
-              </View>
-            )}
+  // 미니 카드 컴포넌트 (가로 스크롤용)
+  const MiniCard = ({ recipe, onPress }) => (
+    <TouchableOpacity
+      style={styles.miniCard}
+      onPress={() => onPress(recipe)}
+      activeOpacity={0.8}
+    >
+      <View style={styles.miniImageContainer}>
+        {recipe.thumbnail ? (
+          <Image 
+            source={{ uri: recipe.thumbnail }} 
+            style={styles.miniThumbnail}
+          />
+        ) : (
+          <View style={styles.miniPlaceholder}>
+            <Ionicons name="restaurant-outline" size={40} color="#ccc" />
           </View>
-
-          {/* AI 생성 표시 */}
-          {recipe.ai_generated && (
-            <View style={styles.aiBadge}>
-              <Ionicons name="sparkles" size={12} color="#fff" />
-              <Text style={styles.aiText}>AI 생성</Text>
+        )}
+      </View>
+      <View style={styles.miniCardContent}>
+        <Text style={styles.miniTitle} numberOfLines={2}>{recipe.title}</Text>
+        <View style={styles.miniInfo}>
+          {(recipe.prep_time || recipe.cook_time) && (
+            <View style={styles.miniInfoItem}>
+              <Ionicons name="time-outline" size={12} color="#FF6B35" />
+              <Text style={styles.miniInfoText}>
+                {recipe.prep_time && `${recipe.prep_time}`}
+                {recipe.prep_time && recipe.cook_time && '+'}
+                {recipe.cook_time && `${recipe.cook_time}분`}
+              </Text>
+            </View>
+          )}
+          {recipe.difficulty_level && (
+            <View style={styles.miniInfoItem}>
+              <Ionicons name="star" size={12} color="#FFD700" />
+              <Text style={styles.miniInfoText}>
+                {recipe.difficulty_level === 'easy' ? '쉬움' : 
+                 recipe.difficulty_level === 'medium' ? '보통' : '어려움'}
+              </Text>
             </View>
           )}
         </View>
-      </TouchableOpacity>
-    );
+      </View>
+    </TouchableOpacity>
+  );
+
+  // 대형 카드 컴포넌트 (세로 나열용)
+  const LargeCard = ({ recipe, onPress }) => (
+    <TouchableOpacity
+      style={styles.largeCard}
+      onPress={() => onPress(recipe)}
+      activeOpacity={0.8}
+    >
+      <View style={styles.largeImageContainer}>
+        {recipe.thumbnail ? (
+          <Image 
+            source={{ uri: recipe.thumbnail }} 
+            style={styles.largeThumbnail}
+          />
+        ) : (
+          <View style={styles.largePlaceholder}>
+            <Ionicons name="restaurant-outline" size={60} color="#ccc" />
+          </View>
+        )}
+        {recipe.ai_generated && (
+          <View style={styles.aiBadge}>
+            <Ionicons name="sparkles" size={12} color="#fff" />
+            <Text style={styles.aiText}>AI</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.largeCardContent}>
+        <Text style={styles.largeTitle}>{recipe.title}</Text>
+        <Text style={styles.largeDescription} numberOfLines={2}>
+          {recipe.description}
+        </Text>
+        <View style={styles.largeInfo}>
+          {(recipe.prep_time || recipe.cook_time) && (
+            <View style={styles.largeInfoItem}>
+              <Ionicons name="time-outline" size={16} color="#FF6B35" />
+              <Text style={styles.largeInfoText}>
+                {(recipe.prep_time || 0) + (recipe.cook_time || 0)}분
+              </Text>
+            </View>
+          )}
+          {recipe.servings && (
+            <View style={styles.largeInfoItem}>
+              <Ionicons name="people-outline" size={16} color="#FF6B35" />
+              <Text style={styles.largeInfoText}>{recipe.servings}인분</Text>
+            </View>
+          )}
+          {recipe.difficulty_level && (
+            <View style={styles.largeInfoItem}>
+              <Ionicons name="star" size={16} color="#FFD700" />
+              <Text style={styles.largeInfoText}>
+                {recipe.difficulty_level === 'easy' ? '쉬움' : 
+                 recipe.difficulty_level === 'medium' ? '보통' : '어려움'}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const handleRecipePress = (recipe) => {
+    navigation.navigate('Summary', { 
+      recipeId: recipe.id, 
+      recipe: recipe 
+    });
   };
 
   if (loading) {
@@ -252,8 +207,8 @@ const HomeMain = () => {
           <Text style={styles.headerTitle}>Cookit</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="orange" />
-          <Text style={styles.loadingText}>레시피를 불러오는 중...</Text>
+          <ActivityIndicator size="large" color="#FF6B35" />
+          <Text style={styles.loadingText}>맞춤 레시피를 준비 중...</Text>
         </View>
       </SafeAreaView>
     );
@@ -261,6 +216,7 @@ const HomeMain = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* 헤더 */}
       <View style={styles.header}>
         <Image source={require('../../assets/signature.png')} style={styles.signature} />
         <Text style={styles.headerTitle}>Cookit</Text>
@@ -287,17 +243,23 @@ const HomeMain = () => {
       >
         {/* 검색 버튼 */}
         <TouchableOpacity
-          style={styles.inputButton}
+          style={styles.searchButton}
           onPress={() => navigation.navigate('Search')}
         >
           <Ionicons name="search" size={20} color="#888" />
-          <Text style={styles.ButtonText}>검색어를 입력하세요</Text>
+          <Text style={styles.searchText}>레시피 검색</Text>
         </TouchableOpacity>
 
-        {/* 추천 요리 섹션 */}
+        {/* 1️⃣ 추천 요리 (선호 기반) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>🔥 추천 요리</Text>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionEmoji}>🎯</Text>
+              <View>
+                <Text style={styles.sectionTitle}>당신을 위한 추천</Text>
+                <Text style={styles.sectionSubtitle}>선호도 기반 맞춤 레시피</Text>
+              </View>
+            </View>
             <TouchableOpacity onPress={() => navigation.navigate('RecipeList')}>
               <Text style={styles.moreText}>더보기</Text>
             </TouchableOpacity>
@@ -307,78 +269,89 @@ const HomeMain = () => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalScroll}
           >
-            {recommendRecipes.map((item, idx) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.miniCard}
-                onPress={() => navigation.navigate('Summary', { 
-                  recipeId: item.id, 
-                  recipe: item 
-                })}
-                activeOpacity={0.8}
-              >
-                <View style={styles.miniImageContainer}>
-                  {item.thumbnail ? (
-                    <Image 
-                      source={{ uri: item.thumbnail }} 
-                      style={styles.miniThumbnail}
-                      onError={(error) => {
-                        console.log('❌ 미니 이미지 로드 에러:', error.nativeEvent.error);
-                        console.log('🔗 시도한 URL:', item.thumbnail);
-                      }}
-                    />
-                  ) : (
-                    <View style={styles.miniPlaceholder}>
-                      <Ionicons name="restaurant-outline" size={40} color="#ccc" />
-                      <Text style={styles.miniPlaceholderText}>이미지 없음</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.miniCardContent}>
-                  <Text style={styles.miniTitle} numberOfLines={2}>{item.title}</Text>
-                  <View style={styles.miniInfo}>
-                    {(item.prep_time || item.cook_time) && (
-                      <Text style={styles.miniInfoText}>
-                        {item.prep_time && `${item.prep_time}분`}
-                        {item.prep_time && item.cook_time && '+'}
-                        {item.cook_time && `${item.cook_time}분`}
-                      </Text>
-                    )}
-                    {item.servings && (
-                      <Text style={styles.miniInfoText}>{item.servings}인분</Text>
-                    )}
-                  </View>
-                </View>
-              </TouchableOpacity>
+            {personalizedRecipes.map((item) => (
+              <MiniCard key={item.id} recipe={item} onPress={handleRecipePress} />
             ))}
           </ScrollView>
         </View>
 
-        {/* 인기 요리 섹션 */}
+        {/* 2️⃣ 난이도 기반 추천 */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>⭐ AI 인기 요리</Text>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionEmoji}>🎓</Text>
+              <View>
+                <Text style={styles.sectionTitle}>당신의 레벨에 맞춰요</Text>
+                <Text style={styles.sectionSubtitle}>실력에 딱 맞는 난이도</Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={() => navigation.navigate('RecipeList')}>
+              <Text style={styles.moreText}>더보기</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalScroll}
+          >
+            {difficultyRecipes.map((item) => (
+              <MiniCard key={item.id} recipe={item} onPress={handleRecipePress} />
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* 3️⃣ 실시간 인기 레시피 */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionEmoji}>🔥</Text>
+              <View>
+                <Text style={styles.sectionTitle}>지금 핫한 레시피</Text>
+                <Text style={styles.sectionSubtitle}>가장 많이 조회된 레시피</Text>
+              </View>
+            </View>
             <TouchableOpacity onPress={() => navigation.navigate('RecipeList', { ai_only: true })}>
               <Text style={styles.moreText}>더보기</Text>
             </TouchableOpacity>
           </View>
-          {hotRecipes.map((item, idx) => (
-            <RecipeCard
-              key={item.id}
-              recipe={item}
-              onPress={(r) => navigation.navigate('Summary', { 
-                recipeId: r.id, 
-                recipe: r 
-              })}
-            />
+          {popularRecipes.map((item) => (
+            <LargeCard key={item.id} recipe={item} onPress={handleRecipePress} />
           ))}
         </View>
+
+        {/* 4️⃣ 또 만들고 싶어요! */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Text style={styles.sectionEmoji}>👨‍🍳</Text>
+              <View>
+                <Text style={styles.sectionTitle}>또 만들고 싶어요!</Text>
+                <Text style={styles.sectionSubtitle}>비슷한 맛의 새로운 레시피</Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={() => navigation.navigate('RecipeList')}>
+              <Text style={styles.moreText}>더보기</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalScroll}
+          >
+            {similarRecipes.map((item) => (
+              <MiniCard key={item.id} recipe={item} onPress={handleRecipePress} />
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* 하단 여백 */}
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
-  )
-}
+  );
+};
 
-export default HomeMain
+export default HomeMain;
 
 const styles = StyleSheet.create({
   container: {
@@ -417,36 +390,36 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#f8f9fa',
   },
-  settingsButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingBottom: 20,
   },
-  inputButton: {
+  searchButton: {
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 20,
     marginVertical: 16,
-    height: 48,
+    height: 52,
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 24,
+    borderRadius: 26,
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  ButtonText: {
+  searchText: {
     color: '#888',
     fontSize: 16,
-    marginLeft: 8,
+    marginLeft: 12,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -455,10 +428,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 16,
   },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  sectionEmoji: {
+    fontSize: 32,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
   },
   moreText: {
     fontSize: 14,
@@ -468,10 +454,12 @@ const styles = StyleSheet.create({
   horizontalScroll: {
     paddingHorizontal: 20,
   },
+  
+  // 미니 카드 스타일 (가로 스크롤용)
   miniCard: {
     width: 160,
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     marginRight: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -480,22 +468,22 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: 'hidden',
   },
-  miniPlaceholder: {
+  miniImageContainer: {
     width: '100%',
     height: 120,
-    backgroundColor: '#f8f9fa',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  miniPlaceholderText: {
-    marginTop: 8,
-    fontSize: 12,
-    color: '#999',
+    backgroundColor: '#f0f0f0',
   },
   miniThumbnail: {
     width: '100%',
-    height: 120,
+    height: '100%',
     resizeMode: 'cover',
+  },
+  miniPlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
   },
   miniCardContent: {
     padding: 12,
@@ -504,21 +492,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 6,
+    marginBottom: 8,
+    lineHeight: 18,
   },
   miniInfo: {
+    flexDirection: 'column',
+    gap: 4,
+  },
+  miniInfoItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 4,
   },
   miniInfoText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
   },
-  card: {
+  
+  // 대형 카드 스타일 (세로 나열용)
+  largeCard: {
+    flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 16,
     marginHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -526,99 +523,76 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: 'hidden',
   },
-  imagePlaceholder: {
-    width: '100%',
-    height: 200,
-    backgroundColor: '#f8f9fa',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imagePlaceholderText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#999',
-  },
-  thumbnail: {
-    width: '100%',
-    height: 200,
-    resizeMode: 'cover',
-  },
-  imageLoadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#f8f9fa',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imageErrorOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#f8f9fa',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imageErrorText: {
-    marginTop: 8,
-    fontSize: 12,
-    color: '#999',
-  },
-  cardContent: {
-    padding: 16,
+  largeImageContainer: {
+    width: 120,
+    height: 120,
+    backgroundColor: '#f0f0f0',
     position: 'relative',
   },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+  largeThumbnail: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
-  description: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  recipeInfo: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  infoItem: {
-    flexDirection: 'row',
+  largePlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  infoText: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 4,
-    fontWeight: '500',
   },
   aiBadge: {
     position: 'absolute',
-    top: 16,
-    right: 16,
+    top: 8,
+    right: 8,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FF6B35',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 2,
+  },
+  aiText: {
+    fontSize: 9,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  largeCardContent: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  largeTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  largeDescription: {
+    fontSize: 12,
+    color: '#666',
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  largeInfo: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  largeInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#f8f9fa',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  aiText: {
-    fontSize: 10,
-    color: '#fff',
-    fontWeight: 'bold',
-    marginLeft: 4,
+  largeInfoText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
   },
   loadingContainer: {
     flex: 1,
@@ -631,4 +605,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-})
+  bottomSpacer: {
+    height: 20,
+  },
+});

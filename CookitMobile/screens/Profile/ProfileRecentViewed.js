@@ -4,8 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Platform, StyleSheet, Text, View, FlatList, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { supabase } from '../../lib/supabase';
-import { getRecentViewedRecipes } from '../../services/userApi';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // DB의 timestampz 데이터를 순수 자바스크립트 Date 객체를 사용하여 포맷하는 함수
 const formatDate = (dateString) => {
@@ -27,6 +26,8 @@ const ProfileRecentViewed = () => {
     const navigation = useNavigation();
     const [recipes, setRecipes] = useState([]);
     const [loading, setLoading] = useState(true);
+    
+    const RECENT_VIEWED_KEY = '@recent_viewed_recipes';
 
     // ----------------------------------------------------------------------
     // [1] 데이터 페칭 함수
@@ -35,23 +36,24 @@ const ProfileRecentViewed = () => {
     const fetchRecentRecipes = useCallback(async () => {
         setLoading(true);
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            Alert.alert('로그인 오류', '로그인 후 이용해 주세요.');
-            setLoading(false);
-            return;
-        }
-
         try {
-            // 서버 API를 통해 최근 조회한 레시피 목록 가져오기
-            const data = await getRecentViewedRecipes(20);
+            // AsyncStorage에서 최근 조회한 레시피 목록 가져오기
+            const stored = await AsyncStorage.getItem(RECENT_VIEWED_KEY);
+            const data = stored ? JSON.parse(stored) : [];
 
-            // 데이터를 사용하기 쉽게 변환
-            const formattedRecipes = data.map(item => ({
-                recipe_id: item.id,
+            // 날짜 순으로 정렬 (최신순)
+            const sortedRecipes = data.sort((a, b) => {
+                const dateA = new Date(a.last_viewed_at);
+                const dateB = new Date(b.last_viewed_at);
+                return dateB - dateA;
+            });
+
+            // 썸네일 URL 처리
+            const formattedRecipes = sortedRecipes.map(item => ({
+                recipe_id: item.recipe_id,
                 title: item.title,
                 description: item.description,
-                thumbnail: item.image_urls?.[0] || 'https://via.placeholder.com/100x70/E0E0E0/808080?text=No+Image',
+                thumbnail: item.thumbnail || 'https://via.placeholder.com/100x70/E0E0E0/808080?text=No+Image',
                 prep_time: item.prep_time,
                 cook_time: item.cook_time,
                 difficulty_level: item.difficulty_level,
@@ -62,7 +64,7 @@ const ProfileRecentViewed = () => {
 
         } catch (error) {
             console.error('최근 조회 레시피 불러오기 오류:', error.message);
-            Alert.alert('오류', error.message || '최근 조회 레시피 목록을 불러오는 데 실패했습니다.');
+            Alert.alert('오류', '최근 조회 레시피 목록을 불러오는 데 실패했습니다.');
         } finally {
             setLoading(false);
         }
@@ -86,10 +88,9 @@ const ProfileRecentViewed = () => {
             <TouchableOpacity
                 style={styles.card}
                 onPress={() =>
-                    navigation.navigate('SearchSummary', {
+                    navigation.navigate('Summary', {
                         recipeId: item.recipe_id,
-                        title: item.title,
-                        thumbnail: item.thumbnail,
+                        recipe: item,
                     })
                 }
             >

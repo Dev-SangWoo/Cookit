@@ -1,3 +1,7 @@
+// ===============================
+// file: Server/app.js
+// ===============================
+
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -7,76 +11,71 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 
-// 환경 변수 로드
 dotenv.config();
 
-// __dirname 대체 코드 (ESM 환경)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ Supabase 클라이언트 설정
+// ✅ Supabase Client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
-// ✅ CORS 설정 (환경변수 ALLOWED_ORIGINS 기반)
+// ⚙️ CORS 설정
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-  : ['http://localhost:3000'];
+  : [
+      'http://localhost:3000',
+      'http://localhost:8081',
+      'http://192.168.55.225:8081',
+      'exp://192.168.55.225:8081', // ✅ Expo용
+      'http://192.168.55.225:3000',
+    ];
 
-app.use(cors({
-  origin: function (origin, callback) {
-    // 모바일 환경은 origin이 undefined일 수 있음 (Expo 환경)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn(`🚫 차단된 Origin 요청: ${origin}`);
-      callback(new Error('CORS 정책에 의해 차단됨'));
-    }
-  },
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.startsWith('exp://') ||
+        origin.startsWith('http://192.168.')
+      ) {
+        callback(null, true);
+      } else {
+        console.warn(`🚫 차단된 Origin 요청: ${origin}`);
+        callback(new Error('CORS 정책에 의해 차단됨'));
+      }
+    },
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  })
+);
 
-// ✅ 기타 보안/로깅/파서 미들웨어
 app.use(helmet());
 app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ 라우터 import
+// ✅ 라우트 import
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import recipeRoutes from './routes/recipes.js';
 import userRecipeRoutes from './routes/userRecipes.js';
-import recipeLikesRoutes from './routes/recipeLikes.js';
-import userPostsRoutes from './routes/userPosts.js';
-import recipeCategoriesRoutes from './routes/recipeCategories.js';
-import receiptItemsRoutes from './routes/receiptItems.js';
-import commentsRoutes from './routes/comments.js';
-import postLikesRoutes from './routes/postLikes.js';
 import aiRoutes from './routes/ai.js';
-import youtubeRoutes from './routes/youtube.js';
-import receiptListRoutes from './routes/receiptList.js';
-import recommendationsRoutes from './routes/recommendations.js';
+import recommendationRoutes from './routes/recommendations.js'; // ✅ 추가됨
 
-// ✅ 라우터 등록
+// ✅ 라우트 연결
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/user-recipes', userRecipeRoutes);
-app.use('/api/recipe-likes', recipeLikesRoutes);
-app.use('/api/user-posts', userPostsRoutes);
-app.use('/api/recipe-categories', recipeCategoriesRoutes);
-app.use('/api/receipt-items', receiptItemsRoutes);
-app.use('/api/comments', commentsRoutes);
-app.use('/api/post-likes', postLikesRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/youtube', youtubeRoutes);
-app.use('/api/receipt-list', receiptListRoutes);
-app.use('/api/recommendations', recommendationsRoutes);
+app.use('/api/recommendations', recommendationRoutes); // ✅ 추가됨
 
-// ✅ AI 분석 상태 확인 라우트
+// ✅ AI 분석 상태 확인
 app.get('/api/ai/status/:id', async (요청, 응답) => {
   const videoId = 요청.params.id.trim();
 
@@ -114,7 +113,6 @@ app.get('/api/ai/status/:id', async (요청, 응답) => {
       message: 'AI 분석이 아직 진행 중입니다.',
       videoId,
     });
-
   } catch (err) {
     console.error('❌ 상태 조회 중 오류:', err.message);
     return 응답.status(500).json({
@@ -142,7 +140,7 @@ app.use((req, res) => {
   });
 });
 
-// ✅ 전역 에러 핸들러
+// ✅ 글로벌 에러 핸들러
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
@@ -151,7 +149,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ✅ 서버 시작
+// ✅ 서버 실행
 app.listen(PORT, () => {
   console.log(`🚀 Cookit 서버 실행 중: 포트 ${PORT}`);
   console.log(`🌐 허용 Origin: ${allowedOrigins.join(', ')}`);

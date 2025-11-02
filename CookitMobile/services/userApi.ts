@@ -101,8 +101,9 @@ export async function checkNicknameAvailability(nickname: string) {
   return result.available;
 }
 
-// 📌 사용자의 게시글 조회
-export async function getUserPosts(userId: string, options?: { page?: number; limit?: number }) {
+// 📌 사용자의 게시글 조회 (현재 로그인한 사용자 또는 특정 사용자)
+export async function getUserPosts(userId?: string, options?: { page?: number; limit?: number }) {
+  const token = await getAuthToken();
   const baseUrl = getApiBaseUrl();
   const apiUrl = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
   
@@ -110,7 +111,19 @@ export async function getUserPosts(userId: string, options?: { page?: number; li
   if (options?.page) params.append('page', options.page.toString());
   if (options?.limit) params.append('limit', options.limit.toString());
 
-  const response = await fetch(`${apiUrl}/users/${userId}/posts?${params.toString()}`);
+  // userId가 제공되지 않으면 현재 사용자의 게시글 조회
+  const endpoint = userId 
+    ? `${apiUrl}/users/${userId}/posts?${params.toString()}`
+    : `${apiUrl}/users/my-posts?${params.toString()}`;
+
+  const response = await fetch(endpoint, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+  
   const result = await response.json();
 
   if (!response.ok || !result.success) {
@@ -191,6 +204,29 @@ export async function getWeekRecipes() {
 
   if (!response.ok || !result.success) {
     throw new Error(result.error || '이번 주 요리 조회 실패');
+  }
+
+  return result.recipes;
+}
+
+// 📌 완료한 모든 레시피 목록 조회
+export async function getCompletedRecipes() {
+  const token = await getAuthToken();
+  const baseUrl = getApiBaseUrl();
+  const apiUrl = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+
+  const response = await fetch(`${apiUrl}/users/completed-recipes`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || !result.success) {
+    throw new Error(result.error || '완료한 레시피 조회 실패');
   }
 
   return result.recipes;

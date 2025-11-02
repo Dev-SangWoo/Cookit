@@ -256,6 +256,73 @@ router.get('/:userId/posts', async (req, res) => {
 });
 
 /**
+ * @route GET /api/users/my-posts
+ * @desc 현재 사용자의 모든 게시글 조회
+ */
+router.get('/my-posts', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const page = req.query.page || '1';
+    const limit = req.query.limit || '50';
+
+    const { data, error } = await supabase
+      .from('user_posts')
+      .select(`
+        post_id,
+        title,
+        content,
+        image_urls,
+        created_at,
+        updated_at,
+        tags,
+        recipe_id,
+        user_profiles ( id, display_name, avatar_url )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range((parseInt(page) - 1) * parseInt(limit), parseInt(page) * parseInt(limit) - 1);
+
+    if (error) throw error;
+
+    // 각 게시글에 좋아요 수와 댓글 수 추가
+    const postsWithCounts = await Promise.all(data.map(async (post) => {
+      const { count: likeCount } = await supabase
+        .from('user_post_likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', post.post_id);
+
+      const { count: commentCount } = await supabase
+        .from('user_post_comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', post.post_id);
+
+      return {
+        ...post,
+        like_count: likeCount || 0,
+        comment_count: commentCount || 0,
+      };
+    }));
+
+    res.json({
+      success: true,
+      posts: postsWithCounts,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: postsWithCounts.length
+      }
+    });
+
+  } catch (error) {
+    console.error('내 게시글 조회 오류:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || '게시글 조회 중 오류가 발생했습니다.' 
+    });
+  }
+});
+
+/**
  * @route GET /api/users/stats
  * @desc 현재 사용자의 통계 정보
  */
@@ -368,6 +435,59 @@ router.get('/week-recipes', requireAuth, async (req, res) => {
     res.status(500).json({ 
       success: false, 
       error: error.message || '이번 주 요리 조회 중 오류가 발생했습니다.' 
+    });
+  }
+});
+
+/**
+ * @route GET /api/users/completed-recipes
+ * @desc 완료한 모든 레시피 목록 (recipe_id가 있는 게시글 기준)
+ */
+router.get('/completed-recipes', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // 완료한 요리 (recipe_id가 있는 게시글의 고유한 recipe_id)
+    const { data: posts, error } = await supabase
+      .from('user_posts')
+      .select(`
+        recipe_id,
+        recipes (
+          id,
+          title,
+          description,
+          image_urls,
+          difficulty_level,
+          prep_time,
+          cook_time
+        )
+      `)
+      .eq('user_id', userId)
+      .not('recipe_id', 'is', null)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // 중복 제거 (같은 recipe_id는 한 번만)
+    const uniqueRecipes = new Map();
+    posts.forEach(post => {
+      if (post.recipe_id && post.recipes && !uniqueRecipes.has(post.recipe_id)) {
+        uniqueRecipes.set(post.recipe_id, post.recipes);
+      }
+    });
+
+    const recipeList = Array.from(uniqueRecipes.values());
+
+    res.json({
+      success: true,
+      recipes: recipeList
+    });
+
+  } catch (error) {
+    console.error('완료한 레시피 조회 오류:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || '완료한 레시피 조회 중 오류가 발생했습니다.' 
     });
   }
 });

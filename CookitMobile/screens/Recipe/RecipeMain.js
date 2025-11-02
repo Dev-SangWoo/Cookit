@@ -364,7 +364,10 @@ const Recipe = ({ route }) => {
 
   // 요리 완성 버튼 클릭 핸들러
   const handleCompleteCooking = () => {
-    navigation.navigate('RecipeRating', { recipeId: recipeId });
+    navigation.navigate('RecipeRating', { 
+      recipeId: recipeId,
+      recipe: recipe 
+    });
   };
 
   const handlePrev = () => {

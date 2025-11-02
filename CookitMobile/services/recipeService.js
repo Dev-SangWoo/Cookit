@@ -143,6 +143,189 @@ class RecipeService {
       throw error;
     }
   }
+
+  /**
+   * 개인화 추천 레시피 조회
+   * 사용자 프로필의 favorite_cuisines, dietary_restrictions 기반
+   */
+  async getRecommendedRecipes() {
+    try {
+      const token = await this.getAuthToken();
+      if (!token) {
+        console.warn('⚠️ 인증 토큰이 없습니다. 개인화 추천을 사용할 수 없습니다.');
+        // 토큰이 없으면 일반 레시피 목록 반환
+        return this.getPublicRecipes({ limit: 20 });
+      }
+
+      const response = await fetch(`${API_BASE_URL}/recommendations/user`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || '추천 레시피 조회 실패');
+      }
+
+      return {
+        success: true,
+        recipes: data.recommendations,
+        total: data.total,
+        user: data.user,
+        favorite_cuisines: data.favorite_cuisines,
+        dietary_restrictions: data.dietary_restrictions,
+      };
+    } catch (error) {
+      console.error('추천 레시피 조회 오류:', error);
+      // 오류 시 일반 레시피 목록으로 대체
+      return this.getPublicRecipes({ limit: 20 });
+    }
+  }
+
+  /**
+   * 인기 레시피 조회 (조회수 기반)
+   */
+  async getPopularRecipes(limit = 10) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/recommendations/popular?limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || '인기 레시피 조회 실패');
+      }
+
+      return {
+        success: true,
+        recipes: data.recipes,
+        total: data.total,
+      };
+    } catch (error) {
+      console.error('인기 레시피 조회 오류:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 레시피 조회수 증가
+   * @param {string} recipeId - 레시피 ID
+   */
+  async incrementViewCount(recipeId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/recipes/${recipeId}/view`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        console.warn('⚠️ 조회수 증가 실패:', data.error);
+        return { success: false };
+      }
+
+      console.log(`👁️ 조회수 증가 완료: ${recipeId} (${data.view_count}회)`);
+      return {
+        success: true,
+        view_count: data.view_count,
+      };
+    } catch (error) {
+      console.error('조회수 증가 오류:', error);
+      // 조회수 증가 실패는 치명적이지 않으므로 경고만 출력
+      return { success: false };
+    }
+  }
+
+  /**
+   * 난이도 기반 추천 레시피 조회
+   * 사용자의 cooking_level에 맞는 난이도의 레시피 추천
+   */
+  async getRecipesByDifficulty(limit = 10) {
+    try {
+      const token = await this.getAuthToken();
+      if (!token) {
+        console.warn('⚠️ 인증 토큰이 없습니다. 난이도 기반 추천을 사용할 수 없습니다.');
+        return this.getPublicRecipes({ limit });
+      }
+
+      const baseUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
+      const response = await fetch(`${baseUrl}/recommendations/by-difficulty?limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || '난이도 기반 추천 실패');
+      }
+
+      return {
+        success: true,
+        recipes: data.recipes,
+        total: data.total,
+        cooking_level: data.cooking_level,
+        target_difficulty: data.target_difficulty,
+      };
+    } catch (error) {
+      console.error('난이도 기반 추천 오류:', error);
+      return this.getPublicRecipes({ limit });
+    }
+  }
+
+  /**
+   * 완성한 요리 기반 추천 레시피 조회
+   * 사용자가 이전에 완성한 요리와 유사한 카테고리의 레시피 추천
+   */
+  async getSimilarToCookedRecipes(limit = 10) {
+    try {
+      const token = await this.getAuthToken();
+      if (!token) {
+        console.warn('⚠️ 인증 토큰이 없습니다. 유사 레시피 추천을 사용할 수 없습니다.');
+        return this.getPublicRecipes({ limit });
+      }
+
+      const baseUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
+      const response = await fetch(`${baseUrl}/recommendations/similar-to-cooked?limit=${limit}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || '유사 레시피 추천 실패');
+      }
+
+      return {
+        success: true,
+        recipes: data.recipes,
+        total: data.total,
+        cooked_count: data.cooked_count,
+        message: data.message,
+      };
+    } catch (error) {
+      console.error('유사 레시피 추천 오류:', error);
+      return this.getPublicRecipes({ limit });
+    }
+  }
 }
 
 export default new RecipeService();

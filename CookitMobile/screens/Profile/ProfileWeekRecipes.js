@@ -38,16 +38,11 @@ const ProfileWeekRecipes = () => {
             <TouchableOpacity
                 style={styles.card}
                 onPress={() => {
-                    // 레시피 ID가 있으면 레시피 상세로, 없으면 게시글 상세로 이동
-                    if (item.recipe_id) {
-                        navigation.navigate('SearchSummary', {
-                            recipeId: item.recipe_id,
-                            title: recipeTitle,
-                            thumbnail: thumbnail,
-                        });
-                    } else if (item.post_id) {
-                        navigation.navigate('CommunityDetail', {
-                            postId: item.post_id,
+                    // 게시글 상세로 이동
+                    if (item.post_id) {
+                        navigation.navigate('Community', {
+                            screen: 'CommunityDetail',
+                            params: { postId: item.post_id }
                         });
                     }
                 }}

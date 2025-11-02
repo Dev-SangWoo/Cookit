@@ -11,8 +11,8 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import recipeService from '../services/recipeService';
 import { supabase } from '../lib/supabase';
+import { getCompletedRecipes } from '../services/userApi';
 
 interface Recipe {
   id: string;
@@ -42,15 +42,13 @@ export default function RecipeSelectModal({ visible, onClose, onSelect }: Recipe
   const loadRecipes = async () => {
     try {
       setLoading(true);
-      const response = await recipeService.getPublicRecipes({
-        page: 1,
-        limit: 50, // 전체 레시피 조회
-        sort: 'latest',
-      });
+      
+      // 완료한 레시피만 조회
+      const completedRecipes = await getCompletedRecipes();
 
-      const loadedRecipes = (response.recipes || []).map((recipe: any) => ({
+      const loadedRecipes = (completedRecipes || []).map((recipe: any) => ({
         id: recipe.id || recipe.recipe_id,
-        recipe_id: recipe.recipe_id || recipe.id,
+        recipe_id: recipe.id || recipe.recipe_id,
         title: recipe.title,
         image_urls: recipe.image_urls || [],
         thumbnail: recipe.image_urls?.[0] || null,
@@ -59,6 +57,7 @@ export default function RecipeSelectModal({ visible, onClose, onSelect }: Recipe
       setRecipes(loadedRecipes);
     } catch (error) {
       console.error('레시피 로드 오류:', error);
+      setRecipes([]); // 오류 시 빈 배열로 설정
     } finally {
       setLoading(false);
     }
@@ -91,7 +90,7 @@ export default function RecipeSelectModal({ visible, onClose, onSelect }: Recipe
         <View style={styles.modalContent}>
           {/* 헤더 */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>레시피 선택</Text>
+            <Text style={styles.headerTitle}>완료한 레시피 선택</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="#333" />
             </TouchableOpacity>
@@ -146,8 +145,12 @@ export default function RecipeSelectModal({ visible, onClose, onSelect }: Recipe
               )}
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
+                  <Ionicons name="restaurant-outline" size={64} color="#CCC" />
                   <Text style={styles.emptyText}>
-                    {searchQuery ? '검색 결과가 없습니다' : '레시피가 없습니다'}
+                    {searchQuery ? '검색 결과가 없습니다' : '완료한 레시피가 없습니다'}
+                  </Text>
+                  <Text style={styles.emptySubtext}>
+                    레시피를 완료하면 여기에 표시됩니다
                   </Text>
                 </View>
               }
@@ -247,6 +250,13 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#999',
+    marginTop: 16,
+    fontWeight: '600',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#CCC',
+    marginTop: 8,
   },
 });
 

@@ -186,6 +186,21 @@ router.delete('/posts/:commentId', requireAuth, async (req, res) => {
 
 // ==================== 레시피 댓글 ====================
 
+// content 필드 파싱 헬퍼 함수
+const parseContent = (content) => {
+  if (!content) return { rating: null, comment: null };
+  
+  // "평점: {rating}\n{comment}" 형식 파싱
+  const ratingMatch = content.match(/평점:\s*(\d+)/);
+  const rating = ratingMatch ? parseInt(ratingMatch[1]) : null;
+  
+  // 평점 줄을 제거한 나머지가 댓글
+  const commentMatch = content.replace(/평점:\s*\d+\s*\n?/, '').trim();
+  const comment = commentMatch || null;
+  
+  return { rating, comment };
+};
+
 /**
  * @route GET /api/comments/recipes/:recipeId
  * @desc 특정 레시피의 댓글 목록 조회
@@ -208,9 +223,19 @@ router.get('/recipes/:recipeId', async (req, res) => {
 
     if (error) throw error;
 
+    // content 필드를 파싱하여 rating과 comment 추가
+    const parsedComments = (data || []).map(item => {
+      const parsed = parseContent(item.content);
+      return {
+        ...item,
+        rating: parsed.rating,
+        comment: parsed.comment
+      };
+    });
+
     res.json({
       success: true,
-      comments: data || []
+      comments: parsedComments
     });
 
   } catch (error) {
@@ -246,13 +271,19 @@ router.post('/recipes/:recipeId', requireAuth, async (req, res) => {
       });
     }
 
+    // content 필드에 평점과 댓글을 함께 저장
+    // 형식: "평점: {rating}\n{comment}" 또는 평점만 있는 경우 "평점: {rating}"
+    let contentValue = `평점: ${rating}`;
+    if (comment && comment.trim()) {
+      contentValue += `\n${comment.trim()}`;
+    }
+
     const { data, error } = await supabase
       .from('recipe_comments')
       .upsert({
         recipe_id: recipeId,
         user_id: userId,
-        rating: rating,
-        comment: comment?.trim() || null
+        content: contentValue
       }, {
         onConflict: 'recipe_id,user_id'
       })
@@ -267,10 +298,18 @@ router.post('/recipes/:recipeId', requireAuth, async (req, res) => {
 
     if (error) throw error;
 
+    // content에서 rating과 comment 추출하여 응답에 포함
+    const parsedContent = parseContent(data.content);
+    const responseData = {
+      ...data,
+      rating: parsedContent.rating,
+      comment: parsedContent.comment
+    };
+
     res.status(201).json({
       success: true,
       message: '평점이 저장되었습니다.',
-      comment: data
+      comment: responseData
     });
 
   } catch (error) {
@@ -308,9 +347,17 @@ router.get('/recipes/:recipeId/my', requireAuth, async (req, res) => {
       throw error;
     }
 
+    // content 필드를 파싱하여 rating과 comment 추가
+    const parsed = parseContent(data.content);
+    const responseData = {
+      ...data,
+      rating: parsed.rating,
+      comment: parsed.comment
+    };
+
     res.json({
       success: true,
-      comment: data
+      comment: responseData
     });
 
   } catch (error) {

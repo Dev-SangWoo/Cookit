@@ -10,6 +10,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { WebView } from 'react-native-webview'
 import { supabase } from '../lib/supabase'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import recipeService from '../services/recipeService'
 
 const { width } = Dimensions.get('window');
 
@@ -31,6 +33,9 @@ const Summary = () => {
   const [videoError, setVideoError] = useState(false);
   const [originalVideoUrl, setOriginalVideoUrl] = useState(null);
   const [autoplayEnabled, setAutoplayEnabled] = useState(true); // 자동재생 옵션
+  
+  const RECENT_VIEWED_KEY = '@recent_viewed_recipes';
+  const MAX_RECENT_VIEWED = 10;
 
 
   // YouTube URL에서 video ID 추출 (기존 함수 유지)
@@ -164,6 +169,52 @@ const Summary = () => {
 </body>
 </html>
     `;
+  };
+
+  // 이미지 URL 변환 함수
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath;
+    const { data } = supabase.storage.from('recipe-images').getPublicUrl(imagePath);
+    return data.publicUrl;
+  };
+
+  // 최근 조회한 레시피 저장
+  const saveRecentViewedRecipe = async (recipeData) => {
+    try {
+      if (!recipeData || !recipeData.id) return;
+      
+      const stored = await AsyncStorage.getItem(RECENT_VIEWED_KEY);
+      const history = stored ? JSON.parse(stored) : [];
+      
+      // 이미 존재하는 레시피는 제거하고 최상단에 추가
+      const filtered = history.filter(r => r.recipe_id !== recipeData.id);
+      
+      // 이미지 URL 처리
+      const thumbnailUrl = recipeData.image_urls?.[0] 
+        ? getImageUrl(recipeData.image_urls[0])
+        : null;
+      
+      // 새로운 레시피 정보 추가
+      const newRecipe = {
+        recipe_id: recipeData.id,
+        title: recipeData.title,
+        description: recipeData.description || null,
+        thumbnail: thumbnailUrl,
+        prep_time: recipeData.prep_time || null,
+        cook_time: recipeData.cook_time || null,
+        difficulty_level: recipeData.difficulty_level || null,
+        last_viewed_at: new Date().toISOString(),
+      };
+      
+      // 최대 10개까지만 저장
+      const updated = [newRecipe, ...filtered].slice(0, MAX_RECENT_VIEWED);
+      
+      await AsyncStorage.setItem(RECENT_VIEWED_KEY, JSON.stringify(updated));
+      console.log('✅ 최근 조회 레시피 저장 완료:', recipeData.title);
+    } catch (error) {
+      console.error('❌ 최근 조회 레시피 저장 실패:', error);
+    }
   };
 
   // 시간을 초로 변환 (HH:MM:SS -> seconds)
@@ -320,6 +371,16 @@ const Summary = () => {
           }
           console.log('✅ Summary 레시피 데이터 로드 완료:', data.title);
         console.log('🎥 영상 URL:', videoUrl);
+        
+        // 레시피 조회 기록 저장 (YouTube 분석이 아닌 경우만)
+        if (!isYouTubeAnalysis) {
+          await saveRecentViewedRecipe(data);
+        }
+        
+        // 📊 레시피 조회수 증가 (비동기, 실패해도 무시)
+        recipeService.incrementViewCount(data.id).catch(err => {
+          console.warn('⚠️ 조회수 증가 실패:', err.message);
+        });
         }
       } catch (error) {
         console.error('❌ 레시피 로딩 예외:', error);

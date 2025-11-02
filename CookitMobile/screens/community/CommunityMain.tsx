@@ -33,14 +33,13 @@ export default function CommunityMain() {
   
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'01' | '10'>('01'); // '01' = 커뮤니티, '10' = 질문
   
   const navigation = useNavigation<CommunityScreenNavigationProp>();
 
-  const fetchData = async (tags: '01' | '10') => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const data = await getPosts({ tags });
+      const data = await getPosts({ tags: '01' }); // 커뮤니티 게시글만 표시
       setPosts(data);
     } catch (err) {
       console.error('게시글 로딩 실패:', err);
@@ -51,8 +50,8 @@ export default function CommunityMain() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchData(filter);
-    }, [filter])
+      fetchData();
+    }, [])
   );
 
   const screenWidth = Dimensions.get('window').width;
@@ -99,28 +98,6 @@ export default function CommunityMain() {
       <View style={styles.header}>
         <Text style={styles.title}>커뮤니티</Text>
       </View>
-      
-      {/* 필터 탭 - 밑줄 스타일 */}
-      <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={styles.filterTab}
-          onPress={() => setFilter('01')}
-        >
-          <Text style={[styles.filterText, filter === '01' && styles.filterTextActive]}>
-            커뮤니티
-          </Text>
-          {filter === '01' && <View style={styles.underline} />}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.filterTab}
-          onPress={() => setFilter('10')}
-        >
-          <Text style={[styles.filterText, filter === '10' && styles.filterTextActive]}>
-            질문
-          </Text>
-          {filter === '10' && <View style={styles.underline} />}
-        </TouchableOpacity>
-      </View>
 
       <FlatList
         data={posts}
@@ -156,36 +133,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  filterTab: {
-    flex: 1,
-    paddingVertical: 16,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  filterText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#CCCCCC',
-  },
-  filterTextActive: {
-    color: '#333333',
-    fontWeight: '700',
-  },
-  underline: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: '#FF6B35',
   },
   list: {
     paddingHorizontal: 8,

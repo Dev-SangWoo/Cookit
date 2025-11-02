@@ -263,6 +263,56 @@ export default function CommunityDetail() {
               {new Date(post.created_at).toLocaleDateString()}
             </Text>
           </View>
+
+          {/* 연결된 레시피 카드 */}
+          {post.recipe_id && post.recipes && (
+            <TouchableOpacity 
+              style={styles.recipeCard}
+              onPress={() => {
+                navigation.navigate('Summary', {
+                  recipeId: post.recipe_id,
+                });
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.recipeCardHeader}>
+                <Text style={styles.recipeCardTitle}>🍳 완성한 레시피</Text>
+                <Ionicons name="chevron-forward" size={20} color="#999" />
+              </View>
+              <View style={styles.recipeCardContent}>
+                {(() => {
+                  const recipe = post.recipes;
+                  const thumbnail = recipe.image_urls?.[0] 
+                    ? (recipe.image_urls[0].startsWith('http')
+                        ? recipe.image_urls[0]
+                        : supabase.storage.from('recipe-images').getPublicUrl(recipe.image_urls[0]).data.publicUrl)
+                    : null;
+                  
+                  return (
+                    <>
+                      {thumbnail && (
+                        <Image 
+                          source={{ uri: thumbnail }} 
+                          style={styles.recipeThumbnail}
+                          resizeMode="cover"
+                        />
+                      )}
+                      <View style={styles.recipeInfo}>
+                        <Text style={styles.recipeTitle} numberOfLines={2}>
+                          {recipe.title}
+                        </Text>
+                        {recipe.description && (
+                          <Text style={styles.recipeDescription} numberOfLines={2}>
+                            {recipe.description}
+                          </Text>
+                        )}
+                      </View>
+                    </>
+                  );
+                })()}
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* 댓글 섹션 */}
@@ -437,6 +487,53 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     marginTop: 10,
+  },
+
+  // 레시피 카드
+  recipeCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    marginHorizontal: 15,
+    marginBottom: 15,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  recipeCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  recipeCardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FF6B35',
+  },
+  recipeCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  recipeThumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#e9ecef',
+  },
+  recipeInfo: {
+    flex: 1,
+  },
+  recipeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  recipeDescription: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
   },
 
   // 댓글 섹션

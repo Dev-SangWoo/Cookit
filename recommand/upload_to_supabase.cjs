@@ -131,7 +131,7 @@ const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fet
     recipeData.image_urls = imageUrls.length > 0 ? imageUrls : null;
     recipeData.video_id = videoId;
 
-    // 🧩 [추가] category_name → category_id 자동 매핑
+    // 🧩 [추가 1] category_name → category_id 자동 매핑
     if (recipeData.category_name) {
       console.log(`🔍 카테고리 이름(${recipeData.category_name})에 해당하는 ID 조회 중...`);
       const { data: catData, error: catError } = await supabase
@@ -145,31 +145,21 @@ const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fet
         console.warn(`⚠️ category_id 조회 오류: ${catError.message}`);
       } else if (catData) {
         recipeData.category_id = catData.id;
-        console.log(`✅ category_id 매핑 완료: ${catData.id} (${catData.name})`);
+        console.log(`✅ category_id 매핑 완료: ${catData.id}`);
       } else {
-        console.warn(`⚠️ '${recipeData.category_name}' 매칭되는 카테고리가 없습니다. 기본값으로 진행합니다.`);
-        // 기본 카테고리 설정 (예: '기타' 카테고리 ID 사용)
-        const { data: defaultCat } = await supabase
-          .from("recipe_categories")
-          .select("id")
-          .eq("name", "기타")
-          .limit(1)
-          .maybeSingle();
-        
-        if (defaultCat) {
-          recipeData.category_id = defaultCat.id;
-          console.log(`✅ 기본 카테고리 '기타'로 매핑됨: ${defaultCat.id}`);
-        }
+        console.warn(`⚠️ 일치하는 category_name 없음 — category_id는 null로 유지됩니다.`);
       }
-      
-      // category_name은 DB 컬럼이 아니므로 제거
+    }
+
+    // 🧩 [추가 2] category_name 제거 (DB에는 존재하지 않음)
+    if (recipeData.category_name) {
       delete recipeData.category_name;
     }
 
     console.log("🚀 Supabase 'recipes' 테이블에 업로드 중...");
     const { data, error } = await supabase
       .from("recipes")
-      .upsert([recipeData], { onConflict: "video_id" }) // ✅ 중복 시 update
+      .upsert([recipeData], { onConflict: "video_id" })
       .select()
       .single();
 
@@ -179,41 +169,6 @@ const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fet
     console.log(`🆔 recipe_id: ${data.id}`);
     console.log(`📘 title: ${data.title}`);
     console.log(`🖼 image_urls: ${JSON.stringify(data.image_urls)}`);
-
-    // 4.5️⃣ recipe_stats 자동 생성/업데이트
-    console.log("📊 recipe_stats 확인/생성 중...");
-    const { data: existingStats, error: statsCheckError } = await supabase
-      .from("recipe_stats")
-      .select("*")
-      .eq("recipe_id", data.id)
-      .maybeSingle();
-
-    if (!existingStats && statsCheckError?.code !== 'PGRST116') {
-      // PGRST116은 "no rows returned" 오류 (정상)
-      console.error("⚠️ recipe_stats 조회 오류:", statsCheckError);
-    }
-
-    if (!existingStats) {
-      // recipe_stats가 없으면 새로 생성
-      console.log("📊 recipe_stats 초기 생성 중...");
-      const { error: statsInsertError } = await supabase
-        .from("recipe_stats")
-        .insert({
-          recipe_id: data.id,
-          view_count: 0,
-          favorite_count: 0,
-          cook_count: 0,
-          average_rating: 0.0,
-        });
-
-      if (statsInsertError) {
-        console.error("❌ recipe_stats 생성 실패:", statsInsertError.message);
-      } else {
-        console.log("✅ recipe_stats 초기 생성 완료!");
-      }
-    } else {
-      console.log("✅ recipe_stats가 이미 존재합니다.");
-    }
 
     // 5️⃣ 로컬 파일 정리
     if (fs.existsSync(resultPath)) {

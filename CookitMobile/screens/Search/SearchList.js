@@ -1,8 +1,6 @@
 // YouTube 검색 결과를 보여주는 화면
 // 요리 영상만 필터링하여 표시
 
-
-
 import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text, View, FlatList, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,6 +23,8 @@ const SearchList = () => {
   const [analysisModalVisible, setAnalysisModalVisible] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const { startAnalysis } = useAnalysis();
 
   // YouTube 검색 API 호출
   const searchYouTubeVideos = async (searchQuery, pageToken = null) => {
@@ -108,18 +108,19 @@ const SearchList = () => {
     return number.toString();
   };
 
-  const { startAnalysis } = useAnalysis();
-
-  // 영상 분석 시작: 전역 플로팅에서 비동기 처리
+  // 영상 분석 시작: AnalysisContext 사용
   const startVideoAnalysis = (video) => {
     try {
       setIsAnalyzing(true);
       const videoUrl = `https://www.youtube.com/watch?v=${video.videoId}`;
+      
+      // AnalysisContext로 분석 시작 (플로팅 바 사용)
       startAnalysis(videoUrl, {
         title: video.title,
         channelTitle: video.channelTitle,
         thumbnail: video.thumbnail,
       });
+
       setAnalysisModalVisible(false);
       setIsAnalyzing(false);
     } catch (error) {
@@ -171,7 +172,7 @@ const SearchList = () => {
           ListFooterComponent={() => 
             loading && videos.length > 0 ? (
               <View style={styles.loadingMore}>
-                <ActivityIndicator size="small" color="#FF6B6B" />
+                <ActivityIndicator size="small" color="#FF6B35" />
                 <Text style={styles.loadingMoreText}>더 많은 영상을 불러오는 중...</Text>
               </View>
             ) : null
@@ -218,6 +219,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: '#666',
+    fontWeight: '500',
   },
   loadingMore: {
     flexDirection: 'row',
@@ -248,14 +250,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   videoCard: {
-    backgroundColor: 'white',
-    margin: 10,
+    backgroundColor: '#FFF',
+    marginHorizontal: 4,
+    marginVertical: 8,
     borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
   thumbnail: {

@@ -223,4 +223,92 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+/**
+ * @route POST /api/recipes/:id/view
+ * @desc 레시피 조회수 증가
+ * @description 레시피를 조회할 때마다 호출하여 조회수를 증가시킵니다.
+ *              recipe_stats 테이블이 없으면 자동으로 생성합니다.
+ */
+router.post('/:id/view', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // 1️⃣ 레시피 존재 여부 확인
+    const recipe = await supabaseService.getRecipeById(id);
+    if (!recipe) {
+      return res.status(404).json({
+        success: false,
+        error: '레시피를 찾을 수 없습니다.'
+      });
+    }
+
+    // 2️⃣ recipe_stats 레코드 확인
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY
+    );
+
+    const { data: existingStats, error: statsCheckError } = await supabase
+      .from('recipe_stats')
+      .select('*')
+      .eq('recipe_id', id)
+      .maybeSingle();
+
+    if (statsCheckError && statsCheckError.code !== 'PGRST116') {
+      throw statsCheckError;
+    }
+
+    // 3️⃣ recipe_stats가 없으면 생성
+    if (!existingStats) {
+      console.log(`📊 recipe_stats 초기 생성: ${id}`);
+      const { error: insertError } = await supabase
+        .from('recipe_stats')
+        .insert({
+          recipe_id: id,
+          view_count: 1,
+          favorite_count: 0,
+          cook_count: 0,
+          average_rating: 0.0,
+        });
+
+      if (insertError) throw insertError;
+
+      return res.json({
+        success: true,
+        message: '조회수가 기록되었습니다 (초기 생성).',
+        view_count: 1,
+      });
+    }
+
+    // 4️⃣ 조회수 증가
+    const { data: updatedStats, error: updateError } = await supabase
+      .from('recipe_stats')
+      .update({ 
+        view_count: existingStats.view_count + 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('recipe_id', id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    console.log(`👁️ 조회수 증가: ${recipe.title} (${updatedStats.view_count}회)`);
+
+    res.json({
+      success: true,
+      message: '조회수가 증가되었습니다.',
+      view_count: updatedStats.view_count,
+    });
+
+  } catch (error) {
+    console.error('❌ 조회수 증가 오류:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '조회수 증가 중 오류가 발생했습니다.',
+    });
+  }
+});
+
 export default router;
