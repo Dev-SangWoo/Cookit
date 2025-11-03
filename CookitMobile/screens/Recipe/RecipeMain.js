@@ -588,14 +588,10 @@ const Recipe = ({ route }) => {
         console.log('📁 Context 파일 경로:', contextPath);
 
         // Rhino 인스턴스 생성
-        // Rhino.create(accessKey, contextPath, inferenceCallback)
+        // Rhino.create(accessKey, contextPath) - 콜백은 별도로 처리하지 않음
         rhino = await Rhino.create(
           accessKey,
-          contextPath,
-          (inference) => {
-            console.log('🎤 Rhino inference:', inference);
-            processInference(inference);
-          }
+          contextPath
         );
 
         console.log('✅ Rhino 생성 완료:', {
@@ -612,10 +608,33 @@ const Recipe = ({ route }) => {
         await VoiceProcessor.start(
           rhino.frameLength,
           rhino.sampleRate,
-          (audioFrame) => {
+          async (audioFrame) => {
             try {
               if (rhino && rhinoRef.current) {
-                rhino.process(audioFrame);
+                // process() 메서드 호출
+                // inference는 비동기로 반환되거나 별도 확인 필요
+                const result = rhino.process(audioFrame);
+                
+                // result가 Promise인 경우
+                if (result && typeof result.then === 'function') {
+                  const inference = await result;
+                  if (inference && inference.isUnderstood) {
+                    console.log('🎤 Rhino inference:', inference);
+                    processInference(inference);
+                  }
+                } 
+                // result가 직접 inference 객체인 경우
+                else if (result && typeof result === 'object' && result.isUnderstood !== undefined) {
+                  if (result.isUnderstood) {
+                    console.log('🎤 Rhino inference:', result);
+                    processInference(result);
+                  }
+                }
+                // result가 boolean인 경우 (isUnderstood 여부만)
+                else if (typeof result === 'boolean' && result) {
+                  // inference 객체를 별도로 가져와야 할 수 있음
+                  // 실제 API에 따라 조정 필요
+                }
               }
             } catch (error) {
               console.error('❌ Rhino process 오류:', error);
