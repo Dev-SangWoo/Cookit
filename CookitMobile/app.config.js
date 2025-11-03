@@ -31,7 +31,11 @@ export default {
       "**/*"
     ],
     ios: {
-      supportsTablet: true
+      supportsTablet: true,
+      infoPlist: {
+        NSMicrophoneUsageDescription: "요리 단계를 음성으로 제어하기 위해 마이크 권한이 필요합니다.",
+        NSSpeechRecognitionUsageDescription: "음성 명령을 인식하기 위해 음성 인식 권한이 필요합니다."
+      }
     },
     android: {
       adaptiveIcon: {
@@ -40,7 +44,12 @@ export default {
       },
       edgeToEdgeEnabled: true,
       googleServicesFile: "./google-services.json",
-      package: "com.cookit.mobile"
+      package: "com.cookit.mobile",
+      permissions: [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     web: {
       favicon: "./assets/favicon.png"
@@ -53,6 +62,15 @@ export default {
           imageWidth: 200,
           resizeMode: "contain",
           backgroundColor: "#ffffff"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/icon.png",
+          color: "#FF6B35",
+          sounds: [],
+          mode: "production"
         }
       ]
     ],

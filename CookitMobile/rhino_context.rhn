@@ -1,0 +1,41 @@
+# Rhino Context for Recipe Voice Commands
+# This file defines voice commands for cooking instructions
+
+context:
+  expressions:
+    next:
+      - "다음"
+      - "다음 단계"
+      - "넥스트"
+      - "다음으로"
+    
+    previous:
+      - "이전"
+      - "이전 단계"
+      - "뒤로"
+      - "이전으로"
+    
+    timer:
+      - "타이머 $minutes:number 분"
+      - "$minutes:number 분 타이머"
+      - "타이머 시작 $minutes:number 분"
+    
+    stop:
+      - "중지"
+      - "정지"
+      - "스톱"
+      - "멈춰"
+
+  slots:
+    number:
+      - "일"
+      - "이"
+      - "삼"
+      - "사"
+      - "오"
+      - "육"
+      - "칠"
+      - "팔"
+      - "구"
+      - "십"
+

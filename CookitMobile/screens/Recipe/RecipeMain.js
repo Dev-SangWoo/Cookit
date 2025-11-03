@@ -1,11 +1,12 @@
 // 단계별 요약화면
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking, ScrollView, Animated, Platform, PermissionsAndroid } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import { RhinoManager } from '@picovoice/rhino-react-native';
 
 const recipeSteps = [
   { title: '재료 준비하기', description: '모든 재료를 깨끗이 씻고 손질해 주세요.' },
@@ -23,6 +24,17 @@ const Recipe = ({ route }) => {
   const [videoUrl, setVideoUrl] = useState(null);
   const [videoError, setVideoError] = useState(false);
   const [videoId, setVideoId] = useState(null);
+  
+  // Picovoice 음성 인식 관련 상태
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(route?.params?.voiceControlEnabled || false);
+  const [isListening, setIsListening] = useState(false);
+  const rhinoManagerRef = useRef(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  // 타이머 관련 상태
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [timerActive, setTimerActive] = useState(false);
+  const timerInterval = useRef(null);
   
   // route.params에서 recipeId 가져오기 (id, recipe_id, recipeId 모두 지원)
   const recipeId = route?.params?.recipeId || route?.params?.recipe_id || route?.params?.id;
@@ -384,6 +396,203 @@ const Recipe = ({ route }) => {
     }
   };
 
+  // ===== Picovoice 음성 인식 관련 함수들 =====
+  
+  // 맥박 애니메이션
+  const startPulseAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.3,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  // Android 마이크 권한 요청
+  const requestMicrophonePermission = async () => {
+    if (Platform.OS !== 'android') {
+      return true; // iOS는 자동으로 권한 요청됨
+    }
+
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: '마이크 권한 필요',
+          message: '음성 명령을 인식하려면 마이크 권한이 필요합니다.',
+          buttonNeutral: '나중에',
+          buttonNegative: '거부',
+          buttonPositive: '허용',
+        }
+      );
+      
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log('✅ 마이크 권한 허용됨');
+        return true;
+      } else {
+        console.log('❌ 마이크 권한 거부됨');
+        Alert.alert(
+          '권한 필요',
+          '음성 인식을 사용하려면 마이크 권한이 필요합니다.',
+          [
+            { 
+              text: '음성 인식 끄기', 
+              onPress: () => setIsVoiceEnabled(false)
+            },
+            { text: '확인' }
+          ]
+        );
+        return false;
+      }
+    } catch (error) {
+      console.error('권한 요청 오류:', error);
+      return false;
+    }
+  };
+
+  // 음성 명령 처리
+  const processInference = (inference) => {
+    if (!inference.isUnderstood) {
+      console.log('🎤 명령어를 인식하지 못했습니다');
+      return;
+    }
+
+    const { intent, slots } = inference;
+    console.log('🗣️ 인식된 명령:', intent, slots);
+
+    switch (intent) {
+      case 'next':
+        console.log('▶️ 다음 단계로 이동');
+        handleNext();
+        Alert.alert('음성 명령', '다음 단계로 이동합니다', [{ text: '확인' }], { cancelable: true });
+        break;
+      
+      case 'previous':
+        console.log('◀️ 이전 단계로 이동');
+        handlePrev();
+        Alert.alert('음성 명령', '이전 단계로 이동합니다', [{ text: '확인' }], { cancelable: true });
+        break;
+      
+      case 'timer':
+        const minutes = parseInt(slots.minutes) || 1;
+        console.log(`⏱️ 타이머 ${minutes}분 시작`);
+        startTimer(minutes * 60);
+        Alert.alert('음성 명령', `타이머 ${minutes}분 시작`, [{ text: '확인' }], { cancelable: true });
+        break;
+      
+      case 'stop':
+        console.log('⏹️ 타이머 중지');
+        stopTimer();
+        Alert.alert('음성 명령', '타이머를 중지했습니다', [{ text: '확인' }], { cancelable: true });
+        break;
+      
+      default:
+        console.log('❓ 알 수 없는 명령:', intent);
+    }
+  };
+
+  // 타이머 시작
+  const startTimer = (seconds) => {
+    // 기존 타이머가 있으면 정리
+    if (timerInterval.current) {
+      clearInterval(timerInterval.current);
+    }
+    
+    setTimerSeconds(seconds);
+    setTimerActive(true);
+    
+    timerInterval.current = setInterval(() => {
+      setTimerSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerInterval.current);
+          setTimerActive(false);
+          Alert.alert('⏰ 타이머 종료', '설정한 시간이 끝났습니다!');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // 타이머 중지
+  const stopTimer = () => {
+    if (timerInterval.current) {
+      clearInterval(timerInterval.current);
+      timerInterval.current = null;
+    }
+    setTimerActive(false);
+    setTimerSeconds(0);
+  };
+
+  // Rhino 초기화 및 관리
+  useEffect(() => {
+    let rhinoManager = null;
+
+    const initRhino = async () => {
+      if (!isVoiceEnabled) return;
+
+      try {
+        // Android 마이크 권한 요청
+        const hasPermission = await requestMicrophonePermission();
+        if (!hasPermission) {
+          setIsVoiceEnabled(false);
+          return;
+        }
+
+        // Rhino Manager 생성
+        rhinoManager = await RhinoManager.create(
+          'YOUR_ACCESS_KEY_HERE', // TODO: Picovoice Console에서 발급받은 Access Key로 교체
+          'rhino_context.rhn', // Context 파일 경로
+          processInference,
+          (error) => {
+            console.error('❌ Rhino 오류:', error);
+            Alert.alert('음성 인식 오류', error.message);
+          }
+        );
+
+        rhinoManagerRef.current = rhinoManager;
+        
+        // 음성 인식 시작
+        await rhinoManager.process();
+        setIsListening(true);
+        startPulseAnimation();
+        console.log('🎤 Picovoice 음성 인식 시작');
+
+      } catch (error) {
+        console.error('❌ Rhino 초기화 실패:', error);
+        Alert.alert(
+          '음성 인식 초기화 실패',
+          error.message,
+          [
+            { 
+              text: '음성 인식 끄기', 
+              onPress: () => setIsVoiceEnabled(false)
+            },
+            { text: '확인' }
+          ]
+        );
+      }
+    };
+
+    initRhino();
+
+    // Cleanup
+    return () => {
+      if (rhinoManager) {
+        rhinoManager.delete().catch(console.error);
+      }
+      stopTimer();
+    };
+  }, [isVoiceEnabled]);
+
   // 로딩 상태
   if (loading) {
     return (
@@ -398,6 +607,49 @@ const Recipe = ({ route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* 음성 인식 상태 표시 */}
+      {isVoiceEnabled && (
+        <View style={styles.voiceStatusContainer}>
+          <Animated.View style={[
+            styles.voiceIndicator,
+            { transform: [{ scale: pulseAnim }] },
+            isListening && styles.voiceIndicatorActive
+          ]}>
+            <Text style={styles.voiceIcon}>🎤</Text>
+          </Animated.View>
+          <View style={styles.voiceTextContainer}>
+            <Text style={styles.voiceStatusText}>
+              {isListening ? '음성 인식 중...' : '음성 인식 대기 중'}
+            </Text>
+            <Text style={styles.voiceHintText}>
+              "다음", "이전", "타이머 3분" 등의 명령을 말씀하세요
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.voiceToggleButton}
+            onPress={() => setIsVoiceEnabled(false)}
+          >
+            <Text style={styles.voiceToggleText}>OFF</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* 타이머 표시 */}
+      {timerActive && (
+        <View style={styles.timerContainer}>
+          <Text style={styles.timerIcon}>⏱️</Text>
+          <Text style={styles.timerText}>
+            {Math.floor(timerSeconds / 60)}:{(timerSeconds % 60).toString().padStart(2, '0')}
+          </Text>
+          <TouchableOpacity 
+            style={styles.timerStopButton}
+            onPress={stopTimer}
+          >
+            <Text style={styles.timerStopText}>중지</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <ScrollView 
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
@@ -1324,6 +1576,96 @@ const styles = StyleSheet.create({
   },
   completeButtonText: {
     color: '#fff',
+    fontWeight: 'bold',
+  },
+  // 음성 인식 관련 스타일
+  voiceStatusContainer: {
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  voiceIndicator: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  voiceIndicatorActive: {
+    backgroundColor: '#FFE5D9',
+  },
+  voiceIcon: {
+    fontSize: 20,
+  },
+  voiceTextContainer: {
+    flex: 1,
+  },
+  voiceStatusText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 2,
+  },
+  voiceHintText: {
+    fontSize: 11,
+    color: '#666',
+  },
+  voiceToggleButton: {
+    backgroundColor: '#FF6B35',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  voiceToggleText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  // 타이머 관련 스타일
+  timerContainer: {
+    backgroundColor: '#4CAF50',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  timerIcon: {
+    fontSize: 24,
+    marginRight: 8,
+  },
+  timerText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginRight: 16,
+    fontFamily: 'monospace',
+  },
+  timerStopButton: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  timerStopText: {
+    color: '#4CAF50',
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });
