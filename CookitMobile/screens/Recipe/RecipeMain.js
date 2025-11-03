@@ -597,7 +597,19 @@ const Recipe = ({ route }) => {
           contextPath = contextFileName;
         }
         
+        // 한국어 모델 파일 경로 (Context와 같은 언어여야 함)
+        // 한국어 모델 파일: ko_android_v3_0_0.pv 또는 ko.pv
+        // Picovoice GitHub에서 다운로드: https://github.com/Picovoice/rhino/tree/master/lib/common
+        const modelFileName = 'ko_android_v3_0_0.pv'; // 또는 'ko.pv'
+        let modelPath;
+        if (Platform.OS === 'android') {
+          modelPath = modelFileName;
+        } else {
+          modelPath = modelFileName;
+        }
+        
         console.log('📁 Context 파일 경로:', contextPath);
+        console.log('📁 Model 파일 경로:', modelPath);
 
         // inference callback 정의
         const inferenceCallback = (inference) => {
@@ -620,13 +632,15 @@ const Recipe = ({ route }) => {
         };
 
         // RhinoManager 생성 (공식 문서 방식)
-        // RhinoManager.create(accessKey, contextPath, inferenceCallback, processErrorCallback?)
+        // RhinoManager.create(accessKey, contextPath, inferenceCallback, processErrorCallback?, modelPath?)
+        // modelPath를 지정하여 한국어 모델 사용 (Context와 같은 언어여야 함)
         // 참고: https://picovoice.ai/docs/api/rhino-react-native/
         rhinoManager = await RhinoManager.create(
           accessKey,
           contextPath,
           inferenceCallback,
-          processErrorCallback
+          processErrorCallback,
+          modelPath  // 한국어 모델 파일 경로
         );
 
         console.log('✅ RhinoManager 생성 완료');
