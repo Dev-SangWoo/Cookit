@@ -418,25 +418,72 @@ const Recipe = ({ route }) => {
   // 음성 인식 시작
   const startListening = async () => {
     try {
+      // Voice 모듈 사용 가능 여부 확인
+      if (!Voice || typeof Voice.start !== 'function') {
+        console.warn('⚠️ Voice 모듈을 사용할 수 없습니다.');
+        Alert.alert(
+          '음성 인식 사용 불가', 
+          'Development Build에서만 음성 인식을 사용할 수 있습니다.\n\nExpo Go에서는 작동하지 않습니다.',
+          [
+            { 
+              text: '음성 인식 끄기', 
+              onPress: () => setIsVoiceEnabled(false)
+            },
+            { text: '확인' }
+          ]
+        );
+        setIsVoiceEnabled(false);
+        return;
+      }
+
+      // 음성 인식 시작
       await Voice.start('ko-KR');
       setIsListening(true);
       startPulseAnimation();
       console.log('🎤 음성 인식 시작');
     } catch (error) {
       console.error('음성 인식 시작 오류:', error);
-      Alert.alert('오류', '음성 인식을 시작할 수 없습니다.');
+      
+      // 더 자세한 오류 메시지
+      let errorMessage = '음성 인식을 시작할 수 없습니다.';
+      if (error.message) {
+        if (error.message.includes('null') || error.message.includes('undefined')) {
+          errorMessage = 'Development Build가 필요합니다.\n\nExpo Go에서는 음성 인식을 사용할 수 없습니다.';
+        } else if (error.message.includes('permission')) {
+          errorMessage = '마이크 권한이 필요합니다.\n\n설정에서 마이크 권한을 허용해주세요.';
+        } else {
+          errorMessage = `오류: ${error.message}`;
+        }
+      }
+      
+      Alert.alert(
+        '음성 인식 오류',
+        errorMessage,
+        [
+          { 
+            text: '음성 인식 끄기', 
+            onPress: () => setIsVoiceEnabled(false)
+          },
+          { text: '확인' }
+        ]
+      );
     }
   };
 
   // 음성 인식 중지
   const stopListening = async () => {
     try {
-      await Voice.stop();
+      if (Voice && typeof Voice.stop === 'function') {
+        await Voice.stop();
+      }
       setIsListening(false);
       pulseAnim.setValue(1);
       console.log('🎤 음성 인식 중지');
     } catch (error) {
-      console.error('음성 인식 중지 오류:', error);
+      console.warn('음성 인식 중지 경고:', error.message);
+      // 오류가 발생해도 상태는 업데이트
+      setIsListening(false);
+      pulseAnim.setValue(1);
     }
   };
 
@@ -524,7 +571,29 @@ const Recipe = ({ route }) => {
 
   // Voice 이벤트 핸들러
   useEffect(() => {
-    if (!isVoiceEnabled) return;
+    if (!isVoiceEnabled) {
+      // 비활성화 시 정리
+      try {
+        if (Voice && typeof Voice.stop === 'function') {
+          Voice.stop().catch(() => {}); // 오류 무시
+        }
+        if (Voice && typeof Voice.removeAllListeners === 'function') {
+          Voice.removeAllListeners();
+        }
+        // destroy는 호출하지 않음 (모듈이 null일 수 있음)
+      } catch (error) {
+        console.warn('Voice 비활성화 정리 경고:', error.message);
+      }
+      setIsListening(false);
+      pulseAnim.setValue(1);
+      return;
+    }
+
+    // Voice 모듈이 없으면 리턴
+    if (!Voice || typeof Voice.start !== 'function') {
+      console.warn('⚠️ Voice 모듈을 사용할 수 없습니다.');
+      return;
+    }
 
     Voice.onSpeechStart = () => {
       console.log('🎤 음성 인식 시작됨');
@@ -550,10 +619,40 @@ const Recipe = ({ route }) => {
       console.error('🎤 음성 인식 오류:', error);
       setIsListening(false);
       pulseAnim.setValue(1);
+      
+      // 오류 발생 시 자동으로 음성 인식 끄기
+      if (error && error.error && error.error.message && 
+          (error.error.message.includes('null') || error.error.message.includes('Permission'))) {
+        Alert.alert(
+          '음성 인식 오류',
+          'Development Build가 필요하거나 마이크 권한이 필요합니다.',
+          [
+            { 
+              text: '음성 인식 끄기', 
+              onPress: () => setIsVoiceEnabled(false)
+            },
+            { text: '확인' }
+          ]
+        );
+        setIsVoiceEnabled(false);
+      }
     };
 
     return () => {
-      Voice.destroy().then(Voice.removeAllListeners);
+      try {
+        // Voice.stop()을 먼저 호출하여 활성 세션 종료
+        if (Voice && typeof Voice.stop === 'function') {
+          Voice.stop().catch(() => {}); // 오류 무시
+        }
+        
+        // 리스너만 제거 (destroy는 호출하지 않음 - null 오류 방지)
+        if (Voice && typeof Voice.removeAllListeners === 'function') {
+          Voice.removeAllListeners();
+        }
+      } catch (error) {
+        // 오류 발생해도 계속 진행
+        console.warn('Voice cleanup 경고:', error.message);
+      }
       stopTimer();
     };
   }, [isVoiceEnabled]);
@@ -561,6 +660,11 @@ const Recipe = ({ route }) => {
   // 음성 인식 자동 재시작
   useEffect(() => {
     if (isVoiceEnabled && !isListening) {
+      // Voice 모듈이 없으면 리턴
+      if (!Voice || typeof Voice.start !== 'function') {
+        return;
+      }
+      
       const timeout = setTimeout(() => {
         startListening();
       }, 1000);

@@ -37,11 +37,15 @@ export default function App() {
 
     // 클린업
     return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+      try {
+        if (notificationListener.current && Notifications.removeNotificationSubscription) {
+          Notifications.removeNotificationSubscription(notificationListener.current);
+        }
+        if (responseListener.current && Notifications.removeNotificationSubscription) {
+          Notifications.removeNotificationSubscription(responseListener.current);
+        }
+      } catch (error) {
+        console.warn('알림 리스너 정리 경고:', error.message);
       }
     };
   }, []);
