@@ -6,8 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
-import { Rhino } from '@picovoice/rhino-react-native';
-import { VoiceProcessor } from '@picovoice/react-native-voice-processor';
+import { RhinoManager } from '@picovoice/rhino-react-native';
 
 const recipeSteps = [
   { title: '재료 준비하기', description: '모든 재료를 깨끗이 씻고 손질해 주세요.' },
@@ -29,7 +28,7 @@ const Recipe = ({ route }) => {
   // Picovoice 음성 인식 관련 상태
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(route?.params?.voiceControlEnabled || false);
   const [isListening, setIsListening] = useState(false);
-  const rhinoRef = useRef(null);
+  const rhinoManagerRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   
   // 타이머 관련 상태
@@ -533,9 +532,10 @@ const Recipe = ({ route }) => {
     setTimerSeconds(0);
   };
 
-  // Rhino 초기화 및 관리
+  // Rhino 초기화 및 관리 (공식 문서 기반)
+  // 참고: https://picovoice.ai/docs/quick-start/rhino-react-native/
   useEffect(() => {
-    let rhino = null;
+    let rhinoManager = null;
 
     const initRhino = async () => {
       if (!isVoiceEnabled) return;
@@ -567,15 +567,14 @@ const Recipe = ({ route }) => {
           return;
         }
 
-        // Rhino 모듈 확인
-        if (!Rhino || typeof Rhino.create !== 'function') {
-          throw new Error('Rhino 모듈을 사용할 수 없습니다. Development Build가 필요합니다.');
+        // RhinoManager 모듈 확인
+        if (!RhinoManager || typeof RhinoManager.create !== 'function') {
+          throw new Error('RhinoManager 모듈을 사용할 수 없습니다. Development Build가 필요합니다.');
         }
 
         // Context 파일 경로
-        // React Native에서는 번들된 파일의 실제 경로를 사용해야 함
-        // Android: assets 폴더의 파일은 자동으로 번들에 포함됨
-        // iOS: 번들 리소스 경로 사용
+        // Android: ./android/app/src/main/assets/rhino_context.rhn
+        // iOS: 번들 리소스로 포함
         let contextPath;
         if (Platform.OS === 'android') {
           // Android: assets 폴더의 파일은 번들에 포함되어 있음
@@ -587,60 +586,30 @@ const Recipe = ({ route }) => {
         
         console.log('📁 Context 파일 경로:', contextPath);
 
-        // Rhino 인스턴스 생성
-        // Rhino.create(accessKey, contextPath) - 콜백은 별도로 처리하지 않음
-        rhino = await Rhino.create(
-          accessKey,
-          contextPath
-        );
-
-        console.log('✅ Rhino 생성 완료:', {
-          frameLength: rhino.frameLength,
-          sampleRate: rhino.sampleRate,
-          version: rhino.version,
-          contextInfo: rhino.contextInfo
-        });
-
-        rhinoRef.current = rhino;
-
-        // VoiceProcessor 시작
-        // VoiceProcessor는 오디오 프레임을 Rhino로 전달
-        await VoiceProcessor.start(
-          rhino.frameLength,
-          rhino.sampleRate,
-          async (audioFrame) => {
-            try {
-              if (rhino && rhinoRef.current) {
-                // process() 메서드 호출
-                // inference는 비동기로 반환되거나 별도 확인 필요
-                const result = rhino.process(audioFrame);
-                
-                // result가 Promise인 경우
-                if (result && typeof result.then === 'function') {
-                  const inference = await result;
-                  if (inference && inference.isUnderstood) {
-                    console.log('🎤 Rhino inference:', inference);
-                    processInference(inference);
-                  }
-                } 
-                // result가 직접 inference 객체인 경우
-                else if (result && typeof result === 'object' && result.isUnderstood !== undefined) {
-                  if (result.isUnderstood) {
-                    console.log('🎤 Rhino inference:', result);
-                    processInference(result);
-                  }
-                }
-                // result가 boolean인 경우 (isUnderstood 여부만)
-                else if (typeof result === 'boolean' && result) {
-                  // inference 객체를 별도로 가져와야 할 수 있음
-                  // 실제 API에 따라 조정 필요
-                }
-              }
-            } catch (error) {
-              console.error('❌ Rhino process 오류:', error);
-            }
+        // inference callback 정의
+        const inferenceCallback = (inference) => {
+          console.log('🎤 Rhino inference:', inference);
+          if (inference.isUnderstood) {
+            processInference(inference);
+          } else {
+            console.log('🎤 명령어를 인식하지 못했습니다');
           }
+        };
+
+        // RhinoManager 생성 (공식 문서 방식)
+        // RhinoManager.create(accessKey, contextPath, inferenceCallback)
+        rhinoManager = await RhinoManager.create(
+          accessKey,
+          contextPath,
+          inferenceCallback
         );
+
+        console.log('✅ RhinoManager 생성 완료');
+
+        rhinoManagerRef.current = rhinoManager;
+
+        // RhinoManager.process() 호출하면 자동으로 오디오 캡처 시작
+        await rhinoManager.process();
 
         setIsListening(true);
         startPulseAnimation();
@@ -658,7 +627,7 @@ const Recipe = ({ route }) => {
         if (error.name === 'RhinoError' || error.message?.includes('RhinoError')) {
           if (error.message?.includes('context') || error.message?.includes('file') || error.message?.includes('path')) {
             errorMessage = 'Context 파일 오류:\n\n' + 
-              '1. assets/rhino_context.rhn 파일이 있는지 확인\n' +
+              '1. android/app/src/main/assets/rhino_context.rhn 파일이 있는지 확인\n' +
               '2. Picovoice Console에서 학습된 파일인지 확인\n' +
               '3. 파일이 번들에 포함되었는지 확인';
           } else if (error.message?.includes('access') || error.message?.includes('key') || error.message?.includes('invalid')) {
@@ -668,7 +637,8 @@ const Recipe = ({ route }) => {
               '3. 앱을 재시작 (npx expo start --clear)';
           } else {
             errorMessage = 'Rhino 오류:\n\n' + error.message + '\n\n' +
-              'Picovoice Console과 공식 문서를 확인하세요.';
+              'Picovoice Console과 공식 문서를 확인하세요:\n' +
+              'https://picovoice.ai/docs/quick-start/rhino-react-native/';
           }
         } else if (error.message?.includes('null') || error.message?.includes('create') || error.message?.includes('undefined')) {
           errorMessage = '네이티브 모듈 로드 실패:\n\n' +
@@ -698,14 +668,13 @@ const Recipe = ({ route }) => {
 
     // Cleanup
     return () => {
-      if (rhino) {
+      if (rhinoManager) {
         try {
-          rhino.delete().catch(console.error);
+          rhinoManager.delete().catch(console.error);
         } catch (e) {
-          console.error('Rhino cleanup 오류:', e);
+          console.error('RhinoManager cleanup 오류:', e);
         }
       }
-      VoiceProcessor.stop().catch(console.error);
       stopTimer();
     };
   }, [isVoiceEnabled]);
