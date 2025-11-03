@@ -21,7 +21,7 @@ export default {
       }
     ],
     userInterfaceStyle: "automatic",
-    newArchEnabled: true,
+    newArchEnabled: false,
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
@@ -71,6 +71,17 @@ export default {
           color: "#FF6B35",
           sounds: [],
           mode: "production"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          android: {
+            minSdkVersion: 23,
+            compileSdkVersion: 34,
+            targetSdkVersion: 34,
+            buildToolsVersion: "34.0.0"
+          }
         }
       ]
     ],
