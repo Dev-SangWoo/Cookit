@@ -7,7 +7,6 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "prebuildCommand": "echo 'Skipping prebuild to preserve AndroidManifest changes'",
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleDebug"
