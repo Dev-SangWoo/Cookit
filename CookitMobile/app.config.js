@@ -21,7 +21,7 @@ export default {
       }
     ],
     userInterfaceStyle: "automatic",
-    newArchEnabled: true,
+    newArchEnabled: false,
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
