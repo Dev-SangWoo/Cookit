@@ -6,7 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
-import { RhinoManager } from '@picovoice/rhino-react-native';
+import { Rhino } from '@picovoice/rhino-react-native';
+import { VoiceProcessor } from '@picovoice/react-native-voice-processor';
 
 const recipeSteps = [
   { title: '재료 준비하기', description: '모든 재료를 깨끗이 씻고 손질해 주세요.' },
@@ -28,7 +29,7 @@ const Recipe = ({ route }) => {
   // Picovoice 음성 인식 관련 상태
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(route?.params?.voiceControlEnabled || false);
   const [isListening, setIsListening] = useState(false);
-  const rhinoManagerRef = useRef(null);
+  const rhinoRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   
   // 타이머 관련 상태
@@ -534,7 +535,7 @@ const Recipe = ({ route }) => {
 
   // Rhino 초기화 및 관리
   useEffect(() => {
-    let rhinoManager = null;
+    let rhino = null;
 
     const initRhino = async () => {
       if (!isVoiceEnabled) return;
@@ -547,7 +548,7 @@ const Recipe = ({ route }) => {
           return;
         }
 
-        // Rhino Manager 생성
+        // Access Key 확인
         const accessKey = process.env.EXPO_PUBLIC_PICOVOICE_ACCESS_KEY;
         
         if (!accessKey || accessKey === 'YOUR_ACCESS_KEY_HERE') {
@@ -566,29 +567,65 @@ const Recipe = ({ route }) => {
           return;
         }
 
-        rhinoManager = await RhinoManager.create(
+        // Rhino 모듈 확인
+        if (!Rhino || typeof Rhino.create !== 'function') {
+          throw new Error('Rhino 모듈을 사용할 수 없습니다. Development Build가 필요합니다.');
+        }
+
+        // Context 파일 경로
+        // React Native에서는 번들된 파일의 실제 경로를 사용해야 함
+        // Android: assets 폴더의 파일은 자동으로 번들에 포함됨
+        // iOS: 번들 리소스 경로 사용
+        let contextPath;
+        if (Platform.OS === 'android') {
+          // Android: assets 폴더의 파일은 번들에 포함되어 있음
+          contextPath = 'rhino_context.rhn';
+        } else {
+          // iOS: 번들 리소스 경로
+          contextPath = 'rhino_context.rhn';
+        }
+        
+        console.log('📁 Context 파일 경로:', contextPath);
+
+        // Rhino 인스턴스 생성
+        rhino = await Rhino.create(
           accessKey,
-          'rhino_context.rhn', // Context 파일 경로
-          processInference,
-          (error) => {
-            console.error('❌ Rhino 오류:', error);
-            Alert.alert('음성 인식 오류', error.message);
+          contextPath,
+          processInference
+        );
+
+        rhinoRef.current = rhino;
+
+        // VoiceProcessor 시작
+        await VoiceProcessor.start(
+          rhino.frameLength,
+          rhino.sampleRate,
+          (audioFrame) => {
+            if (rhino) {
+              rhino.process(audioFrame);
+            }
           }
         );
 
-        rhinoManagerRef.current = rhinoManager;
-        
-        // 음성 인식 시작
-        await rhinoManager.process();
         setIsListening(true);
         startPulseAnimation();
         console.log('🎤 Picovoice 음성 인식 시작');
 
       } catch (error) {
         console.error('❌ Rhino 초기화 실패:', error);
+        console.error('❌ 오류 상세:', JSON.stringify(error, null, 2));
+        
+        let errorMessage = error.message || '알 수 없는 오류가 발생했습니다.';
+        
+        if (error.message?.includes('null') || error.message?.includes('create')) {
+          errorMessage = '네이티브 모듈이 로드되지 않았습니다.\n\nDevelopment Build로 빌드했는지 확인하세요.\n\nnpx expo run:android 또는 eas build --profile development';
+        } else if (error.message?.includes('context') || error.message?.includes('file')) {
+          errorMessage = 'Context 파일을 찾을 수 없습니다.\n\nassets/rhino_context.rhn 파일이 있는지 확인하세요.';
+        }
+
         Alert.alert(
           '음성 인식 초기화 실패',
-          error.message,
+          errorMessage,
           [
             { 
               text: '음성 인식 끄기', 
@@ -604,9 +641,14 @@ const Recipe = ({ route }) => {
 
     // Cleanup
     return () => {
-      if (rhinoManager) {
-        rhinoManager.delete().catch(console.error);
+      if (rhino) {
+        try {
+          rhino.delete().catch(console.error);
+        } catch (e) {
+          console.error('Rhino cleanup 오류:', e);
+        }
       }
+      VoiceProcessor.stop().catch(console.error);
       stopTimer();
     };
   }, [isVoiceEnabled]);
