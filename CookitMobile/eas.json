@@ -9,8 +9,7 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug",
-        "enableJetifier": true
+        "gradleCommand": ":app:assembleDebug"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "$EXPO_PUBLIC_SUPABASE_URL",
