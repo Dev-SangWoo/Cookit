@@ -21,7 +21,7 @@ export default {
       }
     ],
     userInterfaceStyle: "automatic",
-    newArchEnabled: false,
+    newArchEnabled: true,
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
@@ -80,8 +80,15 @@ export default {
             minSdkVersion: 23,
             compileSdkVersion: 34,
             targetSdkVersion: 34,
-            buildToolsVersion: "34.0.0"
+            buildToolsVersion: "34.0.0",
+            newArchEnabled: true
           }
+        }
+      ],
+      [
+        "expo-av",
+        {
+          microphonePermission: "요리 단계를 음성으로 제어하기 위해 마이크 권한이 필요합니다."
         }
       ]
     ],
