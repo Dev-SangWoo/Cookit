@@ -585,15 +585,16 @@ const Recipe = ({ route }) => {
         }
 
         // Context 파일 경로
-        // Android: ./android/app/src/main/assets/rhino_context.rhn
+        // Android: ./android/app/src/main/assets/rhino_ko_android_v3_0_0.rhn
         // iOS: 번들 리소스로 포함
+        const contextFileName = 'rhino_ko_android_v3_0_0.rhn';
         let contextPath;
         if (Platform.OS === 'android') {
           // Android: assets 폴더의 파일은 번들에 포함되어 있음
-          contextPath = 'rhino_context.rhn';
+          contextPath = contextFileName;
         } else {
           // iOS: 번들 리소스 경로
-          contextPath = 'rhino_context.rhn';
+          contextPath = contextFileName;
         }
         
         console.log('📁 Context 파일 경로:', contextPath);
