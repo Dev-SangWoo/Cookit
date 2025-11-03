@@ -7,10 +7,10 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "prebuildCommand": "npx expo prebuild && node scripts/fix-manifest.js || true",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug"
+        "gradleCommand": ":app:assembleDebug",
+        "enableJetifier": true
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "$EXPO_PUBLIC_SUPABASE_URL",

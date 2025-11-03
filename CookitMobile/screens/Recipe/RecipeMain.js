@@ -1,11 +1,12 @@
 // 단계별 요약화면
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking, ScrollView, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import Voice from '@react-native-voice/voice';
 
 const recipeSteps = [
   { title: '재료 준비하기', description: '모든 재료를 깨끗이 씻고 손질해 주세요.' },
@@ -23,6 +24,16 @@ const Recipe = ({ route }) => {
   const [videoUrl, setVideoUrl] = useState(null);
   const [videoError, setVideoError] = useState(false);
   const [videoId, setVideoId] = useState(null);
+  
+  // 음성 인식 관련 상태
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(route?.params?.voiceControlEnabled || false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceResults, setVoiceResults] = useState([]);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [showTimerModal, setShowTimerModal] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [timerActive, setTimerActive] = useState(false);
+  const timerInterval = useRef(null);
   
   // route.params에서 recipeId 가져오기 (id, recipe_id, recipeId 모두 지원)
   const recipeId = route?.params?.recipeId || route?.params?.recipe_id || route?.params?.id;
@@ -384,6 +395,180 @@ const Recipe = ({ route }) => {
     }
   };
 
+  // ===== 음성 인식 관련 함수들 =====
+  
+  // 맥박 애니메이션
+  const startPulseAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.3,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
+  // 음성 인식 시작
+  const startListening = async () => {
+    try {
+      await Voice.start('ko-KR');
+      setIsListening(true);
+      startPulseAnimation();
+      console.log('🎤 음성 인식 시작');
+    } catch (error) {
+      console.error('음성 인식 시작 오류:', error);
+      Alert.alert('오류', '음성 인식을 시작할 수 없습니다.');
+    }
+  };
+
+  // 음성 인식 중지
+  const stopListening = async () => {
+    try {
+      await Voice.stop();
+      setIsListening(false);
+      pulseAnim.setValue(1);
+      console.log('🎤 음성 인식 중지');
+    } catch (error) {
+      console.error('음성 인식 중지 오류:', error);
+    }
+  };
+
+  // 음성 명령 처리
+  const handleVoiceCommand = (command) => {
+    const lowerCommand = command.toLowerCase().replace(/\s+/g, '');
+    console.log('🗣️ 받은 음성 명령:', lowerCommand);
+
+    // "다음" 명령
+    if (lowerCommand.includes('다음') || lowerCommand.includes('next')) {
+      console.log('▶️ 다음 단계로 이동');
+      handleNext();
+      Alert.alert('음성 명령', '다음 단계로 이동합니다', [{ text: '확인' }], { cancelable: true });
+    }
+    // "이전" 명령
+    else if (lowerCommand.includes('이전') || lowerCommand.includes('previous') || lowerCommand.includes('prev')) {
+      console.log('◀️ 이전 단계로 이동');
+      handlePrev();
+      Alert.alert('음성 명령', '이전 단계로 이동합니다', [{ text: '확인' }], { cancelable: true });
+    }
+    // "타이머" 명령
+    else if (lowerCommand.includes('타이머') || lowerCommand.includes('timer')) {
+      console.log('⏱️ 타이머 실행');
+      
+      // 숫자 추출 (예: "타이머 3분", "5분 타이머")
+      const minuteMatch = command.match(/(\d+)\s*분/);
+      const secondMatch = command.match(/(\d+)\s*초/);
+      
+      let seconds = 0;
+      if (minuteMatch) {
+        seconds += parseInt(minuteMatch[1]) * 60;
+      }
+      if (secondMatch) {
+        seconds += parseInt(secondMatch[1]);
+      }
+      
+      // 기본값 (숫자가 없으면 1분)
+      if (seconds === 0) {
+        seconds = 60;
+      }
+      
+      startTimer(seconds);
+      Alert.alert('음성 명령', `타이머 ${Math.floor(seconds / 60)}분 ${seconds % 60}초 시작`, [{ text: '확인' }], { cancelable: true });
+    }
+    // "중지" 또는 "정지" 명령
+    else if (lowerCommand.includes('중지') || lowerCommand.includes('정지') || lowerCommand.includes('stop')) {
+      console.log('⏹️ 타이머 중지');
+      stopTimer();
+      Alert.alert('음성 명령', '타이머를 중지했습니다', [{ text: '확인' }], { cancelable: true });
+    }
+  };
+
+  // 타이머 시작
+  const startTimer = (seconds) => {
+    // 기존 타이머가 있으면 정리
+    if (timerInterval.current) {
+      clearInterval(timerInterval.current);
+    }
+    
+    setTimerSeconds(seconds);
+    setTimerActive(true);
+    
+    timerInterval.current = setInterval(() => {
+      setTimerSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerInterval.current);
+          setTimerActive(false);
+          Alert.alert('⏰ 타이머 종료', '설정한 시간이 끝났습니다!');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // 타이머 중지
+  const stopTimer = () => {
+    if (timerInterval.current) {
+      clearInterval(timerInterval.current);
+      timerInterval.current = null;
+    }
+    setTimerActive(false);
+    setTimerSeconds(0);
+  };
+
+  // Voice 이벤트 핸들러
+  useEffect(() => {
+    if (!isVoiceEnabled) return;
+
+    Voice.onSpeechStart = () => {
+      console.log('🎤 음성 인식 시작됨');
+      setIsListening(true);
+    };
+
+    Voice.onSpeechEnd = () => {
+      console.log('🎤 음성 인식 종료됨');
+      setIsListening(false);
+      pulseAnim.setValue(1);
+    };
+
+    Voice.onSpeechResults = (event) => {
+      console.log('🎤 음성 인식 결과:', event.value);
+      setVoiceResults(event.value || []);
+      
+      if (event.value && event.value.length > 0) {
+        handleVoiceCommand(event.value[0]);
+      }
+    };
+
+    Voice.onSpeechError = (error) => {
+      console.error('🎤 음성 인식 오류:', error);
+      setIsListening(false);
+      pulseAnim.setValue(1);
+    };
+
+    return () => {
+      Voice.destroy().then(Voice.removeAllListeners);
+      stopTimer();
+    };
+  }, [isVoiceEnabled]);
+
+  // 음성 인식 자동 재시작
+  useEffect(() => {
+    if (isVoiceEnabled && !isListening) {
+      const timeout = setTimeout(() => {
+        startListening();
+      }, 1000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [isVoiceEnabled, isListening]);
+
   // 로딩 상태
   if (loading) {
     return (
@@ -398,6 +583,52 @@ const Recipe = ({ route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* 음성 인식 상태 표시 */}
+      {isVoiceEnabled && (
+        <View style={styles.voiceStatusContainer}>
+          <Animated.View style={[
+            styles.voiceIndicator,
+            { transform: [{ scale: pulseAnim }] },
+            isListening && styles.voiceIndicatorActive
+          ]}>
+            <Text style={styles.voiceIcon}>🎤</Text>
+          </Animated.View>
+          <View style={styles.voiceTextContainer}>
+            <Text style={styles.voiceStatusText}>
+              {isListening ? '음성 인식 중...' : '음성 인식 대기 중'}
+            </Text>
+            <Text style={styles.voiceHintText}>
+              "다음", "이전", "타이머 3분" 등의 명령을 말씀하세요
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.voiceToggleButton}
+            onPress={() => {
+              setIsVoiceEnabled(false);
+              stopListening();
+            }}
+          >
+            <Text style={styles.voiceToggleText}>OFF</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* 타이머 표시 */}
+      {timerActive && (
+        <View style={styles.timerContainer}>
+          <Text style={styles.timerIcon}>⏱️</Text>
+          <Text style={styles.timerText}>
+            {Math.floor(timerSeconds / 60)}:{(timerSeconds % 60).toString().padStart(2, '0')}
+          </Text>
+          <TouchableOpacity 
+            style={styles.timerStopButton}
+            onPress={stopTimer}
+          >
+            <Text style={styles.timerStopText}>중지</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <ScrollView 
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
@@ -1324,6 +1555,96 @@ const styles = StyleSheet.create({
   },
   completeButtonText: {
     color: '#fff',
+    fontWeight: 'bold',
+  },
+  // 음성 인식 관련 스타일
+  voiceStatusContainer: {
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  voiceIndicator: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  voiceIndicatorActive: {
+    backgroundColor: '#FFE5D9',
+  },
+  voiceIcon: {
+    fontSize: 20,
+  },
+  voiceTextContainer: {
+    flex: 1,
+  },
+  voiceStatusText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 2,
+  },
+  voiceHintText: {
+    fontSize: 11,
+    color: '#666',
+  },
+  voiceToggleButton: {
+    backgroundColor: '#FF6B35',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  voiceToggleText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  // 타이머 관련 스타일
+  timerContainer: {
+    backgroundColor: '#4CAF50',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  timerIcon: {
+    fontSize: 24,
+    marginRight: 8,
+  },
+  timerText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginRight: 16,
+    fontFamily: 'monospace',
+  },
+  timerStopButton: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  timerStopText: {
+    color: '#4CAF50',
+    fontSize: 14,
     fontWeight: 'bold',
   },
 });

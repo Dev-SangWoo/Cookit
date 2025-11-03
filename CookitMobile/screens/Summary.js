@@ -33,6 +33,7 @@ const Summary = () => {
   const [videoError, setVideoError] = useState(false);
   const [originalVideoUrl, setOriginalVideoUrl] = useState(null);
   const [autoplayEnabled, setAutoplayEnabled] = useState(true); // 자동재생 옵션
+  const [voiceControlEnabled, setVoiceControlEnabled] = useState(false); // 음성 인식 옵션
   
   const RECENT_VIEWED_KEY = '@recent_viewed_recipes';
   const MAX_RECENT_VIEWED = 10;
@@ -409,7 +410,8 @@ const Summary = () => {
       navigation.replace("Recipe", { 
         screen: 'RecipeMain',
         params: { 
-          recipeId: receivedRecipeId
+          recipeId: receivedRecipeId,
+          voiceControlEnabled: voiceControlEnabled // 음성 인식 활성화 여부 전달
         }
       });
     } else {
@@ -419,7 +421,8 @@ const Summary = () => {
       navigation.replace("Recipe", { 
         screen: 'RecipeMain',
         params: { 
-          recipeId: demoRecipeId
+          recipeId: demoRecipeId,
+          voiceControlEnabled: voiceControlEnabled // 음성 인식 활성화 여부 전달
         }
       });
     }
@@ -789,6 +792,24 @@ const Summary = () => {
 
         {/* 하단 버튼들 */}
         <View style={[styles.Buttoncontainer, { paddingBottom: Math.min(insets.bottom, 10) }]}>
+          {/* 음성 인식 활성화 토글 */}
+          <TouchableOpacity 
+            style={styles.voiceControlToggle}
+            onPress={() => setVoiceControlEnabled(!voiceControlEnabled)}
+          >
+            <Ionicons 
+              name={voiceControlEnabled ? "mic" : "mic-off"} 
+              size={20} 
+              color={voiceControlEnabled ? "#FF6B35" : "#999"} 
+            />
+            <Text style={[
+              styles.voiceControlText, 
+              { color: voiceControlEnabled ? "#FF6B35" : "#999" }
+            ]}>
+              음성 인식 {voiceControlEnabled ? "ON" : "OFF"}
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.buttonHome} onPress={handleDelete}>
             <Ionicons name="home-outline" size={20} color="#FF6B35" />
             <Text style={styles.homeText}>홈으로</Text>
@@ -799,7 +820,7 @@ const Summary = () => {
             onPress={handleStart}
           >
             <Ionicons name="play-outline" size={20} color="#fff" />
-            <Text style={styles.startText}>요리 시작하기</Text>
+            <Text style={styles.startText}>시작</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1066,6 +1087,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     flexDirection: 'row',
     justifyContent: 'space-around',
+    alignItems: 'center',
     padding: 16,
     borderTopWidth: 1,
     borderColor: '#eee',
@@ -1074,6 +1096,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
+  },
+  voiceControlToggle: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  voiceControlText: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 4,
   },
   buttonHome: {
     flexDirection: 'row',
