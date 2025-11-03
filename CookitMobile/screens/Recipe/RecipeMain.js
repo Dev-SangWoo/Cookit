@@ -482,7 +482,19 @@ const Recipe = ({ route }) => {
         break;
       
       case 'timer':
-        const minutes = parseInt(slots.minutes) || 1;
+        // slots는 { [key: string]: string } 형태 (API 문서 참고)
+        // Context에서 정의한 slot 이름에 따라 다를 수 있음
+        let minutes = 1;
+        if (slots && slots.number) {
+          // 숫자 문자열 매핑 (일, 이, 삼...)
+          const numberMap = {
+            '일': 1, '이': 2, '삼': 3, '사': 4, '오': 5,
+            '육': 6, '칠': 7, '팔': 8, '구': 9, '십': 10
+          };
+          minutes = numberMap[slots.number] || parseInt(slots.number) || 1;
+        } else if (slots && slots.minutes) {
+          minutes = parseInt(slots.minutes) || 1;
+        }
         console.log(`⏱️ 타이머 ${minutes}분 시작`);
         startTimer(minutes * 60);
         Alert.alert('음성 명령', `타이머 ${minutes}분 시작`, [{ text: '확인' }], { cancelable: true });
@@ -596,12 +608,24 @@ const Recipe = ({ route }) => {
           }
         };
 
+        // process error callback 정의 (선택적)
+        const processErrorCallback = (error) => {
+          console.error('❌ Rhino 처리 오류:', error);
+          Alert.alert(
+            '음성 인식 오류',
+            error.message || '오디오 처리 중 오류가 발생했습니다.',
+            [{ text: '확인' }]
+          );
+        };
+
         // RhinoManager 생성 (공식 문서 방식)
-        // RhinoManager.create(accessKey, contextPath, inferenceCallback)
+        // RhinoManager.create(accessKey, contextPath, inferenceCallback, processErrorCallback?)
+        // 참고: https://picovoice.ai/docs/api/rhino-react-native/
         rhinoManager = await RhinoManager.create(
           accessKey,
           contextPath,
-          inferenceCallback
+          inferenceCallback,
+          processErrorCallback
         );
 
         console.log('✅ RhinoManager 생성 완료');
