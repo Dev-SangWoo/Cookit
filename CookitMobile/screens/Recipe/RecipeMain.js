@@ -1,7 +1,7 @@
 // 단계별 요약화면
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking, ScrollView, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking, ScrollView, Animated, Platform, PermissionsAndroid } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
@@ -415,15 +415,32 @@ const Recipe = ({ route }) => {
     ).start();
   };
 
-  // 음성 인식 시작
-  const startListening = async () => {
+  // Android 마이크 권한 요청
+  const requestMicrophonePermission = async () => {
+    if (Platform.OS !== 'android') {
+      return true; // iOS는 자동으로 권한 요청됨
+    }
+
     try {
-      // Voice 모듈 사용 가능 여부 확인
-      if (!Voice || typeof Voice.start !== 'function') {
-        console.warn('⚠️ Voice 모듈을 사용할 수 없습니다.');
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: '마이크 권한 필요',
+          message: '음성 명령을 인식하려면 마이크 권한이 필요합니다.',
+          buttonNeutral: '나중에',
+          buttonNegative: '거부',
+          buttonPositive: '허용',
+        }
+      );
+      
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log('✅ 마이크 권한 허용됨');
+        return true;
+      } else {
+        console.log('❌ 마이크 권한 거부됨');
         Alert.alert(
-          '음성 인식 사용 불가', 
-          'Development Build에서만 음성 인식을 사용할 수 있습니다.\n\nExpo Go에서는 작동하지 않습니다.',
+          '권한 필요',
+          '음성 인식을 사용하려면 마이크 권한이 필요합니다.\n\n설정 > 앱 > CookIt > 권한에서 마이크 권한을 허용해주세요.',
           [
             { 
               text: '음성 인식 끄기', 
@@ -432,6 +449,38 @@ const Recipe = ({ route }) => {
             { text: '확인' }
           ]
         );
+        return false;
+      }
+    } catch (error) {
+      console.error('권한 요청 오류:', error);
+      return false;
+    }
+  };
+
+  // 음성 인식 시작
+  const startListening = async () => {
+    try {
+      // Voice 모듈 사용 가능 여부 확인
+      if (!Voice || typeof Voice.start !== 'function') {
+        console.warn('⚠️ Voice 모듈을 사용할 수 없습니다.');
+        Alert.alert(
+          '음성 인식 사용 불가', 
+          '음성 인식 기능을 사용하려면 앱을 다시 빌드해야 합니다.\n\n현재: 음성 인식 네이티브 모듈이 포함되지 않은 빌드입니다.\n\n해결: npx eas build --profile development --platform android --clear-cache',
+          [
+            { 
+              text: '음성 인식 끄기', 
+              onPress: () => setIsVoiceEnabled(false)
+            },
+            { text: '확인' }
+          ]
+        );
+        setIsVoiceEnabled(false);
+        return;
+      }
+
+      // Android 마이크 권한 요청
+      const hasPermission = await requestMicrophonePermission();
+      if (!hasPermission) {
         setIsVoiceEnabled(false);
         return;
       }
@@ -446,19 +495,24 @@ const Recipe = ({ route }) => {
       
       // 더 자세한 오류 메시지
       let errorMessage = '음성 인식을 시작할 수 없습니다.';
+      let detailMessage = '';
+      
       if (error.message) {
-        if (error.message.includes('null') || error.message.includes('undefined')) {
-          errorMessage = 'Development Build가 필요합니다.\n\nExpo Go에서는 음성 인식을 사용할 수 없습니다.';
-        } else if (error.message.includes('permission')) {
-          errorMessage = '마이크 권한이 필요합니다.\n\n설정에서 마이크 권한을 허용해주세요.';
+        if (error.message.includes('null') || error.message.includes('startSpeech')) {
+          errorMessage = '네이티브 모듈 오류';
+          detailMessage = '@react-native-voice/voice 패키지가 포함된 빌드가 필요합니다.\n\n아래 명령어로 재빌드해주세요:\nnpx eas build --profile development --platform android --clear-cache';
+        } else if (error.message.includes('permission') || error.message.includes('Permission')) {
+          errorMessage = '권한 오류';
+          detailMessage = '마이크 권한이 필요합니다.\n\n설정 > 앱 > CookIt > 권한에서 마이크를 허용해주세요.';
         } else {
-          errorMessage = `오류: ${error.message}`;
+          errorMessage = '음성 인식 오류';
+          detailMessage = error.message;
         }
       }
       
       Alert.alert(
-        '음성 인식 오류',
         errorMessage,
+        detailMessage,
         [
           { 
             text: '음성 인식 끄기', 
