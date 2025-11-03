@@ -588,21 +588,37 @@ const Recipe = ({ route }) => {
         console.log('📁 Context 파일 경로:', contextPath);
 
         // Rhino 인스턴스 생성
+        // Rhino.create(accessKey, contextPath, inferenceCallback)
         rhino = await Rhino.create(
           accessKey,
           contextPath,
-          processInference
+          (inference) => {
+            console.log('🎤 Rhino inference:', inference);
+            processInference(inference);
+          }
         );
+
+        console.log('✅ Rhino 생성 완료:', {
+          frameLength: rhino.frameLength,
+          sampleRate: rhino.sampleRate,
+          version: rhino.version,
+          contextInfo: rhino.contextInfo
+        });
 
         rhinoRef.current = rhino;
 
         // VoiceProcessor 시작
+        // VoiceProcessor는 오디오 프레임을 Rhino로 전달
         await VoiceProcessor.start(
           rhino.frameLength,
           rhino.sampleRate,
           (audioFrame) => {
-            if (rhino) {
-              rhino.process(audioFrame);
+            try {
+              if (rhino && rhinoRef.current) {
+                rhino.process(audioFrame);
+              }
+            } catch (error) {
+              console.error('❌ Rhino process 오류:', error);
             }
           }
         );
@@ -613,14 +629,36 @@ const Recipe = ({ route }) => {
 
       } catch (error) {
         console.error('❌ Rhino 초기화 실패:', error);
-        console.error('❌ 오류 상세:', JSON.stringify(error, null, 2));
+        console.error('❌ 오류 타입:', error.constructor?.name);
+        console.error('❌ 오류 상세:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+        console.error('❌ 오류 스택:', error.stack);
         
-        let errorMessage = error.message || '알 수 없는 오류가 발생했습니다.';
+        let errorMessage = error.message || error.toString() || '알 수 없는 오류가 발생했습니다.';
         
-        if (error.message?.includes('null') || error.message?.includes('create')) {
-          errorMessage = '네이티브 모듈이 로드되지 않았습니다.\n\nDevelopment Build로 빌드했는지 확인하세요.\n\nnpx expo run:android 또는 eas build --profile development';
-        } else if (error.message?.includes('context') || error.message?.includes('file')) {
-          errorMessage = 'Context 파일을 찾을 수 없습니다.\n\nassets/rhino_context.rhn 파일이 있는지 확인하세요.';
+        // RhinoError 특별 처리
+        if (error.name === 'RhinoError' || error.message?.includes('RhinoError')) {
+          if (error.message?.includes('context') || error.message?.includes('file') || error.message?.includes('path')) {
+            errorMessage = 'Context 파일 오류:\n\n' + 
+              '1. assets/rhino_context.rhn 파일이 있는지 확인\n' +
+              '2. Picovoice Console에서 학습된 파일인지 확인\n' +
+              '3. 파일이 번들에 포함되었는지 확인';
+          } else if (error.message?.includes('access') || error.message?.includes('key') || error.message?.includes('invalid')) {
+            errorMessage = 'Access Key 오류:\n\n' +
+              '1. .env 파일에 EXPO_PUBLIC_PICOVOICE_ACCESS_KEY가 설정되었는지 확인\n' +
+              '2. Access Key가 올바른지 확인\n' +
+              '3. 앱을 재시작 (npx expo start --clear)';
+          } else {
+            errorMessage = 'Rhino 오류:\n\n' + error.message + '\n\n' +
+              'Picovoice Console과 공식 문서를 확인하세요.';
+          }
+        } else if (error.message?.includes('null') || error.message?.includes('create') || error.message?.includes('undefined')) {
+          errorMessage = '네이티브 모듈 로드 실패:\n\n' +
+            '1. Development Build로 빌드했는지 확인\n' +
+            '2. npx expo run:android 또는 eas build --profile development\n' +
+            '3. Expo Go로는 작동하지 않습니다';
+        } else if (error.message?.includes('permission') || error.message?.includes('Permission')) {
+          errorMessage = '마이크 권한 오류:\n\n' +
+            '설정 > 앱 > CookIt > 권한 > 마이크 허용';
         }
 
         Alert.alert(
