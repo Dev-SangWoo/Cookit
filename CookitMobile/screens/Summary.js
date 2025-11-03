@@ -2,7 +2,7 @@
 // 재료랑 필요한 양이 나와있는데 원한다면 재료 구매 탭 만들기도 가능(쿠팡으로 보내기)
 // 위쪽에는 요리 영상, 그 밑에는 요리 재료랑 단계들
 
-import { ScrollView, Platform, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Linking, Dimensions } from 'react-native'
+import { ScrollView, Platform, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Linking, Dimensions, Switch } from 'react-native'
 import React, { useState, useEffect } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation, useRoute } from '@react-navigation/native'
@@ -33,6 +33,7 @@ const Summary = () => {
   const [videoError, setVideoError] = useState(false);
   const [originalVideoUrl, setOriginalVideoUrl] = useState(null);
   const [autoplayEnabled, setAutoplayEnabled] = useState(true); // 자동재생 옵션
+  const [voiceControlEnabled, setVoiceControlEnabled] = useState(false); // 음성 제어 옵션
   
   const RECENT_VIEWED_KEY = '@recent_viewed_recipes';
   const MAX_RECENT_VIEWED = 10;
@@ -409,7 +410,8 @@ const Summary = () => {
       navigation.replace("Recipe", { 
         screen: 'RecipeMain',
         params: { 
-          recipeId: receivedRecipeId
+          recipeId: receivedRecipeId,
+          voiceControlEnabled: voiceControlEnabled // 음성 제어 옵션 전달
         }
       });
     } else {
@@ -419,7 +421,8 @@ const Summary = () => {
       navigation.replace("Recipe", { 
         screen: 'RecipeMain',
         params: { 
-          recipeId: demoRecipeId
+          recipeId: demoRecipeId,
+          voiceControlEnabled: voiceControlEnabled // 음성 제어 옵션 전달
         }
       });
     }
@@ -789,18 +792,49 @@ const Summary = () => {
 
         {/* 하단 버튼들 */}
         <View style={[styles.Buttoncontainer, { paddingBottom: Math.min(insets.bottom, 10) }]}>
-          <TouchableOpacity style={styles.buttonHome} onPress={handleDelete}>
-            <Ionicons name="home-outline" size={20} color="#FF6B35" />
-            <Text style={styles.homeText}>홈으로</Text>
-          </TouchableOpacity>
+          {/* 음성 제어 토글 */}
+          <View style={styles.voiceControlToggleContainer}>
+            <View style={styles.voiceControlToggle}>
+              <Ionicons 
+                name={voiceControlEnabled ? "mic" : "mic-off"} 
+                size={20} 
+                color={voiceControlEnabled ? "#4CAF50" : "#999"} 
+              />
+              <Text style={[
+                styles.voiceControlText,
+                { color: voiceControlEnabled ? "#4CAF50" : "#999" }
+              ]}>
+                음성 제어
+              </Text>
+              <Switch
+                value={voiceControlEnabled}
+                onValueChange={setVoiceControlEnabled}
+                trackColor={{ false: '#ccc', true: '#4CAF50' }}
+                thumbColor={voiceControlEnabled ? '#fff' : '#f4f3f4'}
+                style={styles.switch}
+              />
+            </View>
+            {voiceControlEnabled && (
+              <Text style={styles.voiceControlHint}>
+                "다음", "이전", "타이머 3분" 등 말하기
+              </Text>
+            )}
+          </View>
 
-          <TouchableOpacity 
-            style={styles.buttonStart}
-            onPress={handleStart}
-          >
-            <Ionicons name="play-outline" size={20} color="#fff" />
-            <Text style={styles.startText}>요리 시작하기</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={styles.buttonHome} onPress={handleDelete}>
+              <Ionicons name="home-outline" size={20} color="#FF6B35" />
+              <Text style={styles.homeText}>홈으로</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.buttonStart}
+              onPress={handleStart}
+            >
+              <Ionicons name="play-outline" size={20} color="#fff" />
+              <Text style={styles.startText}>요리 시작하기</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -1064,8 +1098,6 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
     backgroundColor: '#fff',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
     padding: 16,
     borderTopWidth: 1,
     borderColor: '#eee',
@@ -1074,6 +1106,41 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
+  },
+  voiceControlToggleContainer: {
+    marginBottom: 12,
+  },
+  voiceControlToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  voiceControlText: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 8,
+    marginRight: 8,
+    flex: 1,
+  },
+  voiceControlHint: {
+    fontSize: 11,
+    color: '#4CAF50',
+    textAlign: 'center',
+    marginTop: 6,
+    fontWeight: '500',
+  },
+  switch: {
+    transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
   },
   buttonHome: {
     flexDirection: 'row',
