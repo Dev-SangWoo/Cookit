@@ -14,14 +14,13 @@
 5. 생성된 Access Key 복사
 
 ### 단계 3: Access Key 적용
-`screens/Recipe/RecipeMain.js` 파일의 552번 줄에서:
-```javascript
-'YOUR_ACCESS_KEY_HERE' // 이 부분을
+`.env` 파일을 열고 `EXPO_PUBLIC_PICOVOICE_ACCESS_KEY` 값을 설정:
+```bash
+# .env 파일
+EXPO_PUBLIC_PICOVOICE_ACCESS_KEY=px_ABC123XYZ...  # 복사한 실제 Access Key
 ```
-복사한 Access Key로 교체:
-```javascript
-'px_ABC123XYZ...' // 실제 Access Key
-```
+
+**참고:** `.env.example` 파일에 예제가 있습니다.
 
 ---
 
@@ -109,8 +108,13 @@ require('../assets/rhino_context.rhn')
 ### Access Key 오류
 ```
 Error: Invalid Access Key
+또는
+Picovoice Access Key 필요
 ```
-**해결:** Access Key가 올바르게 복사되었는지 확인
+**해결:**
+1. `.env` 파일에 `EXPO_PUBLIC_PICOVOICE_ACCESS_KEY`가 설정되었는지 확인
+2. Access Key가 올바르게 복사되었는지 확인
+3. 앱을 재시작 (`npx expo start --clear`)
 
 ### Context 파일 오류
 ```

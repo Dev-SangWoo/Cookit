@@ -548,8 +548,26 @@ const Recipe = ({ route }) => {
         }
 
         // Rhino Manager 생성
+        const accessKey = process.env.EXPO_PUBLIC_PICOVOICE_ACCESS_KEY;
+        
+        if (!accessKey || accessKey === 'YOUR_ACCESS_KEY_HERE') {
+          Alert.alert(
+            'Picovoice Access Key 필요',
+            '.env 파일에 EXPO_PUBLIC_PICOVOICE_ACCESS_KEY를 설정해주세요.\n\n자세한 내용은 PICOVOICE_SETUP.md를 참고하세요.',
+            [
+              { 
+                text: '음성 인식 끄기', 
+                onPress: () => setIsVoiceEnabled(false)
+              },
+              { text: '확인' }
+            ]
+          );
+          setIsVoiceEnabled(false);
+          return;
+        }
+
         rhinoManager = await RhinoManager.create(
-          'YOUR_ACCESS_KEY_HERE', // TODO: Picovoice Console에서 발급받은 Access Key로 교체
+          accessKey,
           'rhino_context.rhn', // Context 파일 경로
           processInference,
           (error) => {
