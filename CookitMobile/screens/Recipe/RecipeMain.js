@@ -35,6 +35,10 @@ const Recipe = ({ route }) => {
   const porcupineManagerRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   
+  // Rhino 자동 종료 타이머 (30초 후 자동 종료)
+  const rhinoAutoStopTimerRef = useRef(null);
+  const RHINO_AUTO_STOP_DELAY = 30000; // 30초
+  
   // 타이머 관련 상태
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
@@ -529,6 +533,39 @@ const Recipe = ({ route }) => {
     }
   };
 
+  // Rhino 자동 종료 함수
+  const stopRhinoListening = useCallback(() => {
+    console.log('⏰ Rhino 자동 종료 (30초 무동작)');
+    setIsListening(false);
+    stopPulseAnimation();
+    
+    // Rhino는 초기화 상태로 유지 (wake word 감지 시 다시 활성화 가능)
+    // process()만 중단하고 manager는 유지
+  }, []);
+
+  // Rhino 자동 종료 타이머 시작/리셋
+  const resetRhinoAutoStopTimer = useCallback(() => {
+    // 기존 타이머 클리어
+    if (rhinoAutoStopTimerRef.current) {
+      clearTimeout(rhinoAutoStopTimerRef.current);
+    }
+    
+    // 새 타이머 시작 (30초 후 자동 종료)
+    rhinoAutoStopTimerRef.current = setTimeout(() => {
+      if (isListening && rhinoManagerRef.current) {
+        stopRhinoListening();
+      }
+    }, RHINO_AUTO_STOP_DELAY);
+    
+    console.log('⏰ Rhino 자동 종료 타이머 리셋 (30초)');
+  }, [isListening, stopRhinoListening]);
+
+  // 맥박 애니메이션 중지
+  const stopPulseAnimation = () => {
+    pulseAnim.stopAnimation();
+    pulseAnim.setValue(1);
+  };
+
   // 음성 명령 처리 (useCallback으로 최신 state 참조 보장)
   const processInference = useCallback((inference) => {
     if (!inference.isUnderstood) {
@@ -662,11 +699,16 @@ const Recipe = ({ route }) => {
               await rhinoManagerRef.current.process();
               setIsListening(true);
               startPulseAnimation();
+              
+              // 자동 종료 타이머 시작
+              resetRhinoAutoStopTimer();
             } catch (error) {
               console.error('❌ Wake word 후 Rhino 활성화 실패:', error);
             }
           } else if (isListening) {
             console.log('ℹ️ Rhino가 이미 활성화되어 있습니다');
+            // 이미 활성화되어 있어도 타이머 리셋
+            resetRhinoAutoStopTimer();
           }
           
           // 2초 후 wake word 감지 상태 초기화
@@ -717,6 +759,12 @@ const Recipe = ({ route }) => {
 
     // Cleanup
     return () => {
+      // 자동 종료 타이머 클리어
+      if (rhinoAutoStopTimerRef.current) {
+        clearTimeout(rhinoAutoStopTimerRef.current);
+        rhinoAutoStopTimerRef.current = null;
+      }
+      
       if (porcupineManager) {
         try {
           porcupineManager.stop().catch(console.error);
@@ -728,7 +776,7 @@ const Recipe = ({ route }) => {
       setIsWakeWordActive(false);
       setWakeWordDetected(false);
     };
-  }, [isVoiceEnabled, isListening]);
+  }, [isVoiceEnabled, isListening, resetRhinoAutoStopTimer]);
 
   // Rhino 초기화 및 관리 (공식 문서 기반)
   // 참고: https://picovoice.ai/docs/quick-start/rhino-react-native/
@@ -808,6 +856,9 @@ const Recipe = ({ route }) => {
             console.log('🎤 명령어를 인식하지 못했습니다');
           }
           
+          // 명령 실행 시마다 자동 종료 타이머 리셋
+          resetRhinoAutoStopTimer();
+          
           // inference 처리 후 다시 음성 인식 시작 (계속 인식하기 위해)
           try {
             if (rhinoManagerRef.current && isVoiceEnabled) {
@@ -819,6 +870,7 @@ const Recipe = ({ route }) => {
                 } catch (error) {
                   console.error('❌ 음성 인식 재시작 실패:', error);
                   setIsListening(false);
+                  stopPulseAnimation();
                 }
               }, 500);
             }
@@ -853,12 +905,10 @@ const Recipe = ({ route }) => {
 
         rhinoManagerRef.current = rhinoManager;
 
-        // RhinoManager.process() 호출하면 자동으로 오디오 캡처 시작
-        await rhinoManager.process();
-
-        setIsListening(true);
-        startPulseAnimation();
-        console.log('🎤 Picovoice 음성 인식 시작');
+        // Rhino는 초기화만 하고, process()는 wake word 감지 시에만 호출
+        // Porcupine이 wake word를 감지하면 wakeWordCallback에서 Rhino 활성화
+        console.log('🎤 Rhino 초기화 완료 (wake word 감지 대기 중)');
+        // setIsListening은 wake word 감지 시 설정됨
 
       } catch (error) {
         console.error('❌ Rhino 초기화 실패:', error);
@@ -913,6 +963,12 @@ const Recipe = ({ route }) => {
 
     // Cleanup
     return () => {
+      // 자동 종료 타이머 클리어
+      if (rhinoAutoStopTimerRef.current) {
+        clearTimeout(rhinoAutoStopTimerRef.current);
+        rhinoAutoStopTimerRef.current = null;
+      }
+      
       if (rhinoManager) {
         try {
           rhinoManager.delete().catch(console.error);
@@ -921,6 +977,7 @@ const Recipe = ({ route }) => {
         }
       }
       stopTimer();
+      stopPulseAnimation();
     };
   }, [isVoiceEnabled]);
 
