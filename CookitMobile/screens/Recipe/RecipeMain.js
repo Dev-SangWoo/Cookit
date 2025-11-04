@@ -612,12 +612,32 @@ const Recipe = ({ route }) => {
         console.log('📁 Model 파일 경로:', modelPath);
 
         // inference callback 정의
-        const inferenceCallback = (inference) => {
+        // 참고: RhinoManager는 inference 발생 시 자동으로 오디오 캡처를 중지함
+        // 계속 인식하려면 다시 process()를 호출해야 함
+        const inferenceCallback = async (inference) => {
           console.log('🎤 Rhino inference:', inference);
           if (inference.isUnderstood) {
             processInference(inference);
           } else {
             console.log('🎤 명령어를 인식하지 못했습니다');
+          }
+          
+          // inference 처리 후 다시 음성 인식 시작 (계속 인식하기 위해)
+          try {
+            if (rhinoManagerRef.current && isVoiceEnabled) {
+              // 약간의 지연 후 다시 시작 (명령 처리 시간 확보)
+              setTimeout(async () => {
+                try {
+                  await rhinoManagerRef.current.process();
+                  console.log('🔄 음성 인식 재시작');
+                } catch (error) {
+                  console.error('❌ 음성 인식 재시작 실패:', error);
+                  setIsListening(false);
+                }
+              }, 500);
+            }
+          } catch (error) {
+            console.error('❌ inference callback 오류:', error);
           }
         };
 
