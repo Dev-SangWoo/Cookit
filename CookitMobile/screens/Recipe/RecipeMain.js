@@ -468,20 +468,26 @@ const Recipe = ({ route }) => {
     const { intent, slots } = inference;
     console.log('🗣️ 인식된 명령:', intent, slots);
 
+    // Context 파일에서 반환되는 intent 이름에 맞게 처리
+    // 한국어 intent 이름: "다음", "이전", "타이머", "중지" 등
+    // 영어 intent 이름도 지원: 'next', 'previous', 'timer', 'stop'
     switch (intent) {
       case 'next':
+      case '다음':
         console.log('▶️ 다음 단계로 이동');
         handleNext();
         Alert.alert('음성 명령', '다음 단계로 이동합니다', [{ text: '확인' }], { cancelable: true });
         break;
       
       case 'previous':
+      case '이전':
         console.log('◀️ 이전 단계로 이동');
         handlePrev();
         Alert.alert('음성 명령', '이전 단계로 이동합니다', [{ text: '확인' }], { cancelable: true });
         break;
       
       case 'timer':
+      case '타이머':
         // slots는 { [key: string]: string } 형태 (API 문서 참고)
         // Context에서 정의한 slot 이름에 따라 다를 수 있음
         let minutes = 1;
@@ -501,6 +507,8 @@ const Recipe = ({ route }) => {
         break;
       
       case 'stop':
+      case '중지':
+      case '정지':
         console.log('⏹️ 타이머 중지');
         stopTimer();
         Alert.alert('음성 명령', '타이머를 중지했습니다', [{ text: '확인' }], { cancelable: true });
@@ -508,6 +516,7 @@ const Recipe = ({ route }) => {
       
       default:
         console.log('❓ 알 수 없는 명령:', intent);
+        console.log('💡 사용 가능한 명령: "다음", "이전", "타이머 3분", "중지"');
     }
   };
 
