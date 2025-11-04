@@ -680,29 +680,32 @@ const Recipe = ({ route }) => {
           console.error('❌ Porcupine 처리 오류:', error);
         };
 
+        // 커스텀 wake word 파일 경로 (한국어)
+        const keywordFileName = 'porcupine_ko_android_v3_0_0.ppn';
         // 한국어 모델 파일 경로
         const modelFileName = 'ko_android_v3_0_0.pv';
         
-        // PorcupineManager 생성 (기본 wake word 사용)
-        // 한국어 커스텀 wake word를 사용하려면 .fromKeywordPaths 사용
-        // 현재는 기본 wake word를 사용 (나중에 커스텀 wake word 추가 가능)
+        console.log('📁 Wake word 파일 경로:', keywordFileName);
+        console.log('📁 모델 파일 경로:', modelFileName);
         
-        // 일단 기본 wake word로 시작 (영어: "porcupine", "bumblebee")
-        // 한국어 커스텀 wake word는 나중에 추가
-        porcupineManager = await PorcupineManager.fromBuiltInKeywords(
+        // PorcupineManager 생성 (커스텀 한국어 wake word 사용)
+        // fromKeywordPaths: 커스텀 wake word 파일 사용
+        // 참고: https://picovoice.ai/docs/api/porcupine-react-native/
+        porcupineManager = await PorcupineManager.fromKeywordPaths(
           accessKey,
-          [BuiltInKeywords.PORCUPINE], // 기본 wake word 사용
+          [keywordFileName], // 커스텀 wake word 파일 경로
           wakeWordCallback,
-          processErrorCallback
+          processErrorCallback,
+          modelFileName // 한국어 모델 파일 경로
         );
 
-        console.log('✅ PorcupineManager 생성 완료');
+        console.log('✅ PorcupineManager 생성 완료 (한국어 wake word)');
         porcupineManagerRef.current = porcupineManager;
 
         // Wake word 감지 시작
         await porcupineManager.start();
         setIsWakeWordActive(true);
-        console.log('🔔 Wake word 감지 시작 (기본: "porcupine")');
+        console.log('🔔 Wake word 감지 시작 (한국어 커스텀 wake word)');
 
       } catch (error) {
         console.error('❌ Porcupine 초기화 실패:', error);
@@ -954,7 +957,7 @@ const Recipe = ({ route }) => {
               </Text>
               <Text style={styles.voiceHintText}>
                 {isWakeWordActive && !isListening ? 
-                  'Wake word "porcupine" 말하기 → 음성 인식 활성화' :
+                  'Wake word 말하기 → 음성 인식 활성화' :
                   '"다음", "이전", "타이머 3분" 등의 명령을 말씀하세요'}
               </Text>
             </View>
