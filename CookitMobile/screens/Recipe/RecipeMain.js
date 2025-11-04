@@ -752,32 +752,46 @@ const Recipe = ({ route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 음성 인식 상태 표시 */}
-      {isVoiceEnabled && (
-        <View style={styles.voiceStatusContainer}>
-          <Animated.View style={[
-            styles.voiceIndicator,
-            { transform: [{ scale: pulseAnim }] },
-            isListening && styles.voiceIndicatorActive
-          ]}>
-            <Text style={styles.voiceIcon}>🎤</Text>
-          </Animated.View>
+      {/* 음성 인식 상태 표시 (항상 표시, 토글 버튼) */}
+      <View style={styles.voiceStatusContainer}>
+        {isVoiceEnabled ? (
+          <>
+            <Animated.View style={[
+              styles.voiceIndicator,
+              { transform: [{ scale: pulseAnim }] },
+              isListening && styles.voiceIndicatorActive
+            ]}>
+              <Text style={styles.voiceIcon}>🎤</Text>
+            </Animated.View>
+            <View style={styles.voiceTextContainer}>
+              <Text style={styles.voiceStatusText}>
+                {isListening ? '음성 인식 중...' : '음성 인식 대기 중'}
+              </Text>
+              <Text style={styles.voiceHintText}>
+                "다음", "이전", "타이머 3분" 등의 명령을 말씀하세요
+              </Text>
+            </View>
+          </>
+        ) : (
           <View style={styles.voiceTextContainer}>
-            <Text style={styles.voiceStatusText}>
-              {isListening ? '음성 인식 중...' : '음성 인식 대기 중'}
-            </Text>
+            <Text style={styles.voiceStatusText}>음성 인식 꺼짐</Text>
             <Text style={styles.voiceHintText}>
-              "다음", "이전", "타이머 3분" 등의 명령을 말씀하세요
+              버튼을 눌러 음성 인식을 활성화하세요
             </Text>
           </View>
-          <TouchableOpacity 
-            style={styles.voiceToggleButton}
-            onPress={() => setIsVoiceEnabled(false)}
-          >
-            <Text style={styles.voiceToggleText}>OFF</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        )}
+        <TouchableOpacity 
+          style={[
+            styles.voiceToggleButton,
+            isVoiceEnabled ? styles.voiceToggleButtonOn : styles.voiceToggleButtonOff
+          ]}
+          onPress={() => setIsVoiceEnabled(!isVoiceEnabled)}
+        >
+          <Text style={styles.voiceToggleText}>
+            {isVoiceEnabled ? 'OFF' : 'ON'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* 타이머 표시 */}
       {timerActive && (
@@ -1767,10 +1781,15 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   voiceToggleButton: {
-    backgroundColor: '#FF6B35',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
+  },
+  voiceToggleButtonOn: {
+    backgroundColor: '#FF6B35',
+  },
+  voiceToggleButtonOff: {
+    backgroundColor: '#4CAF50',
   },
   voiceToggleText: {
     color: '#fff',

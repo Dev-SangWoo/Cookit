@@ -822,18 +822,18 @@ const Summary = () => {
           </View>
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.buttonHome} onPress={handleDelete}>
-              <Ionicons name="home-outline" size={20} color="#FF6B35" />
-              <Text style={styles.homeText}>홈으로</Text>
-            </TouchableOpacity>
+          <TouchableOpacity style={styles.buttonHome} onPress={handleDelete}>
+            <Ionicons name="home-outline" size={20} color="#FF6B35" />
+            <Text style={styles.homeText}>홈으로</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.buttonStart}
-              onPress={handleStart}
-            >
-              <Ionicons name="play-outline" size={20} color="#fff" />
-              <Text style={styles.startText}>요리 시작하기</Text>
-            </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.buttonStart}
+            onPress={handleStart}
+          >
+            <Ionicons name="play-outline" size={20} color="#fff" />
+            <Text style={styles.startText}>요리 시작하기</Text>
+          </TouchableOpacity>
           </View>
         </View>
       </View>
