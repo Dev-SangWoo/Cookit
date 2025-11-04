@@ -687,6 +687,11 @@ const Recipe = ({ route }) => {
           return;
         }
 
+        // PorcupineManager 모듈 확인
+        if (!PorcupineManager || typeof PorcupineManager.fromKeywordPaths !== 'function') {
+          throw new Error('PorcupineManager 모듈을 사용할 수 없습니다. Development Build가 필요합니다.');
+        }
+
         // Wake word 감지 콜백
         const wakeWordCallback = async (keywordIndex) => {
           console.log('🔔 Wake word 감지됨! keywordIndex:', keywordIndex);
@@ -751,6 +756,43 @@ const Recipe = ({ route }) => {
 
       } catch (error) {
         console.error('❌ Porcupine 초기화 실패:', error);
+        console.error('❌ 오류 타입:', error.constructor?.name);
+        console.error('❌ 오류 상세:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+        
+        let errorMessage = 'Porcupine 초기화 중 오류가 발생했습니다.';
+        
+        if (error.message?.includes('null') || error.message?.includes('fromKeywordPaths') || error.message?.includes('undefined')) {
+          errorMessage = 'PorcupineManager 모듈 로드 실패:\n\n' +
+            '1. Development Build로 빌드했는지 확인\n' +
+            '2. npx expo run:android 또는 eas build --profile development\n' +
+            '3. Expo Go로는 작동하지 않습니다\n' +
+            '4. 패키지 재설치: npm install @picovoice/porcupine-react-native';
+        } else if (error.message?.includes('access') || error.message?.includes('key') || error.message?.includes('invalid')) {
+          errorMessage = 'Access Key 오류:\n\n' +
+            '1. .env 파일에 EXPO_PUBLIC_PICOVOICE_ACCESS_KEY가 설정되었는지 확인\n' +
+            '2. Access Key가 올바른지 확인';
+        } else if (error.message?.includes('file') || error.message?.includes('path') || error.message?.includes('.ppn')) {
+          errorMessage = 'Wake word 파일 오류:\n\n' +
+            '1. porcupine_ko_android_v3_0_0.ppn 파일이 assets 폴더에 있는지 확인\n' +
+            '2. 파일이 번들에 포함되었는지 확인\n' +
+            '3. android/app/src/main/assets/ 폴더에도 복사되었는지 확인';
+        } else {
+          errorMessage = 'Porcupine 오류:\n\n' + error.message + '\n\n' +
+            'Picovoice Console과 공식 문서를 확인하세요:\n' +
+            'https://picovoice.ai/docs/api/porcupine-react-native/';
+        }
+        
+        Alert.alert(
+          'Porcupine 초기화 실패',
+          errorMessage,
+          [
+            { 
+              text: '계속 진행', 
+              onPress: () => console.log('Porcupine 없이 Rhino만 사용')
+            },
+            { text: '확인' }
+          ]
+        );
         // Porcupine 실패해도 Rhino는 계속 작동
       }
     };
