@@ -7,6 +7,7 @@ import { WebView } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { RhinoManager } from '@picovoice/rhino-react-native';
+import { PorcupineManager, BuiltInKeywords } from '@picovoice/porcupine-react-native';
 
 const recipeSteps = [
   { title: '재료 준비하기', description: '모든 재료를 깨끗이 씻고 손질해 주세요.' },
@@ -28,7 +29,10 @@ const Recipe = ({ route }) => {
   // Picovoice 음성 인식 관련 상태
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(route?.params?.voiceControlEnabled || false);
   const [isListening, setIsListening] = useState(false);
+  const [wakeWordDetected, setWakeWordDetected] = useState(false);
+  const [isWakeWordActive, setIsWakeWordActive] = useState(false);
   const rhinoManagerRef = useRef(null);
+  const porcupineManagerRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   
   // 타이머 관련 상태
@@ -622,6 +626,107 @@ const Recipe = ({ route }) => {
     setTimerSeconds(0);
   };
 
+  // Porcupine Wake Word 초기화 및 관리
+  // 참고: https://picovoice.ai/docs/quick-start/porcupine-react-native/
+  useEffect(() => {
+    let porcupineManager = null;
+
+    const initPorcupine = async () => {
+      if (!isVoiceEnabled) return;
+
+      try {
+        // Android 마이크 권한 요청
+        const hasPermission = await requestMicrophonePermission();
+        if (!hasPermission) {
+          setIsVoiceEnabled(false);
+          return;
+        }
+
+        // Access Key 확인
+        const accessKey = process.env.EXPO_PUBLIC_PICOVOICE_ACCESS_KEY;
+        
+        if (!accessKey || accessKey === 'YOUR_ACCESS_KEY_HERE') {
+          console.log('⚠️ Porcupine 초기화 건너뜀: Access Key 없음');
+          return;
+        }
+
+        // Wake word 감지 콜백
+        const wakeWordCallback = async (keywordIndex) => {
+          console.log('🔔 Wake word 감지됨! keywordIndex:', keywordIndex);
+          setWakeWordDetected(true);
+          
+          // Wake word 감지 후 Rhino 활성화 (이미 활성화되어 있으면 무시)
+          if (rhinoManagerRef.current && !isListening) {
+            try {
+              console.log('🎤 Wake word 감지 후 Rhino 활성화');
+              await rhinoManagerRef.current.process();
+              setIsListening(true);
+              startPulseAnimation();
+            } catch (error) {
+              console.error('❌ Wake word 후 Rhino 활성화 실패:', error);
+            }
+          } else if (isListening) {
+            console.log('ℹ️ Rhino가 이미 활성화되어 있습니다');
+          }
+          
+          // 2초 후 wake word 감지 상태 초기화
+          setTimeout(() => {
+            setWakeWordDetected(false);
+          }, 2000);
+        };
+
+        // Process error callback
+        const processErrorCallback = (error) => {
+          console.error('❌ Porcupine 처리 오류:', error);
+        };
+
+        // 한국어 모델 파일 경로
+        const modelFileName = 'ko_android_v3_0_0.pv';
+        
+        // PorcupineManager 생성 (기본 wake word 사용)
+        // 한국어 커스텀 wake word를 사용하려면 .fromKeywordPaths 사용
+        // 현재는 기본 wake word를 사용 (나중에 커스텀 wake word 추가 가능)
+        
+        // 일단 기본 wake word로 시작 (영어: "porcupine", "bumblebee")
+        // 한국어 커스텀 wake word는 나중에 추가
+        porcupineManager = await PorcupineManager.fromBuiltInKeywords(
+          accessKey,
+          [BuiltInKeywords.PORCUPINE], // 기본 wake word 사용
+          wakeWordCallback,
+          processErrorCallback
+        );
+
+        console.log('✅ PorcupineManager 생성 완료');
+        porcupineManagerRef.current = porcupineManager;
+
+        // Wake word 감지 시작
+        await porcupineManager.start();
+        setIsWakeWordActive(true);
+        console.log('🔔 Wake word 감지 시작 (기본: "porcupine")');
+
+      } catch (error) {
+        console.error('❌ Porcupine 초기화 실패:', error);
+        // Porcupine 실패해도 Rhino는 계속 작동
+      }
+    };
+
+    initPorcupine();
+
+    // Cleanup
+    return () => {
+      if (porcupineManager) {
+        try {
+          porcupineManager.stop().catch(console.error);
+          porcupineManager.delete().catch(console.error);
+        } catch (e) {
+          console.error('PorcupineManager cleanup 오류:', e);
+        }
+      }
+      setIsWakeWordActive(false);
+      setWakeWordDetected(false);
+    };
+  }, [isVoiceEnabled, isListening]);
+
   // Rhino 초기화 및 관리 (공식 문서 기반)
   // 참고: https://picovoice.ai/docs/quick-start/rhino-react-native/
   useEffect(() => {
@@ -843,10 +948,14 @@ const Recipe = ({ route }) => {
             </Animated.View>
             <View style={styles.voiceTextContainer}>
               <Text style={styles.voiceStatusText}>
-                {isListening ? '음성 인식 중...' : '음성 인식 대기 중'}
+                {wakeWordDetected ? '🔔 Wake word 감지!' : 
+                 isListening ? '음성 인식 중...' : 
+                 isWakeWordActive ? 'Wake word 대기 중...' : '음성 인식 대기 중'}
               </Text>
               <Text style={styles.voiceHintText}>
-                "다음", "이전", "타이머 3분" 등의 명령을 말씀하세요
+                {isWakeWordActive && !isListening ? 
+                  'Wake word "porcupine" 말하기 → 음성 인식 활성화' :
+                  '"다음", "이전", "타이머 3분" 등의 명령을 말씀하세요'}
               </Text>
             </View>
           </>
