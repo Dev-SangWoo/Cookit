@@ -37,7 +37,7 @@ const Recipe = ({ route }) => {
   
   // Rhino 자동 종료 타이머 (30초 후 자동 종료)
   const rhinoAutoStopTimerRef = useRef(null);
-  const RHINO_AUTO_STOP_DELAY = 30000; // 30초
+  const RHINO_AUTO_STOP_DELAY = 15000; // 15초
   
   // 타이머 관련 상태
   const [timerSeconds, setTimerSeconds] = useState(0);
@@ -535,7 +535,7 @@ const Recipe = ({ route }) => {
 
   // Rhino 자동 종료 함수
   const stopRhinoListening = useCallback(() => {
-    console.log('⏰ Rhino 자동 종료 (30초 무동작)');
+    console.log('⏰ Rhino 자동 종료 (15초 무동작)');
     setIsListening(false);
     stopPulseAnimation();
     
@@ -1032,7 +1032,50 @@ const Recipe = ({ route }) => {
             styles.voiceToggleButton,
             isVoiceEnabled ? styles.voiceToggleButtonOn : styles.voiceToggleButtonOff
           ]}
-          onPress={() => setIsVoiceEnabled(!isVoiceEnabled)}
+          onPress={async () => {
+            const newValue = !isVoiceEnabled;
+            setIsVoiceEnabled(newValue);
+            
+            // OFF로 전환 시 즉시 마이크 사용 중지
+            if (!newValue) {
+              console.log('🔇 음성 인식 OFF - 마이크 사용 중지');
+              
+              // PorcupineManager 중지 및 삭제
+              if (porcupineManagerRef.current) {
+                try {
+                  await porcupineManagerRef.current.stop();
+                  await porcupineManagerRef.current.delete();
+                  porcupineManagerRef.current = null;
+                  console.log('✅ PorcupineManager 중지 및 삭제 완료');
+                } catch (error) {
+                  console.error('❌ PorcupineManager 중지 실패:', error);
+                }
+              }
+              
+              // RhinoManager 삭제
+              if (rhinoManagerRef.current) {
+                try {
+                  await rhinoManagerRef.current.delete();
+                  rhinoManagerRef.current = null;
+                  console.log('✅ RhinoManager 삭제 완료');
+                } catch (error) {
+                  console.error('❌ RhinoManager 삭제 실패:', error);
+                }
+              }
+              
+              // 상태 초기화
+              setIsListening(false);
+              setIsWakeWordActive(false);
+              setWakeWordDetected(false);
+              stopPulseAnimation();
+              
+              // 자동 종료 타이머 클리어
+              if (rhinoAutoStopTimerRef.current) {
+                clearTimeout(rhinoAutoStopTimerRef.current);
+                rhinoAutoStopTimerRef.current = null;
+              }
+            }
+          }}
         >
           <Text style={styles.voiceToggleText}>
             {isVoiceEnabled ? 'OFF' : 'ON'}
