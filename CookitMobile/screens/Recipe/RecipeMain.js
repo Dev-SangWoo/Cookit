@@ -357,14 +357,23 @@ const Recipe = ({ route }) => {
   }, [recipeId]);
 
   const handleNext = () => {
+    console.log('🔍 handleNext 호출됨');
+    console.log('🔍 현재 상태:', { currentStepIndex, currentActionIndex, totalSteps, actionsLength: currentStep?.actions?.length });
+    
     // 현재 step의 다음 action이 있는지 확인
     if (currentActionIndex < (currentStep?.actions?.length || 1) - 1) {
       // 같은 step 내에서 다음 action으로
-      setCurrentActionIndex(currentActionIndex + 1);
+      const nextActionIndex = currentActionIndex + 1;
+      console.log('▶️ 같은 step 내에서 다음 action으로 이동:', nextActionIndex);
+      setCurrentActionIndex(nextActionIndex);
     } else if (currentStepIndex < totalSteps - 1) {
       // 다음 step의 첫 번째 action으로
-      setCurrentStepIndex(currentStepIndex + 1);
+      const nextStepIndex = currentStepIndex + 1;
+      console.log('▶️ 다음 step으로 이동:', nextStepIndex);
+      setCurrentStepIndex(nextStepIndex);
       setCurrentActionIndex(0);
+    } else {
+      console.log('⚠️ 이미 마지막 단계입니다');
     }
   };
 
@@ -383,16 +392,25 @@ const Recipe = ({ route }) => {
   };
 
   const handlePrev = () => {
+    console.log('🔍 handlePrev 호출됨');
+    console.log('🔍 현재 상태:', { currentStepIndex, currentActionIndex, totalSteps, actionsLength: currentStep?.actions?.length });
+    
     // 현재 step의 이전 action이 있는지 확인
     if (currentActionIndex > 0) {
       // 같은 step 내에서 이전 action으로
-      setCurrentActionIndex(currentActionIndex - 1);
+      const prevActionIndex = currentActionIndex - 1;
+      console.log('◀️ 같은 step 내에서 이전 action으로 이동:', prevActionIndex);
+      setCurrentActionIndex(prevActionIndex);
     } else if (currentStepIndex > 0) {
       // 이전 step의 마지막 action으로
-      const prevStep = recipe?.instructions?.[currentStepIndex - 1];
+      const prevStepIndex = currentStepIndex - 1;
+      const prevStep = recipe?.instructions?.[prevStepIndex];
       const prevStepActionsLength = prevStep?.actions?.length || 1;
-      setCurrentStepIndex(currentStepIndex - 1);
+      console.log('◀️ 이전 step으로 이동:', prevStepIndex, '마지막 action:', prevStepActionsLength - 1);
+      setCurrentStepIndex(prevStepIndex);
       setCurrentActionIndex(prevStepActionsLength - 1);
+    } else {
+      console.log('⚠️ 이미 첫 번째 단계입니다');
     }
   };
 
@@ -474,15 +492,17 @@ const Recipe = ({ route }) => {
     switch (intent) {
       case 'next':
       case '다음':
-        console.log('▶️ 다음 단계로 이동');
+        console.log('▶️ 다음 단계로 이동 - processInference에서 호출');
         handleNext();
+        console.log('✅ handleNext 호출 완료');
         Alert.alert('음성 명령', '다음 단계로 이동합니다', [{ text: '확인' }], { cancelable: true });
         break;
       
       case 'previous':
       case '이전':
-        console.log('◀️ 이전 단계로 이동');
+        console.log('◀️ 이전 단계로 이동 - processInference에서 호출');
         handlePrev();
+        console.log('✅ handlePrev 호출 완료');
         Alert.alert('음성 명령', '이전 단계로 이동합니다', [{ text: '확인' }], { cancelable: true });
         break;
       
