@@ -1,6 +1,6 @@
 // 단계별 요약화면
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking, ScrollView, Animated, Platform, PermissionsAndroid } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -356,26 +356,53 @@ const Recipe = ({ route }) => {
     fetchRecipe();
   }, [recipeId]);
 
-  const handleNext = () => {
-    console.log('🔍 handleNext 호출됨');
-    console.log('🔍 현재 상태:', { currentStepIndex, currentActionIndex, totalSteps, actionsLength: currentStep?.actions?.length });
-    
-    // 현재 step의 다음 action이 있는지 확인
-    if (currentActionIndex < (currentStep?.actions?.length || 1) - 1) {
-      // 같은 step 내에서 다음 action으로
-      const nextActionIndex = currentActionIndex + 1;
-      console.log('▶️ 같은 step 내에서 다음 action으로 이동:', nextActionIndex);
-      setCurrentActionIndex(nextActionIndex);
-    } else if (currentStepIndex < totalSteps - 1) {
-      // 다음 step의 첫 번째 action으로
-      const nextStepIndex = currentStepIndex + 1;
-      console.log('▶️ 다음 step으로 이동:', nextStepIndex);
-      setCurrentStepIndex(nextStepIndex);
-      setCurrentActionIndex(0);
-    } else {
-      console.log('⚠️ 이미 마지막 단계입니다');
-    }
-  };
+  const handleNext = useCallback(() => {
+    setCurrentStepIndex((prevStepIndex) => {
+      setCurrentActionIndex((prevActionIndex) => {
+        const currentStepData = recipe?.instructions?.[prevStepIndex];
+        const actionsLength = currentStepData?.actions?.length || 1;
+        const totalStepsCount = recipe?.instructions?.length || 0;
+        
+        console.log('🔍 handleNext 호출됨');
+        console.log('🔍 현재 상태:', { 
+          stepIndex: prevStepIndex, 
+          actionIndex: prevActionIndex, 
+          totalSteps: totalStepsCount, 
+          actionsLength 
+        });
+        
+        // 현재 step의 다음 action이 있는지 확인
+        if (prevActionIndex < actionsLength - 1) {
+          // 같은 step 내에서 다음 action으로
+          const nextActionIndex = prevActionIndex + 1;
+          console.log('▶️ 같은 step 내에서 다음 action으로 이동:', nextActionIndex);
+          return nextActionIndex;
+        } else if (prevStepIndex < totalStepsCount - 1) {
+          // 다음 step의 첫 번째 action으로
+          const nextStepIndex = prevStepIndex + 1;
+          console.log('▶️ 다음 step으로 이동:', nextStepIndex);
+          // stepIndex는 아래에서 업데이트
+          return 0; // 다음 step의 첫 번째 action
+        } else {
+          console.log('⚠️ 이미 마지막 단계입니다');
+          return prevActionIndex;
+        }
+      });
+      
+      // stepIndex 업데이트 (action이 마지막이고 다음 step이 있을 때만)
+      const currentStepData = recipe?.instructions?.[prevStepIndex];
+      const actionsLength = currentStepData?.actions?.length || 1;
+      const totalStepsCount = recipe?.instructions?.length || 0;
+      
+      if (currentActionIndex < actionsLength - 1) {
+        return prevStepIndex; // stepIndex는 변경 안 함
+      } else if (prevStepIndex < totalStepsCount - 1) {
+        return prevStepIndex + 1; // 다음 step으로
+      }
+      
+      return prevStepIndex;
+    });
+  }, [recipe, currentActionIndex]);
 
   // 마지막 단계인지 확인하는 함수
   const isLastStep = () => {
@@ -391,28 +418,50 @@ const Recipe = ({ route }) => {
     });
   };
 
-  const handlePrev = () => {
-    console.log('🔍 handlePrev 호출됨');
-    console.log('🔍 현재 상태:', { currentStepIndex, currentActionIndex, totalSteps, actionsLength: currentStep?.actions?.length });
-    
-    // 현재 step의 이전 action이 있는지 확인
-    if (currentActionIndex > 0) {
-      // 같은 step 내에서 이전 action으로
-      const prevActionIndex = currentActionIndex - 1;
-      console.log('◀️ 같은 step 내에서 이전 action으로 이동:', prevActionIndex);
-      setCurrentActionIndex(prevActionIndex);
-    } else if (currentStepIndex > 0) {
-      // 이전 step의 마지막 action으로
-      const prevStepIndex = currentStepIndex - 1;
-      const prevStep = recipe?.instructions?.[prevStepIndex];
-      const prevStepActionsLength = prevStep?.actions?.length || 1;
-      console.log('◀️ 이전 step으로 이동:', prevStepIndex, '마지막 action:', prevStepActionsLength - 1);
-      setCurrentStepIndex(prevStepIndex);
-      setCurrentActionIndex(prevStepActionsLength - 1);
-    } else {
-      console.log('⚠️ 이미 첫 번째 단계입니다');
-    }
-  };
+  const handlePrev = useCallback(() => {
+    setCurrentStepIndex((prevStepIndex) => {
+      setCurrentActionIndex((prevActionIndex) => {
+        const totalStepsCount = recipe?.instructions?.length || 0;
+        
+        console.log('🔍 handlePrev 호출됨');
+        console.log('🔍 현재 상태:', { 
+          stepIndex: prevStepIndex, 
+          actionIndex: prevActionIndex,
+          totalSteps: totalStepsCount 
+        });
+        
+        // 현재 step의 이전 action이 있는지 확인
+        if (prevActionIndex > 0) {
+          // 같은 step 내에서 이전 action으로
+          const prevActionIndexNew = prevActionIndex - 1;
+          console.log('◀️ 같은 step 내에서 이전 action으로 이동:', prevActionIndexNew);
+          return prevActionIndexNew;
+        } else if (prevStepIndex > 0) {
+          // 이전 step의 마지막 action으로
+          const prevStepData = recipe?.instructions?.[prevStepIndex - 1];
+          const prevStepActionsLength = prevStepData?.actions?.length || 1;
+          console.log('◀️ 이전 step으로 이동:', prevStepIndex - 1, '마지막 action:', prevStepActionsLength - 1);
+          // stepIndex는 아래에서 업데이트
+          return prevStepActionsLength - 1;
+        } else {
+          console.log('⚠️ 이미 첫 번째 단계입니다');
+          return prevActionIndex;
+        }
+      });
+      
+      // stepIndex 업데이트 (action이 첫 번째이고 이전 step이 있을 때만)
+      const currentStepData = recipe?.instructions?.[prevStepIndex];
+      const actionsLength = currentStepData?.actions?.length || 1;
+      
+      if (currentActionIndex > 0) {
+        return prevStepIndex; // stepIndex는 변경 안 함
+      } else if (prevStepIndex > 0) {
+        return prevStepIndex - 1; // 이전 step으로
+      }
+      
+      return prevStepIndex;
+    });
+  }, [recipe, currentActionIndex]);
 
   // ===== Picovoice 음성 인식 관련 함수들 =====
   
@@ -476,8 +525,8 @@ const Recipe = ({ route }) => {
     }
   };
 
-  // 음성 명령 처리
-  const processInference = (inference) => {
+  // 음성 명령 처리 (useCallback으로 최신 state 참조 보장)
+  const processInference = useCallback((inference) => {
     if (!inference.isUnderstood) {
       console.log('🎤 명령어를 인식하지 못했습니다');
       return;
@@ -538,7 +587,7 @@ const Recipe = ({ route }) => {
         console.log('❓ 알 수 없는 명령:', intent);
         console.log('💡 사용 가능한 명령: "다음", "이전", "타이머 3분", "중지"');
     }
-  };
+  }, [currentStepIndex, currentActionIndex, currentStep, totalSteps, recipe, handleNext, handlePrev, startTimer, stopTimer]);
 
   // 타이머 시작
   const startTimer = (seconds) => {
