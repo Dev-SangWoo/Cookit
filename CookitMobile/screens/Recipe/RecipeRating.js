@@ -216,6 +216,7 @@ const RecipeRating = () => {
           style={styles.commentInput}
           multiline
           placeholder="레시피에 대한 솔직한 의견을 남겨주세요."
+          placeholderTextColor="#999"
           value={comment}
           onChangeText={setComment}
           maxLength={60}

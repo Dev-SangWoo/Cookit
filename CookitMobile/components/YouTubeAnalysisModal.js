@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
+import YouTubePlayer from './YouTubePlayer';
 
 const YouTubeAnalysisModal = ({
   visible,
@@ -20,45 +20,9 @@ const YouTubeAnalysisModal = ({
 }) => {
   if (!video) return null;
 
-  const extractVideoId = (v) => {
-    if (!v) return '';
-    if (v.videoId) return v.videoId;
-    const url = v.url || v.videoUrl || v.link || '';
-    const m = url.match(/[?&]v=([a-zA-Z0-9_-]{6,})/) || url.match(/youtu\.be\/([a-zA-Z0-9_-]{6,})/);
-    return m ? m[1] : '';
-  };
-
-  const getYouTubeHTML = (videoId) => {
-    if (!videoId) return '<html><body style="background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100%">영상 미리보기를 불러올 수 없습니다</body></html>';
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="referrer" content="strict-origin-when-cross-origin" />
-  <style>
-    html, body { margin:0; padding:0; background:#000; height:100%; overflow:hidden; }
-    .wrap { position:relative; width:100%; height:100%; }
-    iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
-  </style>
-  <script>
-    Object.defineProperty(document, 'referrer', { value: 'https://com.cookit.app', writable: false });
-  </script>
-  </head>
-<body>
-  <div class="wrap">
-    <iframe
-      src="https://www.youtube.com/embed/${videoId}?autoplay=0&controls=1&playsinline=1&enablejsapi=1&rel=0&modestbranding=1"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowfullscreen
-      referrerpolicy="strict-origin-when-cross-origin"
-    ></iframe>
-  </div>
-</body>
-</html>`;
-  };
-
-  const videoId = extractVideoId(video);
+  // YouTubePlayer 컴포넌트가 자체적으로 videoId를 추출하므로, videoId 또는 videoUrl만 전달
+  const videoId = video.videoId || null;
+  const videoUrl = video.url || video.videoUrl || video.link || null;
 
   return (
     <Modal
@@ -79,13 +43,12 @@ const YouTubeAnalysisModal = ({
 
           {/* 영상 미리보기 */}
           <View style={styles.playerBox}>
-            <WebView
-              originWhitelist={["*"]}
-              source={{ html: getYouTubeHTML(videoId), baseUrl: 'https://com.cookit.app' }}
-              style={styles.webview}
-              allowsInlineMediaPlayback
-              mediaPlaybackRequiresUserAction={false}
-              javaScriptEnabled
+            <YouTubePlayer
+              videoId={videoId}
+              videoUrl={videoUrl}
+              autoplay={false}
+              height={220}
+              showErrorUI={true}
             />
           </View>
 

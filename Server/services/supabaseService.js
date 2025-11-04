@@ -59,7 +59,15 @@ class SupabaseService {
           image_urls,
           source_url,
           ai_generated,
-          created_at
+          created_at,
+          recipe_stats (
+            view_count,
+            favorite_count,
+            cook_count
+          ),
+          recipe_categories (
+            name
+          )
         `)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
@@ -82,7 +90,17 @@ class SupabaseService {
     try {
       const { data, error } = await supabase
         .from('recipes')
-        .select('*')
+        .select(`
+          *,
+          recipe_stats (
+            view_count,
+            favorite_count,
+            cook_count
+          ),
+          recipe_categories (
+            name
+          )
+        `)
         .eq('id', recipeId)
         .single();
 

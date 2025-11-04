@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 
 // Auth 관련 imports
@@ -38,10 +39,10 @@ export default function App() {
     // 클린업
     return () => {
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
     };
   }, []);
@@ -79,6 +80,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar style="dark" backgroundColor="#ffffff" />
       <AuthProvider>
         <AnalysisProvider>
           <AuthNavigator />

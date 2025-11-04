@@ -3,15 +3,16 @@
 // 이번주 요리 활동 부분에 (요리 완성, 저장된 레시피, 요리 레벨) 레벨은 어떻게 할지 모르겠음
 
 import React, { useEffect, useState, useRef } from 'react'; 
-import { View, Text, Image, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, Image, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal } from 'react-native';
 import ProfileSettingModal from './ProfileSettingModal'; 
 import { useAuth } from '../../contexts/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { getMyProfile, getUserPosts, getUserStats, getWeekRecipes } from '../../services/userApi';
+import { getMyProfile, getUserPosts, getUserStats, getWeekRecipes, updateProfile } from '../../services/userApi';
 
 export default function ProfileMain() {
   const [showSettingModal, setShowSettingModal] = useState(false);
+  const [showCookingLevelModal, setShowCookingLevelModal] = useState(false);
   const navigation = useNavigation();
 
   const settingsButtonRef = useRef(null);
@@ -55,6 +56,19 @@ export default function ProfileMain() {
     return levelMap[level] || '초급';
   };
 
+  // 요리 레벨 변경 핸들러
+  const handleCookingLevelChange = async (newLevel) => {
+    try {
+      await updateProfile({ cooking_level: newLevel });
+      setStats(prev => ({ ...prev, cookingLevel: newLevel }));
+      setShowCookingLevelModal(false);
+      Alert.alert('저장 완료', '요리 레벨이 변경되었습니다.');
+    } catch (error) {
+      console.error('요리 레벨 업데이트 오류:', error);
+      Alert.alert('저장 실패', error.message || '요리 레벨 변경 중 오류가 발생했습니다.');
+    }
+  };
+
   // 이번 주 완성한 요리 보기
   const handleViewWeekRecipes = async () => {
     try {
@@ -93,10 +107,11 @@ export default function ProfileMain() {
 
         // 서버 API를 통해 통계 조회
         const statsData = await getUserStats();
+        console.log('📊 통계 데이터:', statsData); // 디버깅용
         setStats({
           weekCompletedRecipes: statsData.weekCompletedRecipes || 0,
-          savedRecipes: statsData.savedRecipes || 0,
-          cookingLevel: statsData.cookingLevel || 0
+          savedRecipes: statsData.savedRecipes || statsData.likesCount || 0, // likesCount도 확인
+          cookingLevel: statsData.cookingLevel || 'beginner'
         });
       } catch (error) {
         console.error('데이터 로딩 오류:', error);
@@ -210,10 +225,14 @@ export default function ProfileMain() {
               <Text style={styles.activityNumber}>{stats.savedRecipes}</Text>
               <Text style={styles.activityLabel}>좋아하는 레시피</Text>
             </TouchableOpacity>
-            <View style={styles.activityCard}>
+            <TouchableOpacity 
+              style={styles.activityCard}
+              onPress={() => setShowCookingLevelModal(true)}
+              activeOpacity={0.7}
+            >
               <Text style={styles.activityNumber}>{getCookingLevelText(stats.cookingLevel)}</Text>
               <Text style={styles.activityLabel}>요리 레벨</Text>
-            </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -270,6 +289,61 @@ export default function ProfileMain() {
           </View>
         )}
       </ScrollView>
+
+      {/* 요리 레벨 설정 모달 */}
+      <Modal
+        visible={showCookingLevelModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCookingLevelModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>요리 레벨 설정</Text>
+            <Text style={styles.modalSubtitle}>현재 요리 실력을 선택해주세요</Text>
+            
+            {[
+              { label: '초급', description: '라면, 계란요리 정도 가능해요', value: 'beginner' },
+              { label: '중급', description: '기본적인 요리 가능해요', value: 'intermediate' },
+              { label: '고급', description: '복잡한 요리도 자신있어요', value: 'advanced' },
+            ].map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.levelOption,
+                  stats.cookingLevel === option.value && styles.levelOptionSelected
+                ]}
+                onPress={() => handleCookingLevelChange(option.value)}
+              >
+                <View style={styles.levelOptionContent}>
+                  <Text style={[
+                    styles.levelOptionLabel,
+                    stats.cookingLevel === option.value && styles.levelOptionLabelSelected
+                  ]}>
+                    {option.label}
+                  </Text>
+                  <Text style={[
+                    styles.levelOptionDescription,
+                    stats.cookingLevel === option.value && styles.levelOptionDescriptionSelected
+                  ]}>
+                    {option.description}
+                  </Text>
+                </View>
+                {stats.cookingLevel === option.value && (
+                  <Text style={styles.checkmark}>✓</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowCookingLevelModal(false)}
+            >
+              <Text style={styles.modalCloseButtonText}>닫기</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -521,5 +595,84 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
     backgroundColor: '#E9ECEF',
+  },
+  // 요리 레벨 모달 스타일
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#212529',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#6C757D',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  levelOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 2,
+    borderColor: '#E9ECEF',
+  },
+  levelOptionSelected: {
+    backgroundColor: '#FFF4E6',
+    borderColor: '#FF6B35',
+  },
+  levelOptionContent: {
+    flex: 1,
+  },
+  levelOptionLabel: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#212529',
+    marginBottom: 4,
+  },
+  levelOptionLabelSelected: {
+    color: '#FF6B35',
+  },
+  levelOptionDescription: {
+    fontSize: 14,
+    color: '#6C757D',
+  },
+  levelOptionDescriptionSelected: {
+    color: '#FF6B35',
+  },
+  checkmark: {
+    fontSize: 24,
+    color: '#FF6B35',
+    fontWeight: 'bold',
+    marginLeft: 12,
+  },
+  modalCloseButton: {
+    marginTop: 8,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F8F9FA',
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6C757D',
   },
 });

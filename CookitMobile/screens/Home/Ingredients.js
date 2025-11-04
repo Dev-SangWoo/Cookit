@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import SetupIngredientsModal from '../Setup/SetupIngredientsModal';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -15,7 +16,8 @@ export default function Ingredients() {
   const [isSelectionModalVisible, setIsSelectionModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [ingredients, setIngredients] = useState([]);
-  const [selectedLocation, setSelectedLocation] = useState('all'); // 'all', 'fridge', 'freezer', 'room'
+  const [allIngredients, setAllIngredients] = useState([]); // 전체 재료 목록
+  const [selectedLocation, setSelectedLocation] = useState('all'); // 'all', '냉장', '냉동', '실온'
   
   // 화면이 focus될 때마다 재료 목록을 새로고침
   useFocusEffect(
@@ -35,12 +37,35 @@ export default function Ingredients() {
         if (!dateB) return -1;
         return new Date(dateA) - new Date(dateB);
       });
-      setIngredients(sortedData);
+      setAllIngredients(sortedData);
+      filterIngredientsByLocation(sortedData, selectedLocation);
     } catch (error) {
       console.error('재료 조회 오류:', error);
       Alert.alert('오류', error.message || '재료를 불러오는 데 실패했습니다.');
     }
   };
+
+  // storage_type에 따른 필터링 함수
+  const filterIngredientsByLocation = (data, location) => {
+    if (location === 'all') {
+      setIngredients(data);
+    } else {
+      const locationMap = {
+        'fridge': '냉장',
+        'freezer': '냉동',
+        'room': '실온'
+      };
+      const filtered = data.filter(item => item.storage_type === locationMap[location]);
+      setIngredients(filtered);
+    }
+  };
+
+  // 위치 변경 시 필터링
+  useEffect(() => {
+    if (allIngredients.length > 0) {
+      filterIngredientsByLocation(allIngredients, selectedLocation);
+    }
+  }, [selectedLocation, allIngredients]);
 
   const calculateExpiry = (expiryDate) => {
     // 🚨 날짜 파싱 안정성을 위해 형식 변환 로직을 추가합니다. (이전 대화에서 다룬 내용)
@@ -83,6 +108,7 @@ export default function Ingredients() {
         quantity: parseInt(newIngredient.quantity, 10),
         unit: newIngredient.unit,
         expiration_date: newIngredient.expiry,
+        storage_type: newIngredient.storage_type || '냉장',
       });
 
       // 유통기한 알림 스케줄링
@@ -102,6 +128,7 @@ export default function Ingredients() {
         quantity: parseInt(updatedIngredient.quantity, 10),
         unit: updatedIngredient.unit,
         expiration_date: updatedIngredient.expiry,
+        storage_type: updatedIngredient.storage_type || '냉장',
       });
 
       fetchIngredients(); 
@@ -185,7 +212,7 @@ export default function Ingredients() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* 헤더 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>내 냉장고</Text>
@@ -245,10 +272,15 @@ export default function Ingredients() {
               const expiryDate = ingredient.expiry_date || ingredient.expiration_date;
               const expiryInfo = calculateExpiry(expiryDate);
               const productName = ingredient.product_name || ingredient.name;
+              // 각 행의 마지막 항목(3의 배수 - 1)은 오른쪽 마진 제거
+              const isLastInRow = (index + 1) % 3 === 0;
               return (
                 <TouchableOpacity 
                   key={ingredient.id || index}
-                  style={styles.ingredientCard}
+                  style={[
+                    styles.ingredientCard,
+                    isLastInRow && styles.ingredientCardLastInRow
+                  ]}
                   onPress={() => openEditModal(ingredient)}
                   activeOpacity={0.8}
                 >
@@ -354,7 +386,7 @@ export default function Ingredients() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -436,21 +468,25 @@ const styles = StyleSheet.create({
   ingredientGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
   },
   ingredientCard: {
-    width: '23%',
+    width: '30%',
     aspectRatio: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 8,
     marginBottom: 12,
+    marginRight: '5%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
     position: 'relative',
+  },
+  ingredientCardLastInRow: {
+    marginRight: 0,
   },
   expiryBadge: {
     position: 'absolute',

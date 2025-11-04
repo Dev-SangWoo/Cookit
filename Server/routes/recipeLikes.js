@@ -142,6 +142,41 @@ router.post('/:recipeId', requireAuth, async (req, res) => {
 
       if (insertError) throw insertError;
 
+      // recipe_stats의 favorite_count 증가
+      try {
+        // recipe_stats 레코드 확인
+        const { data: existingStats } = await supabase
+          .from('recipe_stats')
+          .select('*')
+          .eq('recipe_id', recipeId)
+          .maybeSingle();
+
+        if (existingStats) {
+          // 기존 레코드가 있으면 favorite_count 증가
+          await supabase
+            .from('recipe_stats')
+            .update({ 
+              favorite_count: (existingStats.favorite_count || 0) + 1,
+              updated_at: new Date().toISOString()
+            })
+            .eq('recipe_id', recipeId);
+        } else {
+          // 없으면 새로 생성
+          await supabase
+            .from('recipe_stats')
+            .insert({
+              recipe_id: recipeId,
+              favorite_count: 1,
+              view_count: 0,
+              cook_count: 0,
+              average_rating: 0.0,
+            });
+        }
+      } catch (statsError) {
+        console.warn('⚠️ favorite_count 업데이트 실패:', statsError);
+        // 통계 업데이트 실패해도 좋아요는 성공으로 처리
+      }
+
       return res.json({
         success: true,
         liked: true,
@@ -157,6 +192,28 @@ router.post('/:recipeId', requireAuth, async (req, res) => {
         .eq('user_id', userId);
 
       if (deleteError) throw deleteError;
+
+      // recipe_stats의 favorite_count 감소
+      try {
+        const { data: existingStats } = await supabase
+          .from('recipe_stats')
+          .select('*')
+          .eq('recipe_id', recipeId)
+          .maybeSingle();
+
+        if (existingStats && existingStats.favorite_count > 0) {
+          await supabase
+            .from('recipe_stats')
+            .update({ 
+              favorite_count: Math.max(0, (existingStats.favorite_count || 0) - 1),
+              updated_at: new Date().toISOString()
+            })
+            .eq('recipe_id', recipeId);
+        }
+      } catch (statsError) {
+        console.warn('⚠️ favorite_count 업데이트 실패:', statsError);
+        // 통계 업데이트 실패해도 좋아요 취소는 성공으로 처리
+      }
 
       return res.json({
         success: true,

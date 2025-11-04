@@ -7,10 +7,10 @@ import {
   FlatList,
   Alert,
   ActivityIndicator,
-  SafeAreaView,
   TextInput,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../contexts/AuthContext';
@@ -23,9 +23,42 @@ const ReceiptMain = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
 
-  // 영수증 이미지 선택
+  // 카메라로 영수증 촬영
+  const handleCameraCapture = async () => {
+    try {
+      // 카메라 권한 요청
+      const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+      if (!granted) {
+        Alert.alert('권한 필요', '영수증을 촬영하려면 카메라 접근 권한이 필요합니다.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await processReceiptImage(result.assets[0]);
+      }
+    } catch (error) {
+      console.error('카메라 촬영 오류:', error);
+      Alert.alert('오류', '카메라를 사용할 수 없습니다.');
+    }
+  };
+
+  // 갤러리에서 영수증 이미지 선택
   const handleImagePicker = async () => {
     try {
+      // 갤러리 권한 요청
+      const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!granted) {
+        Alert.alert('권한 필요', '사진을 선택하려면 갤러리 접근 권한이 필요합니다.');
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -74,6 +107,7 @@ const ReceiptMain = () => {
           id: `temp_${Date.now()}_${index}`,
           unit: 'g', // 기본 단위
           expiration_date: '', // 유통기한 비어있음
+          storage_type: '냉장', // 기본 보관 방법
         }));
         setOcrItems(itemsWithId);
         Alert.alert(
@@ -127,6 +161,7 @@ const ReceiptMain = () => {
         quantity: item.quantity || 1,
         unit: item.unit || 'g',
         expiration_date: item.expiration_date || null,
+        storage_type: item.storage_type || '냉장',
       }));
 
       await addReceiptItemsBulk(items);
@@ -152,31 +187,66 @@ const ReceiptMain = () => {
   };
 
   // 아이템 카드 렌더링
-  const renderItem = ({ item }) => (
-    <View style={styles.itemCard}>
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemName}>{item.product_name}</Text>
-        <Text style={styles.itemDetails}>
-          수량: {item.quantity} {item.unit}
-          {item.expiration_date && ` | 유통기한: ${item.expiration_date}`}
-        </Text>
+  const renderItem = ({ item }) => {
+    const storageTypeIcon = item.storage_type === '냉동' ? '🧊' : item.storage_type === '실온' ? '🏠' : '❄️';
+    const storageTypeColor = item.storage_type === '냉동' ? '#2196F3' : item.storage_type === '실온' ? '#FF9800' : '#4CAF50';
+    
+    return (
+      <View style={styles.itemCard}>
+        <View style={styles.itemInfo}>
+          <View style={styles.itemHeader}>
+            <View style={styles.itemNameContainer}>
+              <Text style={styles.itemName} numberOfLines={1}>{item.product_name}</Text>
+            </View>
+            {item.storage_type && (
+              <View style={[styles.storageTypeBadge, { backgroundColor: storageTypeColor + '15', borderColor: storageTypeColor }]}>
+                <Text style={styles.storageTypeBadgeIcon}>{storageTypeIcon}</Text>
+                <Text style={[styles.storageTypeBadgeText, { color: storageTypeColor }]}>
+                  {item.storage_type}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.itemDetailsContainer}>
+            <View style={styles.detailRow}>
+              <Ionicons name="cube-outline" size={14} color="#6C757D" />
+              <Text style={styles.itemDetails}>
+                {item.quantity} {item.unit || '개'}
+              </Text>
+            </View>
+            {item.expiration_date && (
+              <View style={styles.detailRow}>
+                <Ionicons name="calendar-outline" size={14} color="#6C757D" />
+                <Text style={styles.itemDetails}>
+                  {item.expiration_date}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <View style={styles.itemActions}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => openEditModal(item)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.editButtonInner}>
+              <Ionicons name="create-outline" size={18} color="#4CAF50" />
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => deleteItem(item.id)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.deleteButtonInner}>
+              <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
+            </View>
+          </TouchableOpacity>
+        </View>
       </View>
-      <View style={styles.itemActions}>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => openEditModal(item)}
-        >
-          <Ionicons name="create-outline" size={20} color="#4CAF50" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => deleteItem(item.id)}
-        >
-          <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -194,9 +264,14 @@ const ReceiptMain = () => {
       {/* 헤더 */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>영수증 인식</Text>
-        <TouchableOpacity style={styles.cameraButton} onPress={handleImagePicker}>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity style={styles.cameraButton} onPress={handleCameraCapture}>
           <Ionicons name="camera" size={24} color="#fff" />
         </TouchableOpacity>
+          <TouchableOpacity style={styles.galleryButton} onPress={handleImagePicker}>
+            <Ionicons name="images-outline" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* 인식된 아이템 목록 */}
@@ -205,7 +280,8 @@ const ReceiptMain = () => {
           <Ionicons name="receipt-outline" size={80} color="#CCC" />
           <Text style={styles.emptyTitle}>영수증을 인식해주세요</Text>
           <Text style={styles.emptySubtitle}>
-            카메라 버튼을 눌러 영수증을 촬영하면{'\n'}
+            카메라 버튼으로 촬영하거나{'\n'}
+            사진 버튼으로 갤러리에서 선택하면{'\n'}
             자동으로 상품을 인식합니다
           </Text>
         </View>
@@ -266,6 +342,7 @@ const ReceiptMain = () => {
               value={editingItem?.unit}
               onChangeText={(text) => setEditingItem({ ...editingItem, unit: text })}
               placeholder="예: g, ml, 개"
+              placeholderTextColor="#999"
             />
 
             <Text style={styles.label}>유통기한 (선택)</Text>
@@ -274,7 +351,29 @@ const ReceiptMain = () => {
               value={editingItem?.expiration_date}
               onChangeText={(text) => setEditingItem({ ...editingItem, expiration_date: text })}
               placeholder="예: 2025-12-31"
+              placeholderTextColor="#999"
             />
+
+            <Text style={styles.label}>보관 방법</Text>
+            <View style={styles.storageTypeContainer}>
+              {['냉장', '냉동', '실온'].map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.storageTypeButton,
+                    editingItem?.storage_type === type && styles.storageTypeButtonSelected
+                  ]}
+                  onPress={() => setEditingItem({ ...editingItem, storage_type: type })}
+                >
+                  <Text style={[
+                    styles.storageTypeButtonText,
+                    editingItem?.storage_type === type && styles.storageTypeButtonTextSelected
+                  ]}>
+                    {type === '냉장' ? '❄️' : type === '냉동' ? '🧊' : '🏠'} {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -307,40 +406,69 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 18,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E9ECEF',
+    borderBottomColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 2,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: '#212529',
+    letterSpacing: -0.5,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  galleryButton: {
+    backgroundColor: '#4CAF50',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   cameraButton: {
     backgroundColor: '#FF6B35',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   infoBar: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8F9FA',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#E9ECEF',
   },
   infoText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#212529',
     marginBottom: 4,
   },
   infoSubText: {
     fontSize: 13,
     color: '#6C757D',
+    fontWeight: '500',
   },
   listContent: {
     paddingHorizontal: 16,
@@ -350,39 +478,102 @@ const styles = StyleSheet.create({
   itemCard: {
     backgroundColor: '#FFFFFF',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
   },
   itemInfo: {
     flex: 1,
+    marginRight: 12,
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    gap: 8,
+  },
+  itemNameContainer: {
+    flex: 1,
+    marginRight: 8,
   },
   itemName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#212529',
-    marginBottom: 4,
+    lineHeight: 22,
+  },
+  storageTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    gap: 5,
+    minWidth: 60,
+    justifyContent: 'center',
+  },
+  storageTypeBadgeIcon: {
+    fontSize: 14,
+  },
+  storageTypeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  itemDetailsContainer: {
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   itemDetails: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6C757D',
+    fontWeight: '500',
   },
   itemActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
+    alignItems: 'flex-start',
   },
   editButton: {
-    padding: 8,
+    padding: 4,
+  },
+  editButtonInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4CAF50',
   },
   deleteButton: {
-    padding: 8,
+    padding: 4,
+  },
+  deleteButtonInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFEBEE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
   },
   saveButton: {
     position: 'absolute',
@@ -393,19 +584,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 8,
+    paddingVertical: 18,
+    borderRadius: 16,
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+    borderWidth: 0,
   },
   saveButtonText: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     marginLeft: 8,
+    letterSpacing: 0.5,
   },
   emptyContainer: {
     flex: 1,
@@ -414,17 +607,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#6C757D',
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#495057',
     marginTop: 24,
     marginBottom: 12,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#ADB5BD',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 24,
+    fontWeight: '500',
   },
   loadingContainer: {
     flex: 1,
@@ -498,6 +692,34 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  storageTypeContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  storageTypeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#F0F0F0',
+    borderWidth: 2,
+    borderColor: '#F0F0F0',
+    alignItems: 'center',
+  },
+  storageTypeButtonSelected: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#2196F3',
+  },
+  storageTypeButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+  },
+  storageTypeButtonTextSelected: {
+    color: '#2196F3',
+    fontWeight: '700',
   },
 });
 

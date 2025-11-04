@@ -77,31 +77,75 @@ class RecipeService {
   }
 
   /**
-   * 레시피 저장/즐겨찾기 (임시 구현)
+   * 레시피 좋아요 추가/제거 (RecipeRating에서 사용하는 방식과 동일)
    */
-  async saveRecipe(recipeId, type = 'saved', options = {}) {
-    // 현재는 임시로 성공 응답만 반환
-    console.log(`레시피 ${recipeId}를 ${type}으로 저장 요청`);
-    return {
-      success: true,
-      message: '레시피가 저장되었습니다.',
-      type,
-      recipe_id: recipeId
-    };
+  async saveRecipe(recipeId, type = 'favorited', options = {}) {
+    try {
+      const token = await this.getAuthToken();
+      if (!token) {
+        throw new Error('로그인이 필요합니다.');
+      }
+
+      const baseUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
+      
+      // RecipeRating에서 사용하는 /api/recipe-likes/:recipeId 엔드포인트 사용
+      const response = await fetch(`${baseUrl}/recipe-likes/${recipeId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ liked: true })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || '좋아요 추가 실패');
+      }
+
+      console.log(`✅ 레시피 ${recipeId} 좋아요 추가 완료`);
+      return data;
+    } catch (error) {
+      console.error('좋아요 추가 오류:', error);
+      throw error;
+    }
   }
 
   /**
-   * 저장된 레시피 삭제 (임시 구현)
+   * 레시피 좋아요 제거 (RecipeRating에서 사용하는 방식과 동일)
    */
-  async removeRecipe(recipeId, type = 'saved') {
-    // 현재는 임시로 성공 응답만 반환
-    console.log(`레시피 ${recipeId}를 ${type}에서 삭제 요청`);
-    return {
-      success: true,
-      message: '레시피가 삭제되었습니다.',
-      type,
-      recipe_id: recipeId
-    };
+  async removeRecipe(recipeId, type = 'favorited') {
+    try {
+      const token = await this.getAuthToken();
+      if (!token) {
+        throw new Error('로그인이 필요합니다.');
+      }
+
+      const baseUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
+      
+      // RecipeRating에서 사용하는 /api/recipe-likes/:recipeId 엔드포인트 사용
+      const response = await fetch(`${baseUrl}/recipe-likes/${recipeId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ liked: false })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || '좋아요 제거 실패');
+      }
+
+      console.log(`✅ 레시피 ${recipeId} 좋아요 제거 완료`);
+      return data;
+    } catch (error) {
+      console.error('좋아요 제거 오류:', error);
+      throw error;
+    }
   }
 
   /**
@@ -191,11 +235,19 @@ class RecipeService {
    */
   async getPopularRecipes(limit = 10) {
     try {
+      const token = await this.getAuthToken();
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      
+      // 인증 토큰이 있으면 좋아요 상태 포함
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${API_BASE_URL}/recommendations/popular?limit=${limit}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       });
 
       const data = await response.json();

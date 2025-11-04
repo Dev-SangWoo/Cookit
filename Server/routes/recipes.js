@@ -243,6 +243,7 @@ router.post('/:id/view', async (req, res) => {
     }
 
     // 2️⃣ recipe_stats 레코드 확인
+    // ANON_KEY 사용 (RLS 정책으로 권한 제어)
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(
       process.env.SUPABASE_URL,
@@ -256,13 +257,14 @@ router.post('/:id/view', async (req, res) => {
       .maybeSingle();
 
     if (statsCheckError && statsCheckError.code !== 'PGRST116') {
+      console.error('❌ recipe_stats 조회 오류:', statsCheckError);
       throw statsCheckError;
     }
 
     // 3️⃣ recipe_stats가 없으면 생성
     if (!existingStats) {
       console.log(`📊 recipe_stats 초기 생성: ${id}`);
-      const { error: insertError } = await supabase
+      const { data: newStats, error: insertError } = await supabase
         .from('recipe_stats')
         .insert({
           recipe_id: id,
@@ -270,9 +272,16 @@ router.post('/:id/view', async (req, res) => {
           favorite_count: 0,
           cook_count: 0,
           average_rating: 0.0,
-        });
+        })
+        .select()
+        .single();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('❌ recipe_stats 생성 오류:', insertError);
+        throw insertError;
+      }
+
+      console.log(`✅ recipe_stats 초기 생성 완료: ${id}, view_count: 1`);
 
       return res.json({
         success: true,
@@ -282,17 +291,23 @@ router.post('/:id/view', async (req, res) => {
     }
 
     // 4️⃣ 조회수 증가
+    const newViewCount = (existingStats.view_count || 0) + 1;
     const { data: updatedStats, error: updateError } = await supabase
       .from('recipe_stats')
       .update({ 
-        view_count: existingStats.view_count + 1,
+        view_count: newViewCount,
         updated_at: new Date().toISOString(),
       })
       .eq('recipe_id', id)
       .select()
       .single();
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      console.error('❌ recipe_stats 업데이트 오류:', updateError);
+      throw updateError;
+    }
+
+    console.log(`✅ recipe_stats 조회수 증가 완료: ${id}, ${existingStats.view_count} → ${newViewCount}`);
 
     console.log(`👁️ 조회수 증가: ${recipe.title} (${updatedStats.view_count}회)`);
 

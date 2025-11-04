@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -16,15 +16,18 @@ const RecipeCard = ({
   recipe, 
   onPress, 
   onFavorite, 
-  onSave,
   showActions = true,
   style = {}
 }) => {
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
   const {
     recipe_id,
     id,
     title,
     description,
+    prep_time,
     cook_time,
     difficulty_level,
     servings,
@@ -34,18 +37,54 @@ const RecipeCard = ({
     image_url,
     thumbnail,
     image_urls,
-    user_relationship
+    user_relationship,
+    recipe_likes,
+    category_name,
+    category,
+    recipe_categories
   } = recipe;
 
   // 썸네일 우선순위: thumbnail > image_url > image_urls[0]
   const displayImage = thumbnail || image_url || (image_urls && image_urls[0]);
 
   // 서버 데이터 구조에 맞게 필드 매핑
-  const cooking_time = cook_time;
+  // prep_time과 cook_time을 합산
+  const cooking_time = (prep_time || 0) + (cook_time || 0);
   const difficulty = difficulty_level;
 
-  const isSaved = user_relationship?.some(rel => rel.type === 'saved');
-  const isFavorited = user_relationship?.some(rel => rel.type === 'favorited');
+  // 초기 좋아요 상태 설정
+  useEffect(() => {
+    // recipe_likes가 배열이고 길이가 0보다 크면 좋아요 상태
+    // 서버에서 빈 배열 [] 또는 null이 올 수 있음
+    const hasLikes = recipe_likes && Array.isArray(recipe_likes) && recipe_likes.length > 0;
+    const hasUserRelationship = user_relationship && Array.isArray(user_relationship) && user_relationship.some(rel => rel.type === 'favorited');
+    
+    setIsFavorited(hasLikes || hasUserRelationship);
+    
+    // 디버깅용 로그
+    if (recipe_likes && Array.isArray(recipe_likes) && recipe_likes.length > 0) {
+      console.log(`✅ RecipeCard 좋아요 상태: ${title} - recipe_likes:`, recipe_likes);
+    }
+  }, [recipe_likes, user_relationship, title]);
+
+  // 좋아요 토글 핸들러
+  const handleFavoritePress = async () => {
+    if (isLoading) return;
+    
+    setIsLoading(true);
+    const newFavoriteState = !isFavorited;
+    setIsFavorited(newFavoriteState); // 즉시 UI 업데이트
+    
+    try {
+      await onFavorite(recipe_id || id, newFavoriteState);
+    } catch (error) {
+      // 실패 시 원래 상태로 복구
+      setIsFavorited(!newFavoriteState);
+      console.error('좋아요 처리 오류:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getDifficultyColor = (level) => {
     switch (level?.toLowerCase()) {
@@ -93,23 +132,13 @@ const RecipeCard = ({
           <View style={styles.actionButtons}>
             <TouchableOpacity 
               style={[styles.actionButton, isFavorited && styles.favorited]}
-              onPress={() => onFavorite(recipe_id, !isFavorited)}
+              onPress={handleFavoritePress}
+              disabled={isLoading}
             >
               <Ionicons 
                 name={isFavorited ? "heart" : "heart-outline"} 
                 size={16} 
                 color={isFavorited ? "#FFF" : "#666"} 
-              />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.actionButton, isSaved && styles.saved]}
-              onPress={() => onSave(recipe_id, !isSaved)}
-            >
-              <Ionicons 
-                name={isSaved ? "bookmark" : "bookmark-outline"} 
-                size={16} 
-                color={isSaved ? "#FFF" : "#666"} 
               />
             </TouchableOpacity>
           </View>
@@ -140,6 +169,18 @@ const RecipeCard = ({
             </View>
           </View>
 
+          {/* 카테고리 정보 */}
+          {(category_name || category || recipe_categories?.name) && (
+            <View style={styles.categoryRow}>
+              <View style={styles.categoryBadge}>
+                <Ionicons name="pricetag-outline" size={10} color="#FF6B35" />
+                <Text style={styles.categoryText}>
+                  {category_name || category || recipe_categories?.name}
+                </Text>
+              </View>
+            </View>
+          )}
+
           <View style={styles.metaRow}>
             <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(difficulty) }]}>
               <Text style={styles.difficultyText}>
@@ -149,7 +190,7 @@ const RecipeCard = ({
 
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
-                <Ionicons name="eye-outline" size={12} color="#999" />
+                <Ionicons name="eye-outline" size={12} color="#FF6B35" />
                 <Text style={styles.statText}>{view_count || 0}</Text>
               </View>
               
@@ -231,9 +272,6 @@ const styles = StyleSheet.create({
   favorited: {
     backgroundColor: '#FF6B6B',
   },
-  saved: {
-    backgroundColor: '#4ECDC4',
-  },
   content: {
     padding: 12,
   },
@@ -252,6 +290,24 @@ const styles = StyleSheet.create({
   },
   metaContainer: {
     gap: 6,
+  },
+  categoryRow: {
+    marginBottom: 2,
+  },
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF4E6',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    gap: 4,
+  },
+  categoryText: {
+    fontSize: 10,
+    color: '#FF6B35',
+    fontWeight: '600',
   },
   metaRow: {
     flexDirection: 'row',
@@ -288,7 +344,8 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 11,
-    color: '#999',
+    color: '#666',
+    fontWeight: '500',
   },
 });
 

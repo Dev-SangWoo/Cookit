@@ -359,21 +359,27 @@ router.get('/stats', requireAuth, async (req, res) => {
       post.recipe_id && new Date(post.created_at) >= weekStart
     ).length || 0;
 
-    // 좋아요한 레시피 수 조회
-    const { data: likes, error: likesError } = await supabase
+    // 좋아요한 레시피 수 조회 (count 사용으로 성능 개선)
+    const { count: likesCount, error: likesError } = await supabase
       .from('recipe_likes')
-      .select('id')
+      .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
 
-    if (likesError) throw likesError;
+    if (likesError) {
+      console.error('좋아요 개수 조회 오류:', likesError);
+      throw likesError;
+    }
+
+    const savedRecipesCount = likesCount || 0;
+    console.log(`✅ 사용자 ${userId}의 좋아요한 레시피 수: ${savedRecipesCount}`);
 
     res.json({
       success: true,
       stats: {
         postsCount: allPosts?.length || 0,
-        likesCount: likes?.length || 0,
+        likesCount: savedRecipesCount,
         weekCompletedRecipes: weekCompletedRecipes,
-        savedRecipes: likes?.length || 0,
+        savedRecipes: savedRecipesCount,
         cookingLevel: profile?.cooking_level || 'beginner'
       }
     });

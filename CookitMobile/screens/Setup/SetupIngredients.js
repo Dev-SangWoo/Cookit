@@ -95,7 +95,19 @@ export default function SetupIngredients() {
                 <Ionicons name="arrow-back" size={28} color="#333" />
             </TouchableOpacity>
             <Text style={styles.step}>4/4</Text>
-            <Text style={styles.title}>냉장고 등록</Text>
+            <View style={styles.titleRow}>
+                <Text style={styles.title}>냉장고 재료 등록</Text>
+                <TouchableOpacity
+                    style={styles.receiptButton}
+                    onPress={() => navigation.navigate('Receipt', { 
+                        screen: 'ReceiptMain',
+                        returnToSetup: true 
+                    })}
+                >
+                    <Ionicons name="receipt-outline" size={20} color="#4CAF50" />
+                    <Text style={styles.receiptButtonText}>영수증으로 추가</Text>
+                </TouchableOpacity>
+            </View>
             <Text style={styles.titleText}>현재 보유한 재료와 유통기한을 등록해 주세요</Text>
             
             <View style={styles.infoBox}>
@@ -160,7 +172,7 @@ export default function SetupIngredients() {
                 style={styles.addIngredientButton}
                 onPress={() => setIsModalVisible(true)}
             >
-                <Ionicons name="add-circle" size={24} color="#fff" />
+                <Ionicons name="add-circle-outline" size={24} color="orange" />
                 <Text style={styles.addIngredientButtonText}>재료 추가하기</Text>
             </TouchableOpacity>
 
@@ -196,21 +208,43 @@ const styles = StyleSheet.create({
         zIndex: 10,
         padding: 8,
     },
+    titleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+        marginTop: 0,
+    },
+    receiptButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#E8F5E9',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        borderWidth: 2,
+        borderColor: '#4CAF50',
+        gap: 6,
+    },
+    receiptButtonText: {
+        color: '#4CAF50',
+        fontSize: 14,
+        fontWeight: '600',
+    },
     step: {
         color: 'orange',
         fontSize: 16,
-        marginBottom: 10,
-        marginTop: 40,
+        marginBottom: 4,
+        marginTop: 40
     },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        marginBottom: 20,
     },
     titleText: {
         fontSize: 16,
         color: '#555',
-        marginBottom: 20,
+        marginBottom: 20
     },
     infoBox: {
         flexDirection: 'row',
@@ -317,22 +351,20 @@ const styles = StyleSheet.create({
     },
     addIngredientButton: {
         flexDirection: 'row',
-        backgroundColor: '#FF8C00',
-        borderRadius: 12,
-        paddingVertical: 16,
-        justifyContent: 'center',
         alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FFF4E6',
+        borderWidth: 2,
+        borderColor: 'orange',
+        borderStyle: 'dashed',
+        borderRadius: 12,
+        paddingVertical: 14,
         gap: 8,
-        shadowColor: '#FF8C00',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
     },
     addIngredientButtonText: {
-        color: '#fff',
-        fontSize: 17,
-        fontWeight: 'bold',
+        color: 'orange',
+        fontSize: 16,
+        fontWeight: '600',
     },
     buttonWrapper: {
         justifyContent: 'flex-end',

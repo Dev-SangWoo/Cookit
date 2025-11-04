@@ -65,7 +65,8 @@ router.get('/', requireAuth, async (req, res) => {
     const transformedData = (data || []).map(item => ({
       ...item,
       name: item.product_name,
-      expiration_date: item.expiry_date
+      expiration_date: item.expiry_date,
+      storage_type: item.storage_type || '냉장' // 기본값 냉장
     }));
 
     res.json({
@@ -89,7 +90,7 @@ router.get('/', requireAuth, async (req, res) => {
 router.post('/', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, quantity, unit, expiration_date } = req.body;
+    const { name, quantity, unit, expiration_date, storage_type } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ 
@@ -98,6 +99,12 @@ router.post('/', requireAuth, async (req, res) => {
       });
     }
 
+    // storage_type 유효성 검사
+    const validStorageTypes = ['냉장', '냉동', '실온'];
+    const finalStorageType = storage_type && validStorageTypes.includes(storage_type) 
+      ? storage_type 
+      : '냉장'; // 기본값
+
     const { data, error } = await supabase
       .from('receipt_items')
       .insert({
@@ -105,7 +112,8 @@ router.post('/', requireAuth, async (req, res) => {
         product_name: name.trim(), // DB 컬럼명: product_name
         quantity: quantity || 1,
         unit: unit || null,
-        expiry_date: expiration_date || null // DB 컬럼명: expiry_date
+        expiry_date: expiration_date || null, // DB 컬럼명: expiry_date
+        storage_type: finalStorageType
       })
       .select()
       .single();
@@ -150,12 +158,18 @@ router.post('/bulk', requireAuth, async (req, res) => {
       });
     }
 
+    // storage_type 유효성 검사
+    const validStorageTypes = ['냉장', '냉동', '실온'];
+    
     const itemsToInsert = items.map(item => ({
       user_id: userId,
       product_name: item.name?.trim(), // DB 컬럼명: product_name
       quantity: item.quantity || 1,
       unit: item.unit || null,
-      expiry_date: item.expiration_date || null // DB 컬럼명: expiry_date
+      expiry_date: item.expiration_date || null, // DB 컬럼명: expiry_date
+      storage_type: item.storage_type && validStorageTypes.includes(item.storage_type) 
+        ? item.storage_type 
+        : '냉장' // 기본값
     }));
 
     const { data, error } = await supabase
@@ -195,7 +209,7 @@ router.put('/:itemId', requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     const { itemId } = req.params;
-    const { name, quantity, unit, expiration_date, category } = req.body;
+    const { name, quantity, unit, expiration_date, category, storage_type } = req.body;
 
     // 소유권 확인
     const { data: existingItem, error: checkError } = await supabase
@@ -218,11 +232,19 @@ router.put('/:itemId', requireAuth, async (req, res) => {
       });
     }
 
+    // storage_type 유효성 검사
+    const validStorageTypes = ['냉장', '냉동', '실온'];
+    
     const updateData = {};
     if (name !== undefined) updateData.product_name = name.trim(); // DB 컬럼명: product_name
     if (quantity !== undefined) updateData.quantity = quantity;
     if (unit !== undefined) updateData.unit = unit;
     if (expiration_date !== undefined) updateData.expiry_date = expiration_date; // DB 컬럼명: expiry_date
+    if (storage_type !== undefined) {
+      updateData.storage_type = validStorageTypes.includes(storage_type) 
+        ? storage_type 
+        : '냉장'; // 기본값
+    }
 
     const { data, error } = await supabase
       .from('receipt_items')

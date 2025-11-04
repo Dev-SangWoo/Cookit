@@ -99,6 +99,7 @@ export default function SetupNickname({ navigation }) {
       <TextInput
         style={styles.input}
         placeholder={user?.name || "닉네임 입력"}
+        placeholderTextColor="#999"
         onChangeText={setNickname}
         value={nickname}
       />

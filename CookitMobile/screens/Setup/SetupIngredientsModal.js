@@ -10,22 +10,25 @@ const SetupIngredientsModal = ({ visible, onClose, onAddIngredient, isEditing, i
   const [quantity, setQuantity] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedUnit, setSelectedUnit] = useState('개');
+  const [selectedStorageType, setSelectedStorageType] = useState('냉장');
 
   const units = ['개', 'g', 'kg', 'ml', 'L', '봉', '팩', '컵', '캔', '통'];
+  const storageTypes = ['냉장', '냉동', '실온'];
 
 
   useEffect(() => {
     if (isEditing && initialData) {
-      setIngredientName(initialData.product_name);
-      setQuantity(initialData.quantity.toString());
-      setSelectedDate(initialData.expiry_date);
-      setSelectedUnit(initialData.unit);
+      setIngredientName(initialData.product_name || initialData.name);
+      setQuantity(initialData.quantity?.toString() || '');
+      setSelectedDate(initialData.expiry_date || initialData.expiration_date);
+      setSelectedUnit(initialData.unit || '개');
+      setSelectedStorageType(initialData.storage_type || '냉장');
     } else {
-
       setIngredientName('');
       setQuantity('');
       setSelectedDate('');
       setSelectedUnit('개');
+      setSelectedStorageType('냉장');
     }
   }, [isEditing, initialData]);
   const handleAdd = () => {
@@ -38,12 +41,14 @@ const SetupIngredientsModal = ({ visible, onClose, onAddIngredient, isEditing, i
       name: ingredientName,
       quantity: quantity,
       unit: selectedUnit,
-      expiry: selectedDate
+      expiry: selectedDate,
+      storage_type: selectedStorageType
     });
     setIngredientName('');
     setQuantity('');
     setSelectedDate('');
     setSelectedUnit('개');
+    setSelectedStorageType('냉장');
     onClose();
   };
 
@@ -76,6 +81,38 @@ const SetupIngredientsModal = ({ visible, onClose, onAddIngredient, isEditing, i
           </View>
 
           <ScrollView style={modalStyles.scrollContent} showsVerticalScrollIndicator={false}>
+            {/* 보관 방법 */}
+            <View style={modalStyles.section}>
+              <Text style={modalStyles.label}>
+                <Ionicons name="snow-outline" size={16} color="#666" /> 보관 방법
+              </Text>
+              <View style={modalStyles.storageTypeContainer}>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={modalStyles.storageTypeScrollContent}
+                >
+                  {storageTypes.map((type) => (
+                    <TouchableOpacity
+                      key={type}
+                      style={[
+                        modalStyles.storageTypeButton,
+                        selectedStorageType === type && modalStyles.storageTypeButtonSelected
+                      ]}
+                      onPress={() => setSelectedStorageType(type)}
+                    >
+                      <Text style={[
+                        modalStyles.storageTypeButtonText,
+                        selectedStorageType === type && modalStyles.storageTypeButtonTextSelected
+                      ]}>
+                        {type === '냉장' ? '❄️' : type === '냉동' ? '🧊' : '🏠'} {type}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+
             {/* 재료 이름 */}
             <View style={modalStyles.section}>
               <Text style={modalStyles.label}>
@@ -273,6 +310,34 @@ const modalStyles = StyleSheet.create({
     paddingHorizontal: 8,
     borderWidth: 2,
     borderColor: '#e0e0e0',
+  },
+  storageTypeContainer: {
+    marginTop: 8,
+  },
+  storageTypeScrollContent: {
+    gap: 8,
+    paddingVertical: 4,
+  },
+  storageTypeButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 2,
+    borderColor: '#f0f0f0',
+  },
+  storageTypeButtonSelected: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#2196F3',
+  },
+  storageTypeButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#666',
+  },
+  storageTypeButtonTextSelected: {
+    color: '#2196F3',
+    fontWeight: '700',
   },
   buttonContainer: {
     flexDirection: 'row',

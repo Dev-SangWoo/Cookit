@@ -103,7 +103,7 @@ router.post('/', requireAuth, async (req, res) => {
       .insert({
         user_id: userId,
         title: title.trim(),
-        content: content?.trim() || null,
+        content: (content && content.trim()) || '',
         recipe_id: recipe_id || null,
         tags: tagsArray,
         image_urls: image_urls || [],

@@ -15,6 +15,7 @@ const SearchInput = ({ value, onChange, onClear, onBack, onSubmitEditing }) => {
           value={value}
           onChangeText={onChange}
           placeholder="🔍 만들고 싶은 요리가 있나요?"
+          placeholderTextColor="#999"
           returnKeyType="search"
           onSubmitEditing={onSubmitEditing}
         />

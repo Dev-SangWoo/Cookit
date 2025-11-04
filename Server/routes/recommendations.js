@@ -80,17 +80,40 @@ router.get("/user", requireAuth, async (req, res) => {
       console.log("⚠️ 선호 요리 정보 없음 - 최신 레시피 반환");
       const { data: recentRecipes, error: recentError } = await supabase
         .from("recipes")
-        .select("*")
+        .select(`
+          *,
+          recipe_stats (
+            view_count,
+            favorite_count,
+            cook_count
+          ),
+          recipe_categories (
+            name
+          ),
+          recipe_likes!left (
+            id,
+            user_id
+          )
+        `)
         .order('created_at', { ascending: false })
         .limit(10);
 
       if (recentError) throw recentError;
 
+      // 좋아요 상태 추가
+      const recipesWithLikes = recentRecipes.map(recipe => {
+        const isLiked = recipe.recipe_likes?.some(like => like.user_id === userId) || false;
+        return {
+          ...recipe,
+          recipe_likes: isLiked ? [{ id: recipe.recipe_likes.find(l => l.user_id === userId)?.id }] : []
+        };
+      });
+
       return res.json({
         success: true,
         message: "선호 요리 정보가 없어 최신 레시피를 반환합니다.",
-        total: recentRecipes.length,
-        recommendations: recentRecipes,
+        total: recipesWithLikes.length,
+        recommendations: recipesWithLikes,
       });
     }
 
@@ -105,10 +128,24 @@ router.get("/user", requireAuth, async (req, res) => {
     const categoryIds = categories.map(c => c.id);
     console.log("📂 매핑된 카테고리 IDs:", categoryIds);
 
-    // 3️⃣ recipes 중 category_id 일치하는 레시피 가져오기
+    // 3️⃣ recipes 중 category_id 일치하는 레시피 가져오기 (recipe_stats와 recipe_categories JOIN, 좋아요 상태 포함)
     let query = supabase
       .from("recipes")
-      .select("*");
+      .select(`
+        *,
+        recipe_stats (
+          view_count,
+          favorite_count,
+          cook_count
+        ),
+        recipe_categories (
+          name
+        ),
+        recipe_likes!left (
+          id,
+          user_id
+        )
+      `);
 
     if (categoryIds.length > 0) {
       query = query.in("category_id", categoryIds);
@@ -118,8 +155,14 @@ router.get("/user", requireAuth, async (req, res) => {
 
     if (recipeError) throw recipeError;
 
-    // 4️⃣ dietary_restrictions 필터 적용
-    const filteredRecipes = recipes.filter(recipe => {
+    // 4️⃣ dietary_restrictions 필터 적용 및 좋아요 상태 추가
+    const filteredRecipes = recipes.map(recipe => {
+      const isLiked = recipe.recipe_likes?.some(like => like.user_id === userId) || false;
+      return {
+        ...recipe,
+        recipe_likes: isLiked ? [{ id: recipe.recipe_likes.find(l => l.user_id === userId)?.id }] : []
+      };
+    }).filter(recipe => {
       const ingredientsText = JSON.stringify(recipe.ingredients || []).toLowerCase();
       return !dietary_restrictions.some(item =>
         ingredientsText.includes(item.toLowerCase())
@@ -154,8 +197,28 @@ router.get("/popular", async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
 
-    // recipe_stats와 조인하여 조회수 기준 정렬
-    const { data, error } = await supabase
+    // 선택적으로 인증 토큰 확인 (있으면 좋아요 상태 포함)
+    let userId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split('Bearer ')[1];
+        const { createClient } = await import('@supabase/supabase-js');
+        const authClient = createClient(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_ANON_KEY
+        );
+        const { data: { user }, error: authError } = await authClient.auth.getUser(token);
+        if (!authError && user) {
+          userId = user.id;
+        }
+      } catch (e) {
+        // 인증 실패해도 계속 진행 (비로그인 사용자용)
+      }
+    }
+
+    // recipe_stats와 조인하여 조회수 기준 정렬, 좋아요 상태 포함
+    let query = supabase
       .from("recipes")
       .select(`
         *,
@@ -163,19 +226,37 @@ router.get("/popular", async (req, res) => {
           view_count,
           favorite_count,
           cook_count
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+        ),
+        recipe_categories (
+          name
+        )${userId ? `,
+        recipe_likes!left (
+          id,
+          user_id
+        )` : ''}
+      `);
+
+    const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
 
     if (error) throw error;
 
     // recipe_stats가 있는 경우 view_count로 정렬
-    const sortedRecipes = data.sort((a, b) => {
+    let sortedRecipes = data.sort((a, b) => {
       const aViews = a.recipe_stats?.[0]?.view_count || 0;
       const bViews = b.recipe_stats?.[0]?.view_count || 0;
       return bViews - aViews;
     });
+
+    // 좋아요 상태 추가 (인증된 사용자인 경우)
+    if (userId) {
+      sortedRecipes = sortedRecipes.map(recipe => {
+        const isLiked = recipe.recipe_likes?.some(like => like.user_id === userId) || false;
+        return {
+          ...recipe,
+          recipe_likes: isLiked ? [{ id: recipe.recipe_likes.find(l => l.user_id === userId)?.id }] : []
+        };
+      });
+    }
 
     res.json({
       success: true,
@@ -232,24 +313,47 @@ router.get("/by-difficulty", requireAuth, async (req, res) => {
       console.log(`👨‍🍳 사용자 레벨: ${cookingLevel} → 난이도: ${targetDifficulty}`);
     }
 
-    // 3️⃣ 해당 난이도의 레시피 조회
+    // 3️⃣ 해당 난이도의 레시피 조회 (recipe_stats와 recipe_categories JOIN, 좋아요 상태 포함)
     const { data: recipes, error: recipeError } = await supabase
       .from("recipes")
-      .select("*")
+      .select(`
+        *,
+        recipe_stats (
+          view_count,
+          favorite_count,
+          cook_count
+        ),
+        recipe_categories (
+          name
+        ),
+        recipe_likes!left (
+          id,
+          user_id
+        )
+      `)
       .eq("difficulty_level", targetDifficulty)
       .order('created_at', { ascending: false })
       .limit(limit);
 
     if (recipeError) throw recipeError;
 
-    console.log(`✅ 난이도 기반 추천: ${recipes.length}개 (${targetDifficulty})`);
+    // 좋아요 상태 추가
+    const recipesWithLikes = recipes.map(recipe => {
+      const isLiked = recipe.recipe_likes?.some(like => like.user_id === userId) || false;
+      return {
+        ...recipe,
+        recipe_likes: isLiked ? [{ id: recipe.recipe_likes.find(l => l.user_id === userId)?.id }] : []
+      };
+    });
+
+    console.log(`✅ 난이도 기반 추천: ${recipesWithLikes.length}개 (${targetDifficulty})`);
 
     res.json({
       success: true,
       cooking_level: userProfile?.cooking_level || 'beginner',
       target_difficulty: targetDifficulty,
-      total: recipes.length,
-      recipes: recipes,
+      total: recipesWithLikes.length,
+      recipes: recipesWithLikes,
     });
   } catch (error) {
     console.error("❌ 난이도 기반 추천 오류:", error);
@@ -285,20 +389,43 @@ router.get("/similar-to-cooked", requireAuth, async (req, res) => {
     if (!userPosts || userPosts.length === 0) {
       console.log("⚠️ 완성한 요리가 없음 - 최신 레시피 반환");
       
-      // 완성한 요리가 없으면 최신 레시피 반환
+      // 완성한 요리가 없으면 최신 레시피 반환 (recipe_stats와 recipe_categories JOIN, 좋아요 상태 포함)
       const { data: recentRecipes, error: recentError } = await supabase
         .from("recipes")
-        .select("*")
+        .select(`
+          *,
+          recipe_stats (
+            view_count,
+            favorite_count,
+            cook_count
+          ),
+          recipe_categories (
+            name
+          ),
+          recipe_likes!left (
+            id,
+            user_id
+          )
+        `)
         .order('created_at', { ascending: false })
         .limit(limit);
 
       if (recentError) throw recentError;
 
+      // 좋아요 상태 추가
+      const recipesWithLikes = recentRecipes.map(recipe => {
+        const isLiked = recipe.recipe_likes?.some(like => like.user_id === userId) || false;
+        return {
+          ...recipe,
+          recipe_likes: isLiked ? [{ id: recipe.recipe_likes.find(l => l.user_id === userId)?.id }] : []
+        };
+      });
+
       return res.json({
         success: true,
         message: "완성한 요리가 없어 최신 레시피를 반환합니다.",
-        total: recentRecipes.length,
-        recipes: recentRecipes,
+        total: recipesWithLikes.length,
+        recipes: recipesWithLikes,
       });
     }
 
@@ -327,10 +454,24 @@ router.get("/similar-to-cooked", requireAuth, async (req, res) => {
 
     console.log("📊 완성한 요리 카테고리:", sortedCategories);
 
-    // 4️⃣ 같은 카테고리의 레시피 추천 (단, 이미 만든 것 제외)
+    // 4️⃣ 같은 카테고리의 레시피 추천 (단, 이미 만든 것 제외) (recipe_stats와 recipe_categories JOIN, 좋아요 상태 포함)
     const { data: similarRecipes, error: similarError } = await supabase
       .from("recipes")
-      .select("*")
+      .select(`
+        *,
+        recipe_stats (
+          view_count,
+          favorite_count,
+          cook_count
+        ),
+        recipe_categories (
+          name
+        ),
+        recipe_likes!left (
+          id,
+          user_id
+        )
+      `)
       .in("category_id", sortedCategories)
       .not("id", "in", `(${cookedRecipeIds.join(",")})`) // 이미 만든 것 제외
       .order('created_at', { ascending: false })
@@ -338,7 +479,16 @@ router.get("/similar-to-cooked", requireAuth, async (req, res) => {
 
     if (similarError) throw similarError;
 
-    console.log(`✅ 유사 레시피 추천: ${similarRecipes.length}개`);
+    // 좋아요 상태 추가
+    const recipesWithLikes = similarRecipes.map(recipe => {
+      const isLiked = recipe.recipe_likes?.some(like => like.user_id === userId) || false;
+      return {
+        ...recipe,
+        recipe_likes: isLiked ? [{ id: recipe.recipe_likes.find(l => l.user_id === userId)?.id }] : []
+      };
+    });
+
+    console.log(`✅ 유사 레시피 추천: ${recipesWithLikes.length}개`);
 
     res.json({
       success: true,

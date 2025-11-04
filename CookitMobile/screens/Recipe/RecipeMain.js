@@ -1,13 +1,13 @@
 // 단계별 요약화면
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking, ScrollView, Animated, Platform, PermissionsAndroid } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { RhinoManager } from '@picovoice/rhino-react-native';
 import { PorcupineManager, BuiltInKeywords } from '@picovoice/porcupine-react-native';
+import YouTubePlayer from '../../components/YouTubePlayer';
 
 const recipeSteps = [
   { title: '재료 준비하기', description: '모든 재료를 깨끗이 씻고 손질해 주세요.' },
@@ -35,9 +35,9 @@ const Recipe = ({ route }) => {
   const porcupineManagerRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   
-  // Rhino 자동 종료 타이머 (30초 후 자동 종료)
+  // Rhino 자동 종료 타이머 (10초 후 자동 종료)
   const rhinoAutoStopTimerRef = useRef(null);
-  const RHINO_AUTO_STOP_DELAY = 15000; // 15초
+  const RHINO_AUTO_STOP_DELAY = 10000; // 10초
   
   // 타이머 관련 상태
   const [timerSeconds, setTimerSeconds] = useState(0);
@@ -46,6 +46,19 @@ const Recipe = ({ route }) => {
   
   // route.params에서 recipeId 가져오기 (id, recipe_id, recipeId 모두 지원)
   const recipeId = route?.params?.recipeId || route?.params?.recipe_id || route?.params?.id;
+  
+  // YouTube URL에서 video ID 추출 함수
+  const extractVideoId = (url) => {
+    if (!url) return null;
+    
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    
+    if (match && match[2].length === 11) {
+      return match[2];
+    }
+    return null;
+  };
   
   const totalSteps = recipe?.instructions?.length || recipeSteps.length;
   const currentStep = recipe?.instructions?.[currentStepIndex] || recipeSteps[currentStepIndex];
@@ -71,224 +84,6 @@ const Recipe = ({ route }) => {
       console.error('⚠️ recipeId가 전달되지 않았습니다!');
     }
   }, [recipeId, route?.params]);
-
-  // YouTube URL에서 video ID 추출
-  const extractVideoId = (url) => {
-    if (!url) return null;
-    
-    let id = '';
-    
-    if (url.includes('youtube.com/shorts/')) {
-      id = url.split('youtube.com/shorts/')[1]?.split('?')[0];
-    } else if (url.includes('youtube.com/watch?v=')) {
-      id = url.split('v=')[1]?.split('&')[0];
-    } else if (url.includes('youtu.be/')) {
-      id = url.split('youtu.be/')[1]?.split('?')[0];
-    }
-    
-    return id || null;
-  };
-
-  // 시간 문자열을 초로 변환 (HH:MM:SS -> seconds)
-  const timeToSeconds = (timeStr) => {
-    if (!timeStr) return 0;
-    const parts = timeStr.split(':').map(Number);
-    if (parts.length === 3) {
-      return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    }
-    return 0;
-  };
-
-  // Google 공식 문서 기반 YouTube HTML 생성 (HTTP Referer 헤더 요구사항 충족)
-  const getYouTubeHTML = (videoId, startTime = null, endTime = null, autoplay = true) => {
-    if (!videoId) return null;
-    
-    console.log('📺 Video ID:', videoId);
-    console.log('⏰ Start Time:', startTime);
-    console.log('⏹️ End Time:', endTime);
-    console.log('▶️ Autoplay:', autoplay);
-    console.log('📋 Google 공식 요구사항 적용');
-    
-    // 앱의 Bundle ID 형태로 Referer 설정 (Google 문서 요구사항)
-    const bundleId = 'com.cookit.app'; // 실제 앱의 Bundle ID로 변경 필요
-    const referrer = `https://${bundleId}`;
-    
-    // 시작 시간을 초로 변환
-    const startSeconds = startTime ? timeToSeconds(startTime) : 0;
-    
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="referrer" content="strict-origin-when-cross-origin">
-  <meta name="referrer-policy" content="strict-origin-when-cross-origin">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      margin: 0; 
-      padding: 0; 
-      background: #000; 
-      overflow: hidden;
-      height: 100vh;
-    }
-    .video-wrapper {
-      position: relative;
-      width: 100%;
-      height: 100%;
-    }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-    .error-message {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: white;
-      text-align: center;
-      font-family: Arial, sans-serif;
-    }
-  </style>
-</head>
-<body>
-  <div class="video-wrapper">
-    <iframe 
-      id="youtube-player"
-      src="https://www.youtube.com/embed/${videoId}?autoplay=${autoplay ? 1 : 0}&controls=1&rel=0&modestbranding=1&playsinline=1&fs=1&cc_load_policy=0&iv_load_policy=3&disablekb=0&enablejsapi=1&start=${startSeconds}"
-      frameborder="0" 
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-      allowfullscreen
-      loading="lazy"
-      referrerpolicy="strict-origin-when-cross-origin">
-    </iframe>
-    <div class="error-message" id="error-message" style="display: none;">
-      <h3>영상 로딩 실패</h3>
-      <p>YouTube API 서비스 약관 요구사항 미충족으로 인한 문제일 수 있습니다.</p>
-    </div>
-  </div>
-  
-  <script>
-    // Google 공식 문서 요구사항 적용
-    const iframe = document.getElementById('youtube-player');
-    const errorMessage = document.getElementById('error-message');
-    
-    // Google 문서에서 요구하는 Bundle ID 기반 Referer 설정
-    Object.defineProperty(document, 'referrer', {
-      value: '${referrer}',
-      writable: false
-    });
-    
-    // 로딩 타임아웃 설정 (10초)
-    const loadingTimeout = setTimeout(() => {
-      console.log('⏰ 로딩 타임아웃 - Google API 요구사항 미충족 가능성');
-      errorMessage.style.display = 'block';
-    }, 10000);
-    
-    // 성공적으로 로드되면 타임아웃 해제
-    iframe.addEventListener('load', () => {
-      console.log('✅ YouTube iframe 로드 완료 (Google 요구사항 충족)');
-      clearTimeout(loadingTimeout);
-    });
-    
-    // 오류 발생 시 처리
-    iframe.addEventListener('error', () => {
-      console.log('❌ YouTube iframe 오류 (API 서비스 약관 위반 가능성)');
-      clearTimeout(loadingTimeout);
-      errorMessage.style.display = 'block';
-    });
-    
-    // YouTube API 관련 오류 감지
-    window.addEventListener('error', (e) => {
-      if (e.message.includes('youtube') || e.message.includes('153') || e.message.includes('referrer') || e.message.includes('api')) {
-        console.log('❌ YouTube API 서비스 약관 관련 오류 감지:', e.message);
-        clearTimeout(loadingTimeout);
-        errorMessage.style.display = 'block';
-      }
-    });
-    
-    // Google 요구사항 확인 로그
-    console.log('🔍 Google API 요구사항 확인:');
-    console.log('- Referer:', document.referrer);
-    console.log('- Referrer Policy:', document.querySelector('meta[name="referrer-policy"]')?.content);
-    console.log('- Bundle ID 기반 Referer:', '${referrer}');
-    
-    // 구간반복 기능 (endTime이 있을 때만)
-    ${endTime ? `
-    const startSeconds = ${startSeconds};
-    const endSeconds = ${timeToSeconds(endTime)};
-    let loopInterval = null;
-    let player = null;
-    
-    console.log('🔄 구간반복 설정:', startSeconds + '초 ~ ' + endSeconds + '초');
-    
-    // YouTube API 로드 대기
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('youtube-player', {
-        events: {
-          'onReady': function(event) {
-            console.log('✅ YouTube Player 준비 완료 - 구간반복 활성화');
-            
-            // 구간반복 체크 함수
-            function checkLoop() {
-              if (player && player.getCurrentTime) {
-                const currentTime = player.getCurrentTime();
-                if (currentTime >= endSeconds) {
-                  console.log('🔄 구간 끝 - 자연스럽게 처음으로 돌아가기');
-                  // 부드러운 전환을 위해 약간의 지연 후 이동
-                  setTimeout(() => {
-                    player.seekTo(startSeconds, true);
-                  }, 100);
-                }
-              }
-            }
-            
-            // 0.2초마다 구간반복 체크 (더 자연스러운 반복)
-            loopInterval = setInterval(checkLoop, 200);
-            
-            // 재생 상태 변경 시에도 체크
-            event.target.addEventListener('onStateChange', function(e) {
-              if (e.data === YT.PlayerState.PLAYING) {
-                console.log('▶️ 재생 시작 - 구간반복 모니터링 활성화');
-                if (!loopInterval) {
-                  loopInterval = setInterval(checkLoop, 200);
-                }
-              } else if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.ENDED) {
-                console.log('⏸️ 일시정지/종료 - 구간반복 모니터링 일시정지');
-                if (loopInterval) {
-                  clearInterval(loopInterval);
-                  loopInterval = null;
-                }
-              }
-            });
-          }
-        }
-      });
-    }
-    
-    // 페이지 언로드 시 인터벌 정리
-    window.addEventListener('beforeunload', function() {
-      if (loopInterval) {
-        clearInterval(loopInterval);
-        loopInterval = null;
-      }
-    });
-    
-    // YouTube API 스크립트 로드
-    if (!window.YT) {
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-    }
-    ` : ''}
-  </script>
-</body>
-</html>
-    `;
-  };
 
   // 다음 액션의 시작 시간을 가져오는 함수 (구간반복용)
   const getNextActionStartTime = () => {
@@ -365,52 +160,36 @@ const Recipe = ({ route }) => {
   }, [recipeId]);
 
   const handleNext = useCallback(() => {
-    setCurrentStepIndex((prevStepIndex) => {
-      setCurrentActionIndex((prevActionIndex) => {
-        const currentStepData = recipe?.instructions?.[prevStepIndex];
+    // 현재 상태를 기반으로 다음 상태 계산
+    const currentStepData = recipe?.instructions?.[currentStepIndex];
         const actionsLength = currentStepData?.actions?.length || 1;
         const totalStepsCount = recipe?.instructions?.length || 0;
         
         console.log('🔍 handleNext 호출됨');
         console.log('🔍 현재 상태:', { 
-          stepIndex: prevStepIndex, 
-          actionIndex: prevActionIndex, 
+      stepIndex: currentStepIndex, 
+      actionIndex: currentActionIndex, 
           totalSteps: totalStepsCount, 
           actionsLength 
         });
         
         // 현재 step의 다음 action이 있는지 확인
-        if (prevActionIndex < actionsLength - 1) {
+    if (currentActionIndex < actionsLength - 1) {
           // 같은 step 내에서 다음 action으로
-          const nextActionIndex = prevActionIndex + 1;
+      const nextActionIndex = currentActionIndex + 1;
           console.log('▶️ 같은 step 내에서 다음 action으로 이동:', nextActionIndex);
-          return nextActionIndex;
-        } else if (prevStepIndex < totalStepsCount - 1) {
+      setCurrentActionIndex(nextActionIndex);
+      // stepIndex는 변경 안 함
+    } else if (currentStepIndex < totalStepsCount - 1) {
           // 다음 step의 첫 번째 action으로
-          const nextStepIndex = prevStepIndex + 1;
+      const nextStepIndex = currentStepIndex + 1;
           console.log('▶️ 다음 step으로 이동:', nextStepIndex);
-          // stepIndex는 아래에서 업데이트
-          return 0; // 다음 step의 첫 번째 action
+      setCurrentStepIndex(nextStepIndex);
+      setCurrentActionIndex(0); // 다음 step의 첫 번째 action
         } else {
           console.log('⚠️ 이미 마지막 단계입니다');
-          return prevActionIndex;
         }
-      });
-      
-      // stepIndex 업데이트 (action이 마지막이고 다음 step이 있을 때만)
-      const currentStepData = recipe?.instructions?.[prevStepIndex];
-      const actionsLength = currentStepData?.actions?.length || 1;
-      const totalStepsCount = recipe?.instructions?.length || 0;
-      
-      if (currentActionIndex < actionsLength - 1) {
-        return prevStepIndex; // stepIndex는 변경 안 함
-      } else if (prevStepIndex < totalStepsCount - 1) {
-        return prevStepIndex + 1; // 다음 step으로
-      }
-      
-      return prevStepIndex;
-    });
-  }, [recipe, currentActionIndex]);
+  }, [recipe, currentStepIndex, currentActionIndex]);
 
   // 마지막 단계인지 확인하는 함수
   const isLastStep = () => {
@@ -535,12 +314,13 @@ const Recipe = ({ route }) => {
 
   // Rhino 자동 종료 함수
   const stopRhinoListening = useCallback(() => {
-    console.log('⏰ Rhino 자동 종료 (15초 무동작)');
+    console.log('⏰ Rhino 자동 종료 (10초 경과 또는 명령 수신)');
     setIsListening(false);
     stopPulseAnimation();
     
     // Rhino는 초기화 상태로 유지 (wake word 감지 시 다시 활성화 가능)
     // process()만 중단하고 manager는 유지
+    // Porcupine은 계속 활성화되어 있어 wake word를 계속 감지할 수 있음
   }, []);
 
   // Rhino 자동 종료 타이머 시작/리셋
@@ -550,14 +330,14 @@ const Recipe = ({ route }) => {
       clearTimeout(rhinoAutoStopTimerRef.current);
     }
     
-    // 새 타이머 시작 (30초 후 자동 종료)
+    // 새 타이머 시작 (10초 후 자동 종료)
     rhinoAutoStopTimerRef.current = setTimeout(() => {
       if (isListening && rhinoManagerRef.current) {
         stopRhinoListening();
       }
     }, RHINO_AUTO_STOP_DELAY);
     
-    console.log('⏰ Rhino 자동 종료 타이머 리셋 (30초)');
+    console.log('⏰ Rhino 자동 종료 타이머 리셋 (10초)');
   }, [isListening, stopRhinoListening]);
 
   // 맥박 애니메이션 중지
@@ -600,17 +380,37 @@ const Recipe = ({ route }) => {
       case '타이머':
         // slots는 { [key: string]: string } 형태 (API 문서 참고)
         // Context에서 정의한 slot 이름에 따라 다를 수 있음
+        // 가능한 키: "분", "number", "minutes"
         let minutes = 1;
-        if (slots && slots.number) {
+        
           // 숫자 문자열 매핑 (일, 이, 삼...)
           const numberMap = {
             '일': 1, '이': 2, '삼': 3, '사': 4, '오': 5,
-            '육': 6, '칠': 7, '팔': 8, '구': 9, '십': 10
-          };
-          minutes = numberMap[slots.number] || parseInt(slots.number) || 1;
-        } else if (slots && slots.minutes) {
-          minutes = parseInt(slots.minutes) || 1;
+          '육': 6, '칠': 7, '팔': 8, '구': 9, '십': 10,
+          '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
+          '6': 6, '7': 7, '8': 8, '9': 9, '10': 10
+        };
+        
+        // "분" 키 확인 (한국어 Context에서 사용)
+        if (slots && slots.분) {
+          const 분값 = slots.분;
+          minutes = numberMap[분값] || parseInt(분값) || 1;
+          console.log(`📊 slots.분 값: "${분값}" -> ${minutes}분`);
         }
+        // "number" 키 확인
+        else if (slots && slots.number) {
+          const number값 = slots.number;
+          minutes = numberMap[number값] || parseInt(number값) || 1;
+          console.log(`📊 slots.number 값: "${number값}" -> ${minutes}분`);
+        }
+        // "minutes" 키 확인
+        else if (slots && slots.minutes) {
+          minutes = parseInt(slots.minutes) || 1;
+          console.log(`📊 slots.minutes 값: "${slots.minutes}" -> ${minutes}분`);
+        } else {
+          console.log('⚠️ slots에서 시간 값을 찾을 수 없음, 기본값 1분 사용');
+        }
+        
         console.log(`⏱️ 타이머 ${minutes}분 시작`);
         startTimer(minutes * 60);
         Alert.alert('음성 명령', `타이머 ${minutes}분 시작`, [{ text: '확인' }], { cancelable: true });
@@ -664,6 +464,7 @@ const Recipe = ({ route }) => {
   };
 
   // Porcupine Wake Word 초기화 및 관리
+  // Porcupine은 porcupine_params_ko.pv 파일을 사용 (Rhino와 독립적)
   // 참고: https://picovoice.ai/docs/quick-start/porcupine-react-native/
   useEffect(() => {
     let porcupineManager = null;
@@ -728,12 +529,12 @@ const Recipe = ({ route }) => {
         };
 
         // 커스텀 wake word 파일 경로 (한국어)
-        const keywordFileName = 'porcupine_ko_android_v3_0_0.ppn';
-        // 한국어 모델 파일 경로
-        const modelFileName = 'ko_android_v3_0_0.pv';
+        const keywordFileName = 'porcupine_params_ko.ppn';
+        // Porcupine 전용 한국어 모델 파일 경로
+        const modelFileName = 'porcupine_params_ko.pv';
         
         console.log('📁 Wake word 파일 경로:', keywordFileName);
-        console.log('📁 모델 파일 경로:', modelFileName);
+        console.log('📁 Porcupine 모델 파일 경로:', modelFileName);
         
         // PorcupineManager 생성 (커스텀 한국어 wake word 사용)
         // fromKeywordPaths: 커스텀 wake word 파일 사용
@@ -771,11 +572,12 @@ const Recipe = ({ route }) => {
           errorMessage = 'Access Key 오류:\n\n' +
             '1. .env 파일에 EXPO_PUBLIC_PICOVOICE_ACCESS_KEY가 설정되었는지 확인\n' +
             '2. Access Key가 올바른지 확인';
-        } else if (error.message?.includes('file') || error.message?.includes('path') || error.message?.includes('.ppn')) {
-          errorMessage = 'Wake word 파일 오류:\n\n' +
-            '1. porcupine_ko_android_v3_0_0.ppn 파일이 assets 폴더에 있는지 확인\n' +
-            '2. 파일이 번들에 포함되었는지 확인\n' +
-            '3. android/app/src/main/assets/ 폴더에도 복사되었는지 확인';
+        } else if (error.message?.includes('file') || error.message?.includes('path') || error.message?.includes('.ppn') || error.message?.includes('.pv')) {
+          errorMessage = 'Porcupine 파일 오류:\n\n' +
+            '1. porcupine_params_ko.ppn 파일이 assets 폴더에 있는지 확인\n' +
+            '2. porcupine_params_ko.pv 파일이 assets 폴더에 있는지 확인\n' +
+            '3. 파일이 번들에 포함되었는지 확인\n' +
+            '4. android/app/src/main/assets/ 폴더에도 복사되었는지 확인';
         } else {
           errorMessage = 'Porcupine 오류:\n\n' + error.message + '\n\n' +
             'Picovoice Console과 공식 문서를 확인하세요:\n' +
@@ -807,20 +609,40 @@ const Recipe = ({ route }) => {
         rhinoAutoStopTimerRef.current = null;
       }
       
-      if (porcupineManager) {
+      // PorcupineManager cleanup - ref를 사용하여 안전하게 처리
+      if (porcupineManagerRef.current) {
+        const manager = porcupineManagerRef.current;
         try {
-          porcupineManager.stop().catch(console.error);
-          porcupineManager.delete().catch(console.error);
+          // stop() 메서드가 존재하고 Promise를 반환하는지 확인
+          if (manager && typeof manager.stop === 'function') {
+            const stopResult = manager.stop();
+            if (stopResult && typeof stopResult.catch === 'function') {
+              stopResult.catch(console.error);
+            }
+          }
+          
+          // delete() 메서드가 존재하고 Promise를 반환하는지 확인
+          if (manager && typeof manager.delete === 'function') {
+            const deleteResult = manager.delete();
+            if (deleteResult && typeof deleteResult.catch === 'function') {
+              deleteResult.catch(console.error);
+            }
+          }
+          
+          porcupineManagerRef.current = null;
         } catch (e) {
           console.error('PorcupineManager cleanup 오류:', e);
+          porcupineManagerRef.current = null;
         }
       }
+      
       setIsWakeWordActive(false);
       setWakeWordDetected(false);
     };
   }, [isVoiceEnabled, isListening, resetRhinoAutoStopTimer]);
 
   // Rhino 초기화 및 관리 (공식 문서 기반)
+  // Rhino는 rhino_ko_android_v3_0_0.pv 파일을 사용 (Porcupine과 독립적)
   // 참고: https://picovoice.ai/docs/quick-start/rhino-react-native/
   useEffect(() => {
     let rhinoManager = null;
@@ -873,10 +695,10 @@ const Recipe = ({ route }) => {
           contextPath = contextFileName;
         }
         
-        // 한국어 모델 파일 경로 (Context와 같은 언어여야 함)
-        // 한국어 모델 파일: ko_android_v3_0_0.pv 또는 ko.pv
-        // Picovoice GitHub에서 다운로드: https://github.com/Picovoice/rhino/tree/master/lib/common
-        const modelFileName = 'ko_android_v3_0_0.pv'; // 또는 'ko.pv'
+        // Rhino 전용 한국어 모델 파일 경로 (Context와 같은 언어여야 함)
+        // Rhino는 별도의 한국어 파라미터 파일 사용
+        // Porcupine과는 독립적인 별도 파일 사용
+        const modelFileName = 'rhino_ko_android_v3_0_0.pv'; // Rhino 전용 한국어 모델 파일
         let modelPath;
         if (Platform.OS === 'android') {
           modelPath = modelFileName;
@@ -885,11 +707,11 @@ const Recipe = ({ route }) => {
         }
         
         console.log('📁 Context 파일 경로:', contextPath);
-        console.log('📁 Model 파일 경로:', modelPath);
+        console.log('📁 Rhino 모델 파일 경로:', modelPath);
 
         // inference callback 정의
         // 참고: RhinoManager는 inference 발생 시 자동으로 오디오 캡처를 중지함
-        // 계속 인식하려면 다시 process()를 호출해야 함
+        // 명령을 받거나 10초가 지나면 Porcupine만 활성화되도록 함
         const inferenceCallback = async (inference) => {
           console.log('🎤 Rhino inference:', inference);
           if (inference.isUnderstood) {
@@ -898,27 +720,17 @@ const Recipe = ({ route }) => {
             console.log('🎤 명령어를 인식하지 못했습니다');
           }
           
-          // 명령 실행 시마다 자동 종료 타이머 리셋
-          resetRhinoAutoStopTimer();
+          // 명령을 받으면 즉시 Rhino 종료하고 Porcupine만 활성화
+          // (명령을 받았거나 10초가 지나면 Porcupine만 활성화)
+          stopRhinoListening();
           
-          // inference 처리 후 다시 음성 인식 시작 (계속 인식하기 위해)
-          try {
-            if (rhinoManagerRef.current && isVoiceEnabled) {
-              // 약간의 지연 후 다시 시작 (명령 처리 시간 확보)
-              setTimeout(async () => {
-                try {
-                  await rhinoManagerRef.current.process();
-                  console.log('🔄 음성 인식 재시작');
-                } catch (error) {
-                  console.error('❌ 음성 인식 재시작 실패:', error);
-                  setIsListening(false);
-                  stopPulseAnimation();
+          // 타이머도 클리어
+          if (rhinoAutoStopTimerRef.current) {
+            clearTimeout(rhinoAutoStopTimerRef.current);
+            rhinoAutoStopTimerRef.current = null;
                 }
-              }, 500);
-            }
-          } catch (error) {
-            console.error('❌ inference callback 오류:', error);
-          }
+          
+          console.log('✅ 명령 처리 완료. Porcupine만 활성화 상태로 복귀');
         };
 
         // process error callback 정의 (선택적)
@@ -962,11 +774,13 @@ const Recipe = ({ route }) => {
         
         // RhinoError 특별 처리
         if (error.name === 'RhinoError' || error.message?.includes('RhinoError')) {
-          if (error.message?.includes('context') || error.message?.includes('file') || error.message?.includes('path')) {
-            errorMessage = 'Context 파일 오류:\n\n' + 
-              '1. android/app/src/main/assets/rhino_context.rhn 파일이 있는지 확인\n' +
-              '2. Picovoice Console에서 학습된 파일인지 확인\n' +
-              '3. 파일이 번들에 포함되었는지 확인';
+          if (error.message?.includes('context') || error.message?.includes('file') || error.message?.includes('path') || error.message?.includes('.rhn') || error.message?.includes('.pv')) {
+            errorMessage = 'Rhino 파일 오류:\n\n' + 
+              '1. rhino_ko_android_v3_0_0.rhn 파일이 assets 폴더에 있는지 확인\n' +
+              '2. rhino_ko_android_v3_0_0.pv 파일이 assets 폴더에 있는지 확인\n' +
+              '3. Picovoice Console에서 학습된 파일인지 확인\n' +
+              '4. 파일이 번들에 포함되었는지 확인\n' +
+              '5. android/app/src/main/assets/ 폴더에도 복사되었는지 확인';
           } else if (error.message?.includes('access') || error.message?.includes('key') || error.message?.includes('invalid')) {
             errorMessage = 'Access Key 오류:\n\n' +
               '1. .env 파일에 EXPO_PUBLIC_PICOVOICE_ACCESS_KEY가 설정되었는지 확인\n' +
@@ -1147,46 +961,12 @@ const Recipe = ({ route }) => {
         showsVerticalScrollIndicator={false}
       >
       {/* YouTube 영상 (단계별 타임스탬프 적용) */}
-      <View style={styles.videoWrapper}>
-        {videoId && !videoError ? (
-          <WebView
-            key={`video-${videoId}-${currentStepIndex}-${currentActionIndex}`}  // videoId와 step/action만으로 key 생성
-            source={{ 
-              html: getYouTubeHTML(
-                videoId, 
-                currentAction?.start_time,  // 현재 action 시작 시간
-                getNextActionStartTime(),    // 다음 action 시작 시간 (구간반복용)
-                true  // autoplay 활성화
-              ),
-              baseUrl: 'https://com.cookit.app' // Google 문서 요구사항: baseUrl 설정
-            }}
-            style={styles.video}
-            allowsFullscreenVideo={true}
-            allowsInlineMediaPlayback={true}
-            mediaPlaybackRequiresUserAction={false}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            thirdPartyCookiesEnabled={true}
-            sharedCookiesEnabled={true}
-            userAgent="Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-            onShouldStartLoadWithRequest={(request) => {
-              console.log('🌐 요청 URL:', request.url);
-              console.log('🔍 Referer 헤더:', request.headers?.Referer);
-              // YouTube 관련 도메인 허용 (Google API 서비스 약관 준수)
-              if (request.url.includes('youtube.com') || 
-                  request.url.includes('googlevideo.com') ||
-                  request.url.includes('googleadservices.com')) {
-                return true;
-              }
-              return false;
-            }}
-            onNavigationStateChange={(navState) => {
-              console.log('🧭 네비게이션 상태:', navState);
-            }}
-            onError={(error) => {
-              console.error('❌ WebView 오류:', error);
-              setVideoError(true);
-            }}
+      <YouTubePlayer
+        videoUrl={videoUrl}
+        startTime={currentAction?.start_time}
+        endTime={getNextActionStartTime()}
+        autoplay={true}
+        webviewKey={`video-${videoUrl}-${currentStepIndex}-${currentActionIndex}`}
             onLoadStart={() => {
               console.log(`🔄 YouTube 로딩 시작 (단계 ${currentStepIndex + 1}, 액션 ${currentActionIndex + 1})`);
               if (currentAction?.start_time) {
@@ -1203,89 +983,13 @@ const Recipe = ({ route }) => {
               console.log('✅ YouTube 로드 완료');
               setVideoError(false);
             }}
-            onLoadEnd={() => {
-              console.log('🎉 YouTube 렌더링 완료');
-            }}
-            renderLoading={() => (
-              <View style={styles.webviewLoading}>
-                <ActivityIndicator size="large" color="#FF6B35" />
-                <Text style={styles.webviewLoadingText}>영상 로딩 중...</Text>
-              </View>
-            )}
-          />
-        ) : (
-          <View style={styles.noVideoContainer}>
-            <Text style={styles.noVideoText}>
-              {videoError ? '🚫 YouTube 영상 로딩 오류' : '📹 YouTube 영상이 없습니다'}
-            </Text>
-            {videoError && (
-              <Text style={styles.errorText}>
-                YouTube 영상을 불러올 수 없습니다.
-              </Text>
-            )}
-            <Text style={styles.debugText}>Video ID: {videoId || 'null'}</Text>
-            <Text style={styles.debugText}>영상 URL: {videoUrl || 'null'}</Text>
-            
-            {videoUrl && (
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity 
-                  style={styles.retryButton}
-                  onPress={() => {
-                    setVideoError(false);
-                    console.log('🔄 재시도');
+        onError={(error) => {
+          console.error('❌ WebView 오류:', error);
+          setVideoError(true);
                   }}
-                >
-                  <Text style={styles.retryButtonText}>다시 시도</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.externalButton}
-                  onPress={() => {
-                    Linking.openURL(videoUrl);
-                    console.log('🌐 외부 브라우저에서 열기');
-                  }}
-                >
-                  <Text style={styles.externalButtonText}>브라우저에서 보기</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            
-            {/* 오류 발생 시 대체 버튼 */}
-            {videoError && videoUrl && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>🚫 YouTube 영상 로딩 오류</Text>
-                <Text style={styles.errorSubText}>
-                  YouTube 영상을 불러올 수 없습니다.
-                </Text>
-                <Text style={styles.debugInfo}>
-                  Google YouTube API 서비스 약관 요구사항 미충족으로 인한 문제일 수 있습니다.
-                </Text>
-                <View style={styles.buttonRow}>
-                  <TouchableOpacity 
-                    style={styles.retryButton}
-                    onPress={() => {
-                      setVideoError(false);
-                      console.log('🔄 재시도');
-                    }}
-                  >
-                    <Text style={styles.retryButtonText}>다시 시도</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={styles.browserButton}
-                    onPress={() => {
-                      Linking.openURL(videoUrl);
-                      console.log('🌐 브라우저에서 보기');
-                    }}
-                  >
-                    <Text style={styles.browserButtonText}>브라우저에서 보기</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-      </View>
+        height={220}
+        showErrorUI={true}
+      />
       
       {/* 레시피 제목 및 기본 정보 */}
       {recipe && (

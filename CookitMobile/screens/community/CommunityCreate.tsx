@@ -102,6 +102,11 @@ export default function CommunityCreate() {
       return;
     }
 
+    if (!selectedRecipe) {
+      Alert.alert('필수 입력', '레시피를 선택해 주세요.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -109,7 +114,7 @@ export default function CommunityCreate() {
       await createPost({
         title: postTitle,
         content: postContent,
-        recipe_id: selectedRecipe?.recipe_id || selectedRecipe?.id || undefined,
+        recipe_id: selectedRecipe.recipe_id || selectedRecipe.id,
         images: selectedImages,
         user_id: userId,
         tags: postType, // '01' 또는 '10'
@@ -187,7 +192,7 @@ export default function CommunityCreate() {
         </View>
 
         {/* 레시피 선택 */}
-        <Text style={styles.subHeader}>레시피 연결 (선택)</Text>
+        <Text style={styles.subHeader}>레시피 연결 *</Text>
         <TouchableOpacity
           style={styles.recipeSelectButton}
           onPress={() => setIsRecipeModalVisible(true)}
@@ -208,6 +213,7 @@ export default function CommunityCreate() {
         <TextInput
           style={styles.titleInput}
           placeholder="게시글 제목을 입력해주세요"
+          placeholderTextColor="#999"
           value={postTitle}
           onChangeText={setPostTitle}
           maxLength={50}
@@ -220,6 +226,7 @@ export default function CommunityCreate() {
           style={styles.contentInput}
           multiline
           placeholder="게시글 내용을 입력해주세요"
+          placeholderTextColor="#999"
           value={postContent}
           onChangeText={setPostContent}
           maxLength={500}
@@ -270,9 +277,9 @@ export default function CommunityCreate() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.saveButton, (loading || !postTitle.trim()) && styles.disabledButton]}
+            style={[styles.saveButton, (loading || !postTitle.trim() || !selectedRecipe) && styles.disabledButton]}
             onPress={handleSave}
-            disabled={loading || !postTitle.trim()}
+            disabled={loading || !postTitle.trim() || !selectedRecipe}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />

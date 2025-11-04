@@ -25,6 +25,7 @@ export interface ReceiptItem {
   unit?: string | null;
   expiration_date?: string | null;
   category?: string | null;
+  storage_type?: string | null;
   created_at?: string;
   updated_at?: string;
 }

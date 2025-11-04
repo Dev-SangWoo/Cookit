@@ -3,15 +3,15 @@
 // 위쪽에는 요리 영상, 그 밑에는 요리 재료랑 단계들
 
 import { ScrollView, Platform, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Linking, Dimensions, Switch } from 'react-native'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
-import { WebView } from 'react-native-webview'
 import { supabase } from '../lib/supabase'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import recipeService from '../services/recipeService'
+import YouTubePlayer from '../components/YouTubePlayer'
 
 const { width } = Dimensions.get('window');
 
@@ -20,7 +20,6 @@ const Summary = () => {
   const insets = useSafeAreaInsets();
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [currentVideoUrl, setCurrentVideoUrl] = useState(null);
   const navigation = useNavigation();
   const route = useRoute();
   
@@ -37,140 +36,6 @@ const Summary = () => {
   
   const RECENT_VIEWED_KEY = '@recent_viewed_recipes';
   const MAX_RECENT_VIEWED = 10;
-
-
-  // YouTube URL에서 video ID 추출 (기존 함수 유지)
-  const getVideoId = (url) => {
-    if (!url) return null;
-    
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    
-    if (match && match[2].length === 11) {
-      return match[2];
-    }
-    return null;
-  };
-
-  // Google 공식 문서 기반 YouTube HTML 생성 (HTTP Referer 헤더 요구사항 충족)
-  const getYouTubeHTML = (videoId, startTime = null, autoplay = true) => {
-    if (!videoId) return null;
-    
-    console.log('📺 Video ID:', videoId);
-    console.log('⏰ Start Time:', startTime);
-    console.log('▶️ Autoplay:', autoplay);
-    console.log('📋 Google 공식 요구사항 적용');
-    
-    // 앱의 Bundle ID 형태로 Referer 설정 (Google 문서 요구사항)
-    const bundleId = 'com.cookit.app'; // 실제 앱의 Bundle ID로 변경 필요
-    const referrer = `https://${bundleId}`;
-    
-    // 시작 시간을 초로 변환
-    const startSeconds = startTime ? timeToSeconds(startTime) : 0;
-    
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="referrer" content="strict-origin-when-cross-origin">
-  <meta name="referrer-policy" content="strict-origin-when-cross-origin">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      margin: 0; 
-      padding: 0; 
-      background: #000; 
-      overflow: hidden;
-      height: 100vh;
-    }
-    .video-wrapper {
-      position: relative;
-      width: 100%;
-      height: 100%;
-    }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-    .error-message {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: white;
-      text-align: center;
-      font-family: Arial, sans-serif;
-    }
-  </style>
-</head>
-<body>
-  <div class="video-wrapper">
-    <iframe 
-      id="youtube-player"
-      src="https://www.youtube.com/embed/${videoId}?autoplay=${autoplay ? 1 : 0}&controls=1&rel=0&modestbranding=1&playsinline=1&fs=1&cc_load_policy=0&iv_load_policy=3&disablekb=0&enablejsapi=1&start=${startSeconds}"
-      frameborder="0" 
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-      allowfullscreen
-      loading="lazy"
-      referrerpolicy="strict-origin-when-cross-origin">
-    </iframe>
-    <div class="error-message" id="error-message" style="display: none;">
-      <h3>영상 로딩 실패</h3>
-      <p>YouTube API 서비스 약관 요구사항 미충족으로 인한 문제일 수 있습니다.</p>
-    </div>
-  </div>
-  
-  <script>
-    // Google 공식 문서 요구사항 적용
-    const iframe = document.getElementById('youtube-player');
-    const errorMessage = document.getElementById('error-message');
-    
-    // Google 문서에서 요구하는 Bundle ID 기반 Referer 설정
-    Object.defineProperty(document, 'referrer', {
-      value: '${referrer}',
-      writable: false
-    });
-    
-    // 로딩 타임아웃 설정 (10초)
-    const loadingTimeout = setTimeout(() => {
-      console.log('⏰ 로딩 타임아웃 - Google API 요구사항 미충족 가능성');
-      errorMessage.style.display = 'block';
-    }, 10000);
-    
-    // 성공적으로 로드되면 타임아웃 해제
-    iframe.addEventListener('load', () => {
-      console.log('✅ YouTube iframe 로드 완료 (Google 요구사항 충족)');
-      clearTimeout(loadingTimeout);
-    });
-    
-    // 오류 발생 시 처리
-    iframe.addEventListener('error', () => {
-      console.log('❌ YouTube iframe 오류 (API 서비스 약관 위반 가능성)');
-      clearTimeout(loadingTimeout);
-      errorMessage.style.display = 'block';
-    });
-    
-    // YouTube API 관련 오류 감지
-    window.addEventListener('error', (e) => {
-      if (e.message.includes('youtube') || e.message.includes('153') || e.message.includes('referrer') || e.message.includes('api')) {
-        console.log('❌ YouTube API 서비스 약관 관련 오류 감지:', e.message);
-        clearTimeout(loadingTimeout);
-        errorMessage.style.display = 'block';
-      }
-    });
-    
-    // Google 요구사항 확인 로그
-    console.log('🔍 Google API 요구사항 확인:');
-    console.log('- Referer:', document.referrer);
-    console.log('- Referrer Policy:', document.querySelector('meta[name="referrer-policy"]')?.content);
-    console.log('- Bundle ID 기반 Referer:', '${referrer}');
-  </script>
-</body>
-</html>
-    `;
-  };
 
   // 이미지 URL 변환 함수
   const getImageUrl = (imagePath) => {
@@ -218,33 +83,6 @@ const Summary = () => {
     }
   };
 
-  // 시간을 초로 변환 (HH:MM:SS -> seconds)
-  const timeToSeconds = (timeString) => {
-    if (!timeString) return 0;
-    
-    console.log('⏰ 시간 변환:', timeString);
-    
-    const parts = timeString.split(':').map(Number);
-    
-    if (parts.length === 3) {
-      // HH:MM:SS 형식
-      const seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
-      console.log('✅ 시간 변환 완료:', `${timeString} -> ${seconds}초`);
-      return seconds;
-    } else if (parts.length === 2) {
-      // MM:SS 형식
-      const seconds = parts[0] * 60 + parts[1];
-      console.log('✅ 시간 변환 완료:', `${timeString} -> ${seconds}초`);
-      return seconds;
-    } else if (parts.length === 1) {
-      // SS 형식
-      console.log('✅ 시간 변환 완료:', `${timeString} -> ${parts[0]}초`);
-      return parts[0];
-    }
-    
-    console.log('❌ 시간 형식 오류:', timeString);
-    return 0;
-  };
 
   // 외부 브라우저로 YouTube 열기
   const openInBrowser = async () => {
@@ -261,10 +99,8 @@ const Summary = () => {
   const logDebugInfo = () => {
     console.log('🔍 디버깅 정보:');
     console.log('- 원본 URL:', originalVideoUrl);
-    console.log('- Video ID:', getVideoId(originalVideoUrl));
-    console.log('- 현재 영상 URL:', currentVideoUrl ? '설정됨' : '없음');
     console.log('- 오류 상태:', videoError);
-    console.log('- User Agent:', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    console.log('- 자동재생:', autoplayEnabled);
   };
 
   // WebView에서 특정 시간으로 영상 이동
@@ -275,16 +111,8 @@ const Summary = () => {
     }
     
     console.log('🎬 영상 시간 이동:', { url, startTime, autoplay: autoplayEnabled });
-    
-    const videoId = getVideoId(url);
-    if (videoId) {
-      console.log('✅ Video ID 추출 성공:', videoId);
-      const html = getYouTubeHTML(videoId, startTime, autoplayEnabled);
-      setCurrentVideoUrl(html);
+    // YouTubePlayer 컴포넌트가 자동으로 처리하므로 별도 작업 불필요
       setVideoError(false); // 오류 상태 초기화
-    } else {
-      console.log('❌ Video ID 추출 실패');
-    }
   };
 
   // YouTube 분석 결과 확인
@@ -299,22 +127,24 @@ const Summary = () => {
       
       if (data.success && data.data.status === 'completed') {
         setAnalysisResult(data.data.result);
-        setRecipe(data.data.result.recipe);
+        const recipeData = data.data.result.recipe;
+        setRecipe(recipeData);
+        
         // 분석 결과에서도 영상 URL 설정
-        const videoUrl = data.data.result.recipe?.video_url || data.data.result.recipe?.source_url;
+        const videoUrl = recipeData?.video_url || recipeData?.source_url;
         if (videoUrl) {
           setOriginalVideoUrl(videoUrl); // 원본 URL 저장
-          console.log('🔍 분석 결과 원본 URL:', videoUrl);
-          
-          // Video ID 추출
-          const videoId = getVideoId(videoUrl);
-          if (videoId) {
-            const html = getYouTubeHTML(videoId, null, autoplayEnabled);
-            setCurrentVideoUrl(html);
             console.log('🎥 분석 결과 영상 URL 설정:', videoUrl);
+        }
+        
+        // 📊 YouTube 분석 결과 레시피 조회수 증가
+        if (recipeData?.id) {
+          console.log('📊 YouTube 분석 결과 조회수 증가 시도:', recipeData.id);
+          recipeService.incrementViewCount(recipeData.id).catch(err => {
+            console.warn('⚠️ YouTube 분석 결과 조회수 증가 실패:', err.message);
+          });
           } else {
-            console.error('❌ 분석 결과 Video ID 추출 실패');
-          }
+          console.warn('⚠️ YouTube 분석 결과에 recipe ID가 없습니다:', recipeData);
         }
       } else if (data.data.status === 'processing') {
         // 아직 처리 중이면 3초 후 다시 확인
@@ -359,16 +189,6 @@ const Summary = () => {
           setOriginalVideoUrl(videoUrl); // 원본 URL 저장
           console.log('🔍 원본 URL:', videoUrl);
           console.log('📺 URL 타입:', videoUrl.includes('watch') ? 'watch 형식' : '다른 형식');
-          
-          // Video ID 추출
-          const videoId = getVideoId(videoUrl);
-          if (videoId) {
-            const html = getYouTubeHTML(videoId, null, autoplayEnabled);
-            console.log('📄 생성된 HTML 길이:', html?.length);
-            setCurrentVideoUrl(html);
-          } else {
-            console.error('❌ Video ID 추출 실패');
-          }
           }
           console.log('✅ Summary 레시피 데이터 로드 완료:', data.title);
         console.log('🎥 영상 URL:', videoUrl);
@@ -378,10 +198,8 @@ const Summary = () => {
           await saveRecentViewedRecipe(data);
         }
         
-        // 📊 레시피 조회수 증가 (비동기, 실패해도 무시)
-        recipeService.incrementViewCount(data.id).catch(err => {
-          console.warn('⚠️ 조회수 증가 실패:', err.message);
-        });
+        // 📊 조회수 증가는 이미 Summary 진입 시 실행되었으므로 여기서는 중복 실행하지 않음
+        // (receivedRecipeId가 있을 때만 첫 번째 useEffect에서 실행됨)
         }
       } catch (error) {
         console.error('❌ 레시피 로딩 예외:', error);
@@ -389,6 +207,24 @@ const Summary = () => {
         setLoading(false);
       }
     };
+
+  // Summary 화면 진입 시 조회수 증가 (가장 먼저 실행)
+  useEffect(() => {
+    const incrementViewOnMount = async () => {
+      // 레시피 ID가 있으면 즉시 조회수 증가
+      if (receivedRecipeId) {
+        console.log('📊 Summary 진입 - 조회수 증가 시작:', receivedRecipeId);
+        try {
+          await recipeService.incrementViewCount(receivedRecipeId);
+          console.log('✅ 조회수 증가 완료:', receivedRecipeId);
+        } catch (error) {
+          console.error('❌ 조회수 증가 실패:', error);
+        }
+      }
+    };
+
+    incrementViewOnMount();
+  }, [receivedRecipeId]); // receivedRecipeId가 변경될 때만 실행
 
   // useEffect들
   useEffect(() => {
@@ -470,15 +306,10 @@ const Summary = () => {
 
   // 더미 데이터 사용 시 초기 영상 URL 설정
   useEffect(() => {
-    if (!recipe && dummyRecipe.source_url && !currentVideoUrl) {
+    if (!recipe && dummyRecipe.source_url && !originalVideoUrl) {
       setOriginalVideoUrl(dummyRecipe.source_url); // 원본 URL 저장
-      const videoId = getVideoId(dummyRecipe.source_url);
-      if (videoId) {
-        const html = getYouTubeHTML(videoId);
-        setCurrentVideoUrl(html);
       }
-    }
-  }, [recipe, currentVideoUrl]);
+  }, [recipe, originalVideoUrl]);
 
   // 표시할 레시피 데이터 결정
   const displayRecipe = recipe || dummyRecipe;
@@ -508,7 +339,7 @@ const Summary = () => {
         <Text style={styles.title}>레시피 요약</Text>
         
         {/* YouTube 영상 - 맨 위에 고정 */}
-        {currentVideoUrl && (
+        {originalVideoUrl && (
           <View style={styles.videoSection}>
             <View style={styles.videoHeader}>
             <Text style={styles.sectionTitle}>
@@ -519,17 +350,7 @@ const Summary = () => {
               <TouchableOpacity 
                 style={styles.autoplayToggle}
                 onPress={() => {
-                  const newAutoplayState = !autoplayEnabled;
-                  setAutoplayEnabled(newAutoplayState);
-                  
-                  // 현재 영상을 새로운 autoplay 설정으로 다시 로드
-                  if (originalVideoUrl) {
-                    const videoId = getVideoId(originalVideoUrl);
-                    if (videoId) {
-                      const html = getYouTubeHTML(videoId, null, newAutoplayState);
-                      setCurrentVideoUrl(html);
-                    }
-                  }
+                  setAutoplayEnabled(!autoplayEnabled);
                 }}
               >
                 <Ionicons 
@@ -546,39 +367,11 @@ const Summary = () => {
               </TouchableOpacity>
             </View>
             <View style={styles.videoContainer}>
-              <WebView
-                key={`webview-${Date.now()}`}
-                source={{ 
-                  html: currentVideoUrl,
-                  baseUrl: 'https://com.cookit.app' // Google 문서 요구사항: baseUrl 설정
-                }}
-                style={styles.webview}
-                allowsFullscreenVideo={true}
-                allowsInlineMediaPlayback={true}
-                mediaPlaybackRequiresUserAction={false}
-                javaScriptEnabled={true}
-                domStorageEnabled={true}
-                thirdPartyCookiesEnabled={true}
-                sharedCookiesEnabled={true}
-                userAgent="Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-                onShouldStartLoadWithRequest={(request) => {
-                  console.log('🌐 요청 URL:', request.url);
-                  console.log('🔍 Referer 헤더:', request.headers?.Referer);
-                  // YouTube 관련 도메인 허용 (Google API 서비스 약관 준수)
-                  if (request.url.includes('youtube.com') || 
-                      request.url.includes('googlevideo.com') ||
-                      request.url.includes('googleadservices.com')) {
-                    return true;
-                  }
-                  return false;
-                }}
-                onNavigationStateChange={(navState) => {
-                  console.log('🧭 네비게이션 상태:', navState);
-                }}
-                onError={(error) => {
-                  console.error('❌ WebView 오류:', error);
-                  setVideoError(true);
-                }}
+              <YouTubePlayer
+                videoUrl={originalVideoUrl}
+                startTime={null}
+                autoplay={autoplayEnabled}
+                webviewKey={`webview-${autoplayEnabled ? 'autoplay' : 'no-autoplay'}`}
                 onLoadStart={() => {
                   console.log('🔄 YouTube 로딩 시작');
                 }}
@@ -586,15 +379,12 @@ const Summary = () => {
                   console.log('✅ YouTube 로드 완료');
                   setVideoError(false);
                 }}
-                onLoadEnd={() => {
-                  console.log('🎉 YouTube 렌더링 완료');
+                onError={(error) => {
+                  console.error('❌ WebView 오류:', error);
+                  setVideoError(true);
                 }}
-                renderLoading={() => (
-                  <View style={styles.webviewLoading}>
-                    <ActivityIndicator size="large" color="#FF6B35" />
-                    <Text style={styles.webviewLoadingText}>영상 로딩 중...</Text>
-                  </View>
-                )}
+                height={220}
+                showErrorUI={true}
               />
             </View>
             

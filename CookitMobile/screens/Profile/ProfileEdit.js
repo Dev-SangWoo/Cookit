@@ -215,6 +215,7 @@ export default function ProfileEdit({ navigation }) {
                         value={displayName}
                         onChangeText={setDisplayName}
                         placeholder="사용할 닉네임을 입력하세요"
+                        placeholderTextColor="#999"
                         autoCapitalize="none"
                     />
                     
@@ -225,6 +226,7 @@ export default function ProfileEdit({ navigation }) {
                         value={bio}
                         onChangeText={setBio}
                         placeholder="자신을 간단히 소개해주세요."
+                        placeholderTextColor="#999"
                         multiline
                         numberOfLines={4}
                     />

@@ -71,7 +71,17 @@ const RecipeList = ({
         thumbnail: recipe.image_urls?.[0] || null,
         // ID 통일 (id와 recipe_id 모두 지원)
         id: recipe.id || recipe.recipe_id,
-        recipe_id: recipe.recipe_id || recipe.id
+        recipe_id: recipe.recipe_id || recipe.id,
+        // 조회수 및 통계 정보
+        view_count: recipe.view_count || recipe.recipe_stats?.[0]?.view_count || recipe.recipe_stats?.view_count || 0,
+        favorite_count: recipe.favorite_count || recipe.recipe_stats?.[0]?.favorite_count || recipe.recipe_stats?.favorite_count || 0,
+        // 카테고리 정보
+        category_name: recipe.category_name || recipe.recipe_categories?.name || recipe.category?.name,
+        category: recipe.category_name || recipe.recipe_categories?.name || recipe.category?.name,
+        recipe_categories: recipe.recipe_categories || recipe.category,
+        // 좋아요 상태 정보
+        recipe_likes: recipe.recipe_likes || [],
+        user_relationship: recipe.user_relationship || [],
       }));
       
       console.log('📋 로드된 레시피:', newRecipes.map(r => ({ 
@@ -129,7 +139,7 @@ const RecipeList = ({
     });
   };
 
-  // 즐겨찾기 토글
+  // 즐겨찾기 토글 (새로고침 없이 상태만 업데이트)
   const handleFavoriteToggle = async (recipeId, shouldFavorite) => {
     if (!user) {
       Alert.alert('로그인 필요', '즐겨찾기 기능을 사용하려면 로그인해주세요.');
@@ -143,31 +153,20 @@ const RecipeList = ({
         await recipeService.removeRecipe(recipeId, 'favorited');
       }
       
-      // 목록 새로고침
-      loadRecipes(1);
+      // 새로고침 없이 레시피 상태만 업데이트
+      setRecipes(prev => prev.map(recipe => {
+        const currentId = recipe.id || recipe.recipe_id;
+        if (currentId === recipeId) {
+          return {
+            ...recipe,
+            recipe_likes: shouldFavorite ? [{ id: Date.now() }] : []
+          };
+        }
+        return recipe;
+      }));
     } catch (error) {
       Alert.alert('오류', error.message || '즐겨찾기 처리 중 오류가 발생했습니다.');
-    }
-  };
-
-  // 저장 토글
-  const handleSaveToggle = async (recipeId, shouldSave) => {
-    if (!user) {
-      Alert.alert('로그인 필요', '저장 기능을 사용하려면 로그인해주세요.');
-      return;
-    }
-
-    try {
-      if (shouldSave) {
-        await recipeService.saveRecipe(recipeId, 'saved');
-      } else {
-        await recipeService.removeRecipe(recipeId, 'saved');
-      }
-      
-      // 목록 새로고침
-      loadRecipes(1);
-    } catch (error) {
-      Alert.alert('오류', error.message || '저장 처리 중 오류가 발생했습니다.');
+      throw error; // RecipeCard에서 에러 처리하도록 throw
     }
   };
 
@@ -265,7 +264,6 @@ const RecipeList = ({
             recipe={item}
             onPress={handleRecipePress}
             onFavorite={handleFavoriteToggle}
-            onSave={handleSaveToggle}
             showActions={user !== null}
             style={{
               marginLeft: index % 2 === 0 ? 0 : 8,

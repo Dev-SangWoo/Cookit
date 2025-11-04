@@ -204,6 +204,7 @@ const RecipeRecord = () => {
         <TextInput
           style={styles.titleInput}
           placeholder="예) 남편이 극찬한 소갈비찜!"
+          placeholderTextColor="#999"
           value={postTitle}
           onChangeText={setPostTitle}
           maxLength={50}
@@ -216,6 +217,7 @@ const RecipeRecord = () => {
           style={styles.contentInput}
           multiline
           placeholder="요리 후기, 팁, 개선점 등을 자유롭게 작성해주세요!"
+          placeholderTextColor="#999"
           value={postContent}
           onChangeText={setPostContent}
           maxLength={500}
