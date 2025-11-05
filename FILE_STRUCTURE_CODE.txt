@@ -1,0 +1,102 @@
+# Cookit 프로젝트 파일 구조 코드
+
+## 프론트엔드 (CookitMobile)
+CookitMobile/
+├── App.js
+├── app.config.js
+├── babel.config.js
+├── tsconfig.json
+├── package.json
+│
+├── assets/                # 정적 리소스
+│   ├── app_logo.png       # 앱 로고
+│   ├── icon.png           # 앱 아이콘
+│   └── splash.png         # 스플래시 화면
+│
+├── features/              # 기능별 모듈 (기능 모듈화)
+│   ├── auth/              # 인증 모듈
+│   │   ├── components/   # AuthNavigator, AuthScreen, GoogleSignInButton
+│   │   ├── contexts/      # AuthContext (useAuth Hook)
+│   │   └── index.ts       # 모듈 export
+│   │
+│   ├── recipe/            # 레시피 모듈
+│   │   ├── components/    # RecipeCard, YouTubePlayer, YouTubeAnalysisModal
+│   │   ├── contexts/      # AnalysisContext
+│   │   ├── screens/       # HomeMain, RecipeMain, Summary, RecipeList, Search
+│   │   ├── services/      # recipeService, recipeLikesApi
+│   │   └── index.ts
+│   │
+│   ├── refrigerator/       # 냉장고 관리 모듈
+│   │   ├── screens/       # Ingredients, ReceiptMain, SetupIngredients
+│   │   ├── services/      # receiptItemsApi
+│   │   └── index.ts
+│   │
+│   ├── community/         # 커뮤니티 모듈
+│   │   ├── screens/       # CommunityMain, CommunityDetail, CommunityCreate
+│   │   ├── services/      # postsApi, commentsApi, postLikesApi
+│   │   └── index.ts
+│   │
+│   ├── profile/           # 프로필 모듈
+│   │   ├── screens/       # ProfileMain, ProfileEdit, SettingsStack
+│   │   ├── services/      # userApi
+│   │   └── index.ts
+│   │
+│   └── navigation/        # 네비게이션 모듈
+│       ├── HomeTab.tsx    # 하단 탭 네비게이터
+│       └── index.ts
+│
+├── shared/                # 공유 리소스 (모든 모듈에서 사용)
+│   ├── components/        # 공통 컴포넌트 (SearchInput, Sort, WheelDatePicker)
+│   ├── lib/               # 공통 라이브러리
+│   │   └── supabase.ts    # Supabase 클라이언트
+│   ├── services/          # 공통 서비스
+│   │   └── notificationService.js
+│   └── types/             # 공통 타입 정의
+│       └── auth.ts
+│
+└── android/               # Android 네이티브 코드
+    └── app/
+
+## 백엔드 (Server)
+Server/
+├── app.js                 # Express 앱 진입점
+├── package.json           # 의존성 관리
+├── nodemon.json           # 개발 서버 설정
+│
+├── routes/                # API 라우트 정의
+│   ├── auth.js            # 인증 API
+│   ├── recipes.js          # 레시피 CRUD
+│   ├── recommendations.js  # 추천 시스템
+│   ├── recipeLikes.js     # 레시피 좋아요
+│   ├── userPosts.js       # 커뮤니티 게시글
+│   ├── comments.js        # 댓글 관리
+│   ├── postLikes.js       # 게시글 좋아요
+│   ├── receiptOcr.js      # 영수증 OCR
+│   ├── receiptItems.js    # 냉장고 아이템 관리
+│   ├── users.js           # 사용자 관리
+│   ├── recipeCategories.js # 레시피 카테고리
+│   ├── youtube.js         # YouTube 분석
+│   └── ai.js              # AI 파이프라인
+│
+├── services/              # 비즈니스 로직
+│   ├── aiPipelineService.js    # AI 영상 분석 파이프라인
+│   ├── geminiService.js        # Gemini AI 서비스
+│   ├── ocrHandler.js           # OCR 처리
+│   ├── supabaseClient.js       # Supabase 클라이언트
+│   └── supabaseService.js      # Supabase 서비스
+│
+├── uploads/               # 업로드 파일 저장소
+│   └── receipts/         # 영수증 이미지
+│
+├── video_files/           # 다운로드된 YouTube 영상
+│
+├── temp_frames/           # 임시 프레임 (OCR 분석용)
+│
+├── logs/                  # 로그 파일
+│
+├── combined_sub/          # 병합된 자막 파일
+├── whisper_sub/           # Whisper 자막 파일
+├── prompt_out/            # AI 프롬프트 출력
+├── parsed_out/            # 파싱된 결과
+└── result_out/            # 최종 결과
+

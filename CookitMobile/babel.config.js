@@ -11,7 +11,19 @@ module.exports = function(api) {
         allowlist: null,
         safe: false,
         allowUndefined: true,
-      }]
+      }],
+      [
+        'module-resolver',
+        {
+          root: ['./'],
+          alias: {
+            '@features': './features',
+            '@shared': './shared',
+            '@assets': './assets',
+          },
+          extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
+        },
+      ],
     ],
   };
 };

@@ -4,10 +4,9 @@ import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 
 // Auth 관련 imports
-import { AuthProvider } from './contexts/AuthContext';
-import { AnalysisProvider } from './contexts/AnalysisContext';
-import AuthNavigator from './components/AuthNavigator';
-import notificationService from './services/notificationService';
+import { AuthProvider, AuthNavigator } from '@features/auth';
+import { AnalysisProvider } from '@features/recipe';
+import notificationService from '@shared/services/notificationService';
 
 export default function App() {
   const notificationListener = useRef();

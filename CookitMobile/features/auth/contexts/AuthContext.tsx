@@ -1,0 +1,424 @@
+import { Session } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { AppState, AppStateStatus, Platform } from 'react-native';
+import { supabase } from '@shared/lib/supabase';
+import { AuthState, User } from '@shared/types/auth';
+
+interface AuthContextType extends AuthState {
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
+  isSetupComplete: boolean;
+  setSetupComplete: (complete: boolean) => void;
+  updateUserProfile: (updates: Partial<User>) => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isSetupComplete, setIsSetupComplete] = useState(false); // 테스트용: 항상 false로 설정
+
+  // 사용자 초기 설정 완료 여부 확인 (테스트용: 항상 false)
+  const checkSetupComplete = async (userId: string) => {
+    // 테스트용: 항상 setup이 완료되지 않은 것으로 처리
+    console.log('🧪 테스트 모드: setup을 항상 미완료로 설정');
+    setIsSetupComplete(false);
+    
+    // 원래 코드 (주석 처리)
+    /*
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('display_name, favorite_cuisines, bio')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.log('프로필 확인 오류:', error);
+        setIsSetupComplete(false);
+        return;
+      }
+
+      // display_name, bio, favorite_cuisines가 모두 설정되어 있으면 초기 설정 완료로 간주
+      const isComplete = !!(
+        data?.display_name && 
+        data?.bio && 
+        data?.favorite_cuisines?.length > 0
+      );
+      console.log('초기 설정 완료 여부:', isComplete, {
+        display_name: !!data?.display_name,
+        bio: !!data?.bio,
+        favorite_cuisines: data?.favorite_cuisines?.length > 0
+      });
+      setIsSetupComplete(isComplete);
+    } catch (err) {
+      console.error('설정 확인 중 오류:', err);
+      setIsSetupComplete(false);
+    }
+    */
+  };
+
+  useEffect(() => {
+    // ============================================
+    // [Refresh Token 오류 처리] 세션 확인 시 오류 처리
+    // ============================================
+    // 문제: Invalid Refresh Token 오류로 인한 앱 크래시
+    // 해결: getSession() 호출 시 오류 발생하면 세션을 null로 처리하고 토큰 정리
+    // 결과: 크래시 없이 안전하게 로그아웃 처리
+    // ============================================
+    // 세션 상태 확인
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      // Refresh Token 오류 처리
+      if (error) {
+        // Invalid Refresh Token 오류는 세션을 null로 처리 (에러 로그는 조용히 처리)
+        if (error.message?.includes('Invalid Refresh Token') || 
+            error.message?.includes('Refresh Token Not Found') ||
+            error.message?.includes('JWT') ||
+            error.message?.includes('token')) {
+          // 에러는 이미 처리되었으므로 로그만 남기고 조용히 처리
+          console.log('ℹ️ 만료된 세션 감지, 자동 로그아웃 처리');
+          setSession(null);
+          setUser(null);
+          setIsSetupComplete(false);
+          // 저장된 토큰 정리
+          try {
+            if (Platform.OS !== 'web') {
+              const SecureStore = await import('expo-secure-store');
+              await SecureStore.deleteItemAsync('sb-access-token').catch(() => {});
+              await SecureStore.deleteItemAsync('sb-refresh-token').catch(() => {});
+            } else {
+              // 웹 환경에서는 localStorage 정리
+              try {
+                localStorage.removeItem('sb-access-token');
+                localStorage.removeItem('sb-refresh-token');
+              } catch (e) {
+                // 조용히 처리
+              }
+            }
+          } catch (err) {
+            // 조용히 처리
+          }
+          setLoading(false);
+          return;
+        }
+        // 다른 오류는 경고 로그
+        console.warn('세션 확인 중 오류:', error.message);
+      }
+
+      setSession(session);
+      const mappedUser = session?.user ? mapSupabaseUser(session.user) : null;
+      setUser(mappedUser);
+      
+      // 사용자가 있으면 초기 설정 완료 여부 확인
+      if (mappedUser) {
+        await checkSetupComplete(mappedUser.id);
+      }
+      
+      setLoading(false);
+    });
+
+    // 인증 상태 변화 리스너
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email || 'No user');
+      
+      // ============================================
+      // [Refresh Token 오류 처리] 세션 만료 감지 및 처리
+      // ============================================
+      // 문제: Invalid Refresh Token 오류로 인한 앱 크래시
+      // 해결: TOKEN_REFRESHED 이벤트 및 SIGNED_OUT 이벤트에서 세션 만료 처리
+      // 결과: 크래시 없이 안전하게 로그아웃 처리
+      // ============================================
+      
+      // TOKEN_REFRESHED 이벤트에서 세션이 없으면 토큰 갱신 실패
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        console.log('토큰 갱신 실패, 세션 만료');
+        setSession(null);
+        setUser(null);
+        setIsSetupComplete(false);
+        setLoading(false);
+        // 저장된 토큰 정리
+        try {
+          if (Platform.OS !== 'web') {
+            const SecureStore = await import('expo-secure-store');
+            await SecureStore.deleteItemAsync('sb-access-token').catch(() => {});
+            await SecureStore.deleteItemAsync('sb-refresh-token').catch(() => {});
+          }
+        } catch (err) {
+          console.warn('토큰 정리 실패:', err);
+        }
+        return;
+      }
+      
+      // SIGNED_OUT 이벤트 처리
+      if (event === 'SIGNED_OUT') {
+        console.log('사용자 로그아웃됨');
+        setSession(null);
+        setUser(null);
+        setIsSetupComplete(false);
+        setLoading(false);
+        return;
+      }
+      
+      setSession(session);
+      const mappedUser = session?.user ? mapSupabaseUser(session.user) : null;
+      setUser(mappedUser);
+      
+      // 사용자가 있으면 초기 설정 완료 여부 확인
+      if (mappedUser) {
+        await checkSetupComplete(mappedUser.id);
+      } else {
+        setIsSetupComplete(false);
+      }
+      
+      setLoading(false);
+    });
+
+    // ============================================
+    // [Refresh Token 오류 처리] 앱 상태 변화 시 세션 확인
+    // ============================================
+    // 문제: 앱이 백그라운드에서 돌아올 때 만료된 토큰으로 인한 오류
+    // 해결: 앱 활성화 시 세션 확인 및 오류 처리
+    // ============================================
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        console.log('App became active, refreshing session...');
+        supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+          if (error) {
+            // Refresh Token 오류 처리
+            if (error.message?.includes('Invalid Refresh Token') || 
+                error.message?.includes('Refresh Token Not Found') ||
+                error.message?.includes('JWT') ||
+                error.message?.includes('token')) {
+              console.log('만료된 세션 감지, 로그아웃 처리');
+              setSession(null);
+              setUser(null);
+              setIsSetupComplete(false);
+              // 토큰 정리
+              try {
+                if (Platform.OS !== 'web') {
+                  const SecureStore = await import('expo-secure-store');
+                  await SecureStore.deleteItemAsync('sb-access-token').catch(() => {});
+                  await SecureStore.deleteItemAsync('sb-refresh-token').catch(() => {});
+                }
+              } catch (err) {
+                console.warn('토큰 정리 실패:', err);
+              }
+              return;
+            }
+          }
+          
+          if (session) {
+            setSession(session);
+            setUser(mapSupabaseUser(session.user));
+          }
+        });
+      }
+    };
+    const subscription_appState = AppState.addEventListener('change', handleAppStateChange);
+
+    const handleDeepLink = async (url: string) => {
+      console.log('Deep link received:', url);
+      const params = new URLSearchParams(url.split('#')[1] || url.split('?')[1] || '');
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      console.log('access_token:', accessToken);
+      console.log('refresh_token:', refreshToken);
+
+      if (accessToken) {
+        console.log('Deep link에서 토큰 발견, 세션 설정 시도...');
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || '',
+        });
+        if (data.session) {
+          console.log('Deep link 세션 설정 성공:', data.user?.email);
+          setSession(data.session);
+          setUser(mapSupabaseUser(data.user));
+          return;
+        }
+      }
+
+      supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+        if (error) {
+          // Refresh Token 오류 처리
+          if (error.message?.includes('Invalid Refresh Token') || 
+              error.message?.includes('Refresh Token Not Found') ||
+              error.message?.includes('JWT') ||
+              error.message?.includes('token')) {
+            console.log('만료된 세션 감지, 로그아웃 처리');
+            setSession(null);
+            setUser(null);
+            setIsSetupComplete(false);
+            // 토큰 정리
+            try {
+              if (Platform.OS !== 'web') {
+                const SecureStore = await import('expo-secure-store');
+                await SecureStore.deleteItemAsync('sb-access-token').catch(() => {});
+                await SecureStore.deleteItemAsync('sb-refresh-token').catch(() => {});
+              }
+            } catch (err) {
+              console.warn('토큰 정리 실패:', err);
+            }
+            return;
+          }
+        }
+        
+        if (session) {
+          console.log('백업 세션 확인 성공:', session.user.email);
+          setSession(session);
+          setUser(mapSupabaseUser(session.user));
+        }
+      });
+    };
+
+    Linking.getInitialURL().then(url => {
+      if (url) handleDeepLink(url);
+    });
+
+    const linkingSubscription = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      subscription_appState?.remove();
+      linkingSubscription?.remove();
+    };
+  }, []);
+
+  const signInWithGoogle = async () => {
+    try {
+      setLoading(true);
+
+      const redirectTo = 'cookitmobile://';
+      console.log('구글 로그인 시작...');
+      console.log('사용하는 redirectTo:', redirectTo);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          queryParams: {
+            prompt: 'select_account',
+          },
+        },
+      });
+
+      if (error) throw error;
+      if (!data.url) throw new Error('OAuth URL이 없습니다.');
+
+      console.log('구글 로그인 리디렉션 URL:', data.url);
+
+      if (Platform.OS === 'web') {
+        window.location.href = data.url;
+      } else {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        console.log('브라우저 결과:', result);
+      }
+    } catch (error) {
+      console.error('로그인 오류:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      setLoading(true);
+
+      await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
+
+      if (Platform.OS === 'web') {
+        try {
+          localStorage.clear();
+          console.log('웹 로컬 스토리지 초기화 완료');
+        } catch (err) {
+          console.warn('웹 로컬 스토리지 초기화 실패:', err);
+        }
+      } else {
+        try {
+          const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+          await AsyncStorage.clear();
+          console.log('모바일 AsyncStorage 초기화 완료');
+        } catch (err) {
+          console.warn('AsyncStorage 초기화 실패:', err);
+        }
+
+        try {
+          const SecureStore = await import('expo-secure-store');
+          const allKeys = ['sb-access-token', 'sb-refresh-token'];
+          for (const key of allKeys) {
+            await SecureStore.deleteItemAsync(key);
+          }
+          console.log('모바일 SecureStore 토큰 삭제 완료');
+        } catch (err) {
+          console.warn('SecureStore 초기화 실패:', err);
+        }
+      }
+
+      console.log('로그아웃 완료');
+    } catch (error) {
+      console.error('로그아웃 오류:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateUserProfile = async (updates: Partial<User>) => {
+    if (!user) return;
+    
+    try {
+      // Supabase user_metadata 업데이트
+      const { error } = await supabase.auth.updateUser({
+        data: updates
+      });
+
+      if (error) {
+        console.error('프로필 업데이트 오류:', error);
+        return;
+      }
+
+      // 로컬 상태 업데이트
+      setUser({ ...user, ...updates });
+    } catch (error) {
+      console.error('프로필 업데이트 중 오류:', error);
+    }
+  };
+
+  const mapSupabaseUser = (supabaseUser: any): User => ({
+    id: supabaseUser.id,
+    email: supabaseUser.email,
+    name: supabaseUser.user_metadata?.name || supabaseUser.user_metadata?.full_name,
+    avatar_url: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture,
+  });
+
+  const value: AuthContextType = {
+    user,
+    session,
+    loading,
+    signInWithGoogle,
+    signOut,
+    isSetupComplete,
+    setSetupComplete: setIsSetupComplete,
+    updateUserProfile,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth는 AuthProvider 내에서만 사용할 수 있습니다');
+  }
+  return context;
+}

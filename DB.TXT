@@ -9,6 +9,7 @@ CREATE TABLE public.receipt_items (
   created_at timestamp with time zone DEFAULT now(),
   expiry_date date,
   unit text,
+  storage_type text DEFAULT '냉장'::text CHECK (storage_type = ANY (ARRAY['냉동'::text, '냉장'::text, '실온'::text])),
   CONSTRAINT receipt_items_pkey PRIMARY KEY (id),
   CONSTRAINT receipt_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
 );
@@ -28,6 +29,7 @@ CREATE TABLE public.recipe_comments (
   parent_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  rating smallint,
   CONSTRAINT recipe_comments_pkey PRIMARY KEY (id),
   CONSTRAINT recipe_comments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
   CONSTRAINT recipe_comments_recipe_id_fkey FOREIGN KEY (recipe_id) REFERENCES public.recipes(id),
@@ -78,6 +80,7 @@ CREATE TABLE public.recipes (
   updated_at timestamp with time zone DEFAULT now(),
   video_url text,
   ai_prompt text,
+  video_id text UNIQUE,
   CONSTRAINT recipes_pkey PRIMARY KEY (id),
   CONSTRAINT recipes_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.recipe_categories(id),
   CONSTRAINT recipes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id)
@@ -85,7 +88,7 @@ CREATE TABLE public.recipes (
 CREATE TABLE public.user_category_preferences (
   user_id uuid NOT NULL,
   category_id uuid NOT NULL,
-  CONSTRAINT user_category_preferences_pkey PRIMARY KEY (category_id, user_id),
+  CONSTRAINT user_category_preferences_pkey PRIMARY KEY (user_id, category_id),
   CONSTRAINT user_category_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(id),
   CONSTRAINT user_category_preferences_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.recipe_categories(id)
 );
@@ -147,7 +150,7 @@ CREATE TABLE public.user_profiles (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT user_profiles_pkey PRIMARY KEY (id),
-  CONSTRAINT user_profiles_id_fkey FOREIGN KEY (id)ㄴ REFERENCES auth.users(id)
+  CONSTRAINT user_profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.user_recipe_activities (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
