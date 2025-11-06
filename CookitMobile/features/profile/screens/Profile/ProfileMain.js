@@ -141,7 +141,7 @@ export default function ProfileMain() {
               style={styles.headerLogo}
               resizeMode="contain"
             />
-            <Text style={styles.headerTitle}>마이페이지</Text>
+          <Text style={styles.headerTitle}>마이페이지</Text>
           </View>
           <TouchableOpacity 
             ref={settingsButtonRef} 

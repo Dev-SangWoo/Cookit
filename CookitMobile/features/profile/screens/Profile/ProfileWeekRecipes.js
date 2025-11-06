@@ -101,9 +101,9 @@ const ProfileWeekRecipes = () => {
                 />
                 
                 <View style={styles.textBox}>
-                    <Text style={styles.recipeTitle} numberOfLines={1}>
+                        <Text style={styles.recipeTitle} numberOfLines={1}>
                         {recipe?.title || '레시피'}
-                    </Text>
+                        </Text>
                     
                     {/* 별점/평점 표시 */}
                     <View style={styles.ratingContainer}>
@@ -111,11 +111,11 @@ const ProfileWeekRecipes = () => {
                         {ratingData.comment && (
                             <Text style={styles.ratingComment} numberOfLines={2}>
                                 {ratingData.comment}
-                            </Text>
-                        )}
+                        </Text>
+                    )}
                     </View>
                     
-                    <Text style={styles.date}>{formattedDate}</Text>
+                        <Text style={styles.date}>{formattedDate}</Text>
                 </View>
             </TouchableOpacity>
         );
@@ -155,12 +155,12 @@ const ProfileWeekRecipes = () => {
                     }
                     
                     return (
-                        <FlatList
+                <FlatList
                             data={recipesWithRatings}
-                            keyExtractor={(item, index) => `${item.post_id || item.recipe_id}-${index}`}
-                            renderItem={renderItem}
-                            contentContainerStyle={styles.listContent}
-                        />
+                    keyExtractor={(item, index) => `${item.post_id || item.recipe_id}-${index}`}
+                    renderItem={renderItem}
+                    contentContainerStyle={styles.listContent}
+                />
                     );
                 })()
             )}
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     },
     textBox: {
         flex: 1,
-        justifyContent: 'space-between',
+        justifyContent: 'space-between', 
     },
     recipeTitle: {
         fontSize: 16,

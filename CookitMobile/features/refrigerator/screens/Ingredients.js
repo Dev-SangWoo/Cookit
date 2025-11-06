@@ -259,7 +259,7 @@ export default function Ingredients() {
             style={styles.headerLogo}
             resizeMode="contain"
           />
-          <Text style={styles.headerTitle}>내 냉장고</Text>
+        <Text style={styles.headerTitle}>내 냉장고</Text>
         </View>
       </View>
 

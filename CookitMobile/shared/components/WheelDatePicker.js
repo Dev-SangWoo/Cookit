@@ -135,17 +135,17 @@ const WheelDatePicker = ({ onDateChange, initialDate }) => {
     
     // 스크롤 위치를 정확히 맞춤
     scrollTimersRef.current[type] = setTimeout(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTo({
-          y: clampedIndex * ITEM_HEIGHT,
-          animated: true
-        });
-        
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        y: clampedIndex * ITEM_HEIGHT,
+        animated: true
+      });
+      
         // 스크롤 완료 후 플래그 해제
-        setTimeout(() => {
+      setTimeout(() => {
           isScrollingRef.current[type] = false;
         }, 300);
-      } else {
+    } else {
         isScrollingRef.current[type] = false;
       }
     }, 100);
@@ -167,13 +167,13 @@ const WheelDatePicker = ({ onDateChange, initialDate }) => {
       });
       
       // 선택된 값 즉시 업데이트
-      if (type === 'year') {
-        setSelectedYear(item);
-      } else if (type === 'month') {
-        setSelectedMonth(item);
-      } else if (type === 'day') {
-        setSelectedDay(item);
-      }
+        if (type === 'year') {
+          setSelectedYear(item);
+        } else if (type === 'month') {
+          setSelectedMonth(item);
+        } else if (type === 'day') {
+          setSelectedDay(item);
+        }
       
       // 스크롤 완료 후 플래그 해제
       scrollTimersRef.current[type] = setTimeout(() => {

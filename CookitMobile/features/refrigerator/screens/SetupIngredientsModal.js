@@ -146,17 +146,17 @@ const SetupIngredientsModal = ({ visible, onClose, onAddIngredient, isEditing, i
                   >
                     <Ionicons name="remove" size={20} color="#FF8C00" />
                   </TouchableOpacity>
-                  <TextInput
-                    style={modalStyles.quantityInput}
+                <TextInput
+                  style={modalStyles.quantityInput}
                     placeholder="0"
-                    value={quantity}
+                  value={quantity}
                     onChangeText={(text) => {
                       // 숫자만 입력 허용
                       const numericValue = text.replace(/[^0-9]/g, '');
                       setQuantity(numericValue);
                     }}
-                    keyboardType="numeric"
-                    placeholderTextColor="#999"
+                  keyboardType="numeric"
+                  placeholderTextColor="#999"
                     textAlign="center"
                   />
                   <TouchableOpacity

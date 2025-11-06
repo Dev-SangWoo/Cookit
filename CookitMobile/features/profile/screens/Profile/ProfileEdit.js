@@ -196,7 +196,7 @@ export default function ProfileEdit({ navigation }) {
                             style={styles.headerLogo}
                             resizeMode="contain"
                         />
-                        <Text style={styles.headerTitle}>프로필 수정</Text>
+                    <Text style={styles.headerTitle}>프로필 수정</Text>
                     </View>
                     
                     {/* 프로필 사진 수정 */}

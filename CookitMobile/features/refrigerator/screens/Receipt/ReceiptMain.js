@@ -292,7 +292,7 @@ const ReceiptMain = () => {
             style={styles.headerLogo}
             resizeMode="contain"
           />
-          <Text style={styles.headerTitle}>영수증 인식</Text>
+        <Text style={styles.headerTitle}>영수증 인식</Text>
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity style={styles.cameraButton} onPress={handleCameraCapture}>
@@ -357,7 +357,7 @@ const ReceiptMain = () => {
             {/* 모달 헤더 */}
             <View style={styles.modalHeader}>
               <View style={styles.modalHandle} />
-              <Text style={styles.modalTitle}>재료 수정</Text>
+            <Text style={styles.modalTitle}>재료 수정</Text>
               <TouchableOpacity
                 style={styles.modalCloseButton}
                 onPress={() => setEditModalVisible(false)}
@@ -373,26 +373,26 @@ const ReceiptMain = () => {
               nestedScrollEnabled={true}
             >
               {/* 보관 방법 (위로 이동) */}
-              <Text style={styles.label}>보관 방법</Text>
-              <View style={styles.storageTypeContainer}>
-                {['냉장', '냉동', '실온'].map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[
-                      styles.storageTypeButton,
-                      editingItem?.storage_type === type && styles.storageTypeButtonSelected
-                    ]}
-                    onPress={() => setEditingItem({ ...editingItem, storage_type: type })}
-                  >
-                    <Text style={[
-                      styles.storageTypeButtonText,
-                      editingItem?.storage_type === type && styles.storageTypeButtonTextSelected
-                    ]}>
-                      {type === '냉장' ? '❄️' : type === '냉동' ? '🧊' : '🏠'} {type}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            <Text style={styles.label}>보관 방법</Text>
+            <View style={styles.storageTypeContainer}>
+              {['냉장', '냉동', '실온'].map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.storageTypeButton,
+                    editingItem?.storage_type === type && styles.storageTypeButtonSelected
+                  ]}
+                  onPress={() => setEditingItem({ ...editingItem, storage_type: type })}
+                >
+                  <Text style={[
+                    styles.storageTypeButtonText,
+                    editingItem?.storage_type === type && styles.storageTypeButtonTextSelected
+                  ]}>
+                    {type === '냉장' ? '❄️' : type === '냉동' ? '🧊' : '🏠'} {type}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
               <Text style={styles.label}>상품명</Text>
               <TextInput

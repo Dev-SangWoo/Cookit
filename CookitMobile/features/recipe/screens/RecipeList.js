@@ -217,7 +217,7 @@ const RecipeList = ({
           style={styles.headerLogo}
           resizeMode="contain"
         />
-        <Text style={styles.headerTitle}>{title}</Text>
+      <Text style={styles.headerTitle}>{title}</Text>
       </View>
       
       <View style={styles.headerActions}>
