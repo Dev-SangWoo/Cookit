@@ -96,7 +96,7 @@ router.post('/', requireAuth, async (req, res) => {
     await ensureUserProfile(userId, req.user);
 
     // tags 검증 (배열이어야 함)
-    const tagsArray = Array.isArray(tags) ? tags : (tags ? [tags] : ['00']);
+    const tagsArray = Array.isArray(tags) ? tags : (tags ? [tags] : ['공개']);
     
     const { data, error } = await supabase
       .from('user_posts')
@@ -159,8 +159,12 @@ router.get('/', async (req, res) => {
 
     // tags 필터링
     if (tags) {
+      // Supabase에서 배열 필드에 특정 값이 포함되어 있는지 확인
+      // PostgREST의 contains 연산자 사용: tags 배열에 해당 값이 포함된 게시글만 조회
       query = query.contains('tags', [tags]);
     }
+    
+    console.log('🔍 게시글 조회 쿼리:', { tags, page, limit });
 
     const { data, error } = await query;
 
@@ -174,6 +178,14 @@ router.get('/', async (req, res) => {
       like_count: post.user_post_likes?.length || 0,
       comment_count: post.user_post_comments?.length || 0,
     }));
+
+    console.log('✅ 조회된 게시글 개수:', posts.length);
+    console.log('✅ 첫 번째 게시글 샘플:', posts[0] ? {
+      post_id: posts[0].post_id,
+      title: posts[0].title,
+      tags: posts[0].tags,
+      image_urls: posts[0].image_urls
+    } : '없음');
 
     res.json({
       success: true,

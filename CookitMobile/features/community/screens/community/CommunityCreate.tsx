@@ -116,7 +116,7 @@ export default function CommunityCreate() {
         recipe_id: selectedRecipe.recipe_id || selectedRecipe.id,
         images: selectedImages,
         user_id: userId,
-        tags: '01', // 커뮤니티 게시글
+        tags: ['공개'], // 공개 게시글
       });
 
       Alert.alert('저장 완료', '게시글이 저장되었습니다!', [

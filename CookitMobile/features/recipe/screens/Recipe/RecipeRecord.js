@@ -30,7 +30,7 @@ const RecipeRecord = () => {
   // 게시글 작성 관련 state
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
-  const [isPublic, setIsPublic] = useState(false); // false=비공개(00), true=공개(01)
+  const [isPublic, setIsPublic] = useState(true); // false=비공개, true=공개 (기본값: 공개)
   const [selectedImages, setSelectedImages] = useState([]);
 
   useEffect(() => {
@@ -108,8 +108,8 @@ const RecipeRecord = () => {
 
     try {
       // 서버 API를 통해 게시글 생성 (이미지 업로드는 postsApi 내부에서 처리)
-      // RecipeRecord는 공개/비공개로 구분 (isPublic: true = '01', false = '00')
-      const tags = isPublic ? '01' : '00';
+      // RecipeRecord는 공개/비공개로 구분 (isPublic: true = '공개', false = '비공개')
+      const tags = isPublic ? ['공개'] : ['비공개'];
 
       await createPost({
         title: postTitle,

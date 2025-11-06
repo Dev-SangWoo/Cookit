@@ -39,7 +39,9 @@ export default function CommunityMain() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const data = await getPosts({ tags: '01' }); // 커뮤니티 게시글만 표시
+      const data = await getPosts({ tags: '공개' }); // 공개 게시글만 표시
+      console.log('📋 받은 게시글 데이터:', data);
+      console.log('📋 게시글 개수:', data?.length || 0);
       setPosts(data);
     } catch (err) {
       console.error('게시글 로딩 실패:', err);
@@ -61,17 +63,23 @@ export default function CommunityMain() {
 
   const renderItem = ({ item }: { item: PostItem }) => {
     const thumbnail = item.image_urls?.[0];
-    if (!thumbnail) return null;
-
+    
+    // 이미지가 없어도 게시글은 표시 (플레이스홀더 사용)
     return (
       <TouchableOpacity
         style={styles.postItemContainer}
         onPress={() => navigation.push('CommunityDetail', { postId: item.post_id })}
       >
-        <Image
-          source={{ uri: thumbnail }}
-          style={styles.postImage}
-        />
+        {thumbnail ? (
+          <Image
+            source={{ uri: thumbnail }}
+            style={styles.postImage}
+          />
+        ) : (
+          <View style={styles.postImagePlaceholder}>
+            <Text style={styles.placeholderText}>📷</Text>
+          </View>
+        )}
         <View style={styles.postDetails}>
           <Text style={styles.postTitle} numberOfLines={2}>
             {item.title}
@@ -175,6 +183,16 @@ const styles = StyleSheet.create({
     width: '100%',
     height: Dimensions.get('window').width / 2 - (8 * 2),
     resizeMode: 'cover',
+  },
+  postImagePlaceholder: {
+    width: '100%',
+    height: Dimensions.get('window').width / 2 - (8 * 2),
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    fontSize: 48,
   },
   postDetails: {
     padding: 8,

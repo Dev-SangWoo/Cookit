@@ -47,13 +47,13 @@ const ProfileHistory = () => {
 
   const getVisibilityText = (tags) => {
     if (!tags || tags.length === 0) return '비공개';
-    if (tags.includes('01')) return '공개';
+    if (tags.includes('공개')) return '공개';
     return '비공개';
   };
 
   const getVisibilityStyle = (tags) => {
     if (!tags || tags.length === 0) return styles.badgePrivate;
-    if (tags.includes('01')) return styles.badgePublic;
+    if (tags.includes('공개')) return styles.badgePublic;
     return styles.badgePrivate;
   };
 
