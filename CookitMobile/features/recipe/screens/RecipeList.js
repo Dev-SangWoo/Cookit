@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
   SafeAreaView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -210,7 +211,14 @@ const RecipeList = ({
         <Ionicons name="arrow-back" size={24} color="#333" />
       </TouchableOpacity>
       
-      <Text style={styles.headerTitle}>{title}</Text>
+      <View style={styles.headerCenter}>
+        <Image 
+          source={require('@assets/app_logo.png')} 
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
+        <Text style={styles.headerTitle}>{title}</Text>
+      </View>
       
       <View style={styles.headerActions}>
         <TouchableOpacity style={styles.headerAction}>
@@ -297,13 +305,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  headerLogo: {
+    width: 28,
+    height: 28,
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
-    flex: 1,
     textAlign: 'center',
-    marginHorizontal: 16,
   },
   headerActions: {
     flexDirection: 'row',

@@ -159,7 +159,14 @@ export default function AnalysisHistory() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>분석 기록</Text>
+        <View style={styles.headerCenter}>
+          <Image 
+            source={require('@assets/app_logo.png')} 
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+          <Text style={styles.headerTitle}>분석 기록</Text>
+        </View>
         {history.length > 0 && (
           <TouchableOpacity onPress={handleClearAll} style={styles.clearBtn}>
             <Text style={styles.clearText}>전체 삭제</Text>
@@ -206,11 +213,21 @@ const styles = StyleSheet.create({
   backBtn: {
     padding: 8,
   },
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  headerLogo: {
+    width: 28,
+    height: 28,
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
-    flex: 1,
     textAlign: 'center',
   },
   clearBtn: {

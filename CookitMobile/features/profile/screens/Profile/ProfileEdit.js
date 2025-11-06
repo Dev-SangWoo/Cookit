@@ -190,7 +190,14 @@ export default function ProfileEdit({ navigation }) {
                 
                 {/* 스크롤되는 내용 */}
                 <ScrollView contentContainerStyle={styles.scrollContent}>
-                    <Text style={styles.headerTitle}>프로필 수정</Text>
+                    <View style={styles.headerContainer}>
+                        <Image 
+                            source={require('@assets/app_logo.png')} 
+                            style={styles.headerLogo}
+                            resizeMode="contain"
+                        />
+                        <Text style={styles.headerTitle}>프로필 수정</Text>
+                    </View>
                     
                     {/* 프로필 사진 수정 */}
                     <View style={styles.avatarRow}>
@@ -350,10 +357,19 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#555',
     },
+    headerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 20,
+    },
+    headerLogo: {
+        width: 32,
+        height: 32,
+    },
     headerTitle: {
         fontSize: 24,
         fontWeight: 'bold',
-        marginBottom: 20,
     },
 
     avatarRow: {

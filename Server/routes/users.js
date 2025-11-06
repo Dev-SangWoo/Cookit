@@ -499,6 +499,71 @@ router.get('/completed-recipes', requireAuth, async (req, res) => {
 });
 
 /**
+ * @route GET /api/users/my-ratings
+ * @desc 현재 사용자가 작성한 레시피 별점/평점 목록
+ */
+router.get('/my-ratings', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // content 필드 파싱 헬퍼 함수
+    const parseContent = (content) => {
+      if (!content) return { rating: null, comment: null };
+      
+      const ratingMatch = content.match(/평점:\s*(\d+)/);
+      const rating = ratingMatch ? parseInt(ratingMatch[1]) : null;
+      
+      const commentMatch = content.replace(/평점:\s*\d+\s*\n?/, '').trim();
+      const comment = commentMatch || null;
+      
+      return { rating, comment };
+    };
+
+    const { data, error } = await supabase
+      .from('recipe_comments')
+      .select(`
+        *,
+        recipes (
+          id,
+          title,
+          image_urls,
+          description
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // content에서 rating과 comment 추출
+    const ratings = (data || []).map(item => {
+      const parsed = parseContent(item.content);
+      return {
+        id: item.id,
+        recipe_id: item.recipe_id,
+        rating: parsed.rating,
+        comment: parsed.comment,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+        recipe: item.recipes
+      };
+    });
+
+    res.json({
+      success: true,
+      ratings: ratings
+    });
+
+  } catch (error) {
+    console.error('별점/평점 조회 오류:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || '별점/평점 조회 중 오류가 발생했습니다.' 
+    });
+  }
+});
+
+/**
  * @route GET /api/users/recent-viewed
  * @desc 최근 조회한 레시피 목록
  */

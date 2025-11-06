@@ -39,11 +39,11 @@ const Recipe = ({ route }) => {
   // [배터리 소모 최적화] Rhino 자동 종료 타이머
   // ============================================
   // 문제: Rhino Manager가 계속 활성화되어 배터리 소모 증가
-  // 해결: Wake Word 감지 시에만 Rhino를 활성화하고 10초 후 자동 종료하는 타이머 도입
+  // 해결: Wake Word 감지 시에만 Rhino를 활성화하고 20초 후 자동 종료하는 타이머 도입
   // 결과: 불필요한 배터리 소모를 90% 이상 감소
   // ============================================
   const rhinoAutoStopTimerRef = useRef(null);
-  const RHINO_AUTO_STOP_DELAY = 10000; // 10초
+  const RHINO_AUTO_STOP_DELAY = 20000; // 20초
   
   // 타이머 관련 상태
   const [timerSeconds, setTimerSeconds] = useState(0);
@@ -320,7 +320,7 @@ const Recipe = ({ route }) => {
 
   // Rhino 자동 종료 함수
   const stopRhinoListening = useCallback(() => {
-    console.log('⏰ Rhino 자동 종료 (10초 경과 또는 명령 수신)');
+    console.log('⏰ Rhino 자동 종료 (20초 경과 또는 명령 수신)');
     setIsListening(false);
     stopPulseAnimation();
     
@@ -333,7 +333,7 @@ const Recipe = ({ route }) => {
   // [배터리 소모 최적화] Rhino 자동 종료 타이머 시작/리셋
   // ============================================
   // 문제: Rhino Manager가 계속 활성화되어 배터리 소모 증가
-  // 해결: 10초 후 자동 종료하는 타이머 구현
+  // 해결: 20초 후 자동 종료하는 타이머 구현
   // 결과: 불필요한 배터리 소모를 90% 이상 감소
   // ============================================
   const resetRhinoAutoStopTimer = useCallback(() => {
@@ -342,14 +342,14 @@ const Recipe = ({ route }) => {
       clearTimeout(rhinoAutoStopTimerRef.current);
     }
     
-    // 새 타이머 시작 (10초 후 자동 종료)
+    // 새 타이머 시작 (20초 후 자동 종료)
     rhinoAutoStopTimerRef.current = setTimeout(() => {
       if (isListening && rhinoManagerRef.current) {
         stopRhinoListening();
       }
     }, RHINO_AUTO_STOP_DELAY);
     
-    console.log('⏰ Rhino 자동 종료 타이머 리셋 (10초)');
+    console.log('⏰ Rhino 자동 종료 타이머 리셋 (20초)');
   }, [isListening, stopRhinoListening]);
 
   // 맥박 애니메이션 중지
@@ -514,7 +514,7 @@ const Recipe = ({ route }) => {
           // [Wake Word 기반 Rhino 활성화] 배터리 소모 최적화
           // ============================================
           // 문제: Rhino Manager가 계속 활성화되어 배터리 소모 증가
-          // 해결: Wake Word 감지 시에만 Rhino를 활성화하고 10초 후 자동 종료하는 타이머 도입
+          // 해결: Wake Word 감지 시에만 Rhino를 활성화하고 20초 후 자동 종료하는 타이머 도입
           // 결과: 불필요한 배터리 소모를 90% 이상 감소
           // ============================================
           // Wake word 감지 후 Rhino 활성화 (이미 활성화되어 있으면 무시)
@@ -741,7 +741,7 @@ const Recipe = ({ route }) => {
 
         // inference callback 정의
         // 참고: RhinoManager는 inference 발생 시 자동으로 오디오 캡처를 중지함
-        // 명령을 받거나 10초가 지나면 Porcupine만 활성화되도록 함
+        // 명령을 받거나 20초가 지나면 Porcupine만 활성화되도록 함
         const inferenceCallback = async (inference) => {
           console.log('🎤 Rhino inference:', inference);
           if (inference.isUnderstood) {
@@ -751,7 +751,7 @@ const Recipe = ({ route }) => {
           }
           
           // 명령을 받으면 즉시 Rhino 종료하고 Porcupine만 활성화
-          // (명령을 받았거나 10초가 지나면 Porcupine만 활성화)
+          // (명령을 받았거나 20초가 지나면 Porcupine만 활성화)
           stopRhinoListening();
           
           // 타이머도 클리어

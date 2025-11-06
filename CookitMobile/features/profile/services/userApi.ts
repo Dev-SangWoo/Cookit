@@ -258,3 +258,26 @@ export async function getRecentViewedRecipes(limit?: number) {
   return result.recipes;
 }
 
+// 📌 사용자가 작성한 레시피 별점/평점 목록 조회
+export async function getUserRatings() {
+  const token = await getAuthToken();
+  const baseUrl = getApiBaseUrl();
+  const apiUrl = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+
+  const response = await fetch(`${apiUrl}/users/my-ratings`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  const result = await response.json();
+
+  if (!response.ok || !result.success) {
+    throw new Error(result.error || '별점/평점 조회 실패');
+  }
+
+  return result.ratings;
+}
+

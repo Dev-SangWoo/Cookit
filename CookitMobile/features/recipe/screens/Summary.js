@@ -336,7 +336,16 @@ const Summary = () => {
   return (
     <SafeAreaView style={{ flex: 1, paddingTop: Platform.OS === 'android' ? 15 : 0 }}>
       <View style={styles.container}>
-        <Text style={styles.title}>레시피 요약</Text>
+        {/* 헤더 영역 - 닫기 버튼 포함 */}
+        <View style={styles.headerContainer}>
+          <Text style={styles.title}>레시피 요약</Text>
+          <TouchableOpacity 
+            style={styles.closeButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="close" size={24} color="#333" />
+          </TouchableOpacity>
+        </View>
         
         {/* YouTube 영상 - 맨 위에 고정 */}
         {originalVideoUrl && (
@@ -638,12 +647,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 16,
+    paddingHorizontal: 16,
+    position: 'relative',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginVertical: 16,
     textAlign: 'center',
     color: '#333',
+    flex: 1,
+  },
+  closeButton: {
+    position: 'absolute',
+    right: 16,
+    padding: 8,
+    zIndex: 10,
   },
   recipeTitle: {
     fontSize: 28,

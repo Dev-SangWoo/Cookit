@@ -37,7 +37,6 @@ export default function CommunityCreate() {
   // 게시글 작성 관련 state
   const [postTitle, setPostTitle] = useState('');
   const [postContent, setPostContent] = useState('');
-  const [postType, setPostType] = useState<'01' | '10'>('01'); // '01' = 커뮤니티, '10' = 질문
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isRecipeModalVisible, setIsRecipeModalVisible] = useState(false);
@@ -117,7 +116,7 @@ export default function CommunityCreate() {
         recipe_id: selectedRecipe.recipe_id || selectedRecipe.id,
         images: selectedImages,
         user_id: userId,
-        tags: postType, // '01' 또는 '10'
+        tags: '01', // 커뮤니티 게시글
       });
 
       Alert.alert('저장 완료', '게시글이 저장되었습니다!', [
@@ -168,28 +167,6 @@ export default function CommunityCreate() {
         )}
 
         <Text style={styles.header}>게시글 작성 📝</Text>
-
-        {/* 게시글 유형 선택 */}
-        <View style={styles.typeContainer}>
-          <TouchableOpacity
-            style={styles.typeButton}
-            onPress={() => setPostType('01')}
-          >
-            <Text style={[styles.typeText, postType === '01' && styles.typeTextActive]}>
-              커뮤니티
-            </Text>
-            {postType === '01' && <View style={styles.underline} />}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.typeButton}
-            onPress={() => setPostType('10')}
-          >
-            <Text style={[styles.typeText, postType === '10' && styles.typeTextActive]}>
-              질문
-            </Text>
-            {postType === '10' && <View style={styles.underline} />}
-          </TouchableOpacity>
-        </View>
 
         {/* 레시피 선택 */}
         <Text style={styles.subHeader}>레시피 연결 *</Text>
@@ -353,36 +330,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginHorizontal: 20,
     color: '#333',
-  },
-  typeContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  typeButton: {
-    flex: 1,
-    paddingVertical: 16,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  typeText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#CCCCCC',
-  },
-  typeTextActive: {
-    color: '#333333',
-    fontWeight: '700',
-  },
-  underline: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: '#FF6B35',
   },
   subHeader: {
     fontSize: 16,

@@ -9,12 +9,15 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
+  ScrollView,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@features/auth/contexts/AuthContext';
 import { addReceiptItemsBulk } from '@features/refrigerator/services/receiptItemsApi';
+import WheelDatePicker from '@shared/components/WheelDatePicker';
 
 const ReceiptMain = () => {
   const { user } = useAuth();
@@ -166,6 +169,26 @@ const ReceiptMain = () => {
 
       await addReceiptItemsBulk(items);
 
+      // 유통기한 알림 자동 등록
+      const notificationService = (await import('@shared/services/notificationService')).default;
+      let registeredCount = 0;
+      for (const item of items) {
+        if (item.expiration_date) {
+          try {
+            await notificationService.scheduleExpiryNotification(
+              item.name,
+              item.expiration_date
+            );
+            registeredCount++;
+          } catch (notifError) {
+            console.error(`알림 등록 실패 (${item.name}):`, notifError);
+          }
+        }
+      }
+      if (registeredCount > 0) {
+        console.log(`✅ ${registeredCount}개의 유통기한 알림이 등록되었습니다.`);
+      }
+
       Alert.alert(
         '저장 완료',
         `${ocrItems.length}개의 재료가 냉장고에 추가되었습니다!`,
@@ -263,7 +286,14 @@ const ReceiptMain = () => {
     <SafeAreaView style={styles.container}>
       {/* 헤더 */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>영수증 인식</Text>
+        <View style={styles.headerLeft}>
+          <Image 
+            source={require('@assets/app_logo.png')} 
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+          <Text style={styles.headerTitle}>영수증 인식</Text>
+        </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity style={styles.cameraButton} onPress={handleCameraCapture}>
           <Ionicons name="camera" size={24} color="#fff" />
@@ -318,63 +348,122 @@ const ReceiptMain = () => {
         onRequestClose={() => setEditModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalOverlayTouchable}
+            activeOpacity={1}
+            onPress={() => setEditModalVisible(false)}
+          />
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>재료 수정</Text>
-
-            <Text style={styles.label}>상품명</Text>
-            <TextInput
-              style={styles.input}
-              value={editingItem?.product_name}
-              onChangeText={(text) => setEditingItem({ ...editingItem, product_name: text })}
-            />
-
-            <Text style={styles.label}>수량</Text>
-            <TextInput
-              style={styles.input}
-              value={String(editingItem?.quantity || '')}
-              onChangeText={(text) => setEditingItem({ ...editingItem, quantity: parseInt(text) || 1 })}
-              keyboardType="numeric"
-            />
-
-            <Text style={styles.label}>단위</Text>
-            <TextInput
-              style={styles.input}
-              value={editingItem?.unit}
-              onChangeText={(text) => setEditingItem({ ...editingItem, unit: text })}
-              placeholder="예: g, ml, 개"
-              placeholderTextColor="#999"
-            />
-
-            <Text style={styles.label}>유통기한 (선택)</Text>
-            <TextInput
-              style={styles.input}
-              value={editingItem?.expiration_date}
-              onChangeText={(text) => setEditingItem({ ...editingItem, expiration_date: text })}
-              placeholder="예: 2025-12-31"
-              placeholderTextColor="#999"
-            />
-
-            <Text style={styles.label}>보관 방법</Text>
-            <View style={styles.storageTypeContainer}>
-              {['냉장', '냉동', '실온'].map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.storageTypeButton,
-                    editingItem?.storage_type === type && styles.storageTypeButtonSelected
-                  ]}
-                  onPress={() => setEditingItem({ ...editingItem, storage_type: type })}
-                >
-                  <Text style={[
-                    styles.storageTypeButtonText,
-                    editingItem?.storage_type === type && styles.storageTypeButtonTextSelected
-                  ]}>
-                    {type === '냉장' ? '❄️' : type === '냉동' ? '🧊' : '🏠'} {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            {/* 모달 헤더 */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitle}>재료 수정</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setEditModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
             </View>
+            
+            <ScrollView 
+              style={styles.modalScrollView}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={true}
+            >
+              {/* 보관 방법 (위로 이동) */}
+              <Text style={styles.label}>보관 방법</Text>
+              <View style={styles.storageTypeContainer}>
+                {['냉장', '냉동', '실온'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.storageTypeButton,
+                      editingItem?.storage_type === type && styles.storageTypeButtonSelected
+                    ]}
+                    onPress={() => setEditingItem({ ...editingItem, storage_type: type })}
+                  >
+                    <Text style={[
+                      styles.storageTypeButtonText,
+                      editingItem?.storage_type === type && styles.storageTypeButtonTextSelected
+                    ]}>
+                      {type === '냉장' ? '❄️' : type === '냉동' ? '🧊' : '🏠'} {type}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
+              <Text style={styles.label}>상품명</Text>
+              <TextInput
+                style={styles.input}
+                value={editingItem?.product_name}
+                onChangeText={(text) => setEditingItem({ ...editingItem, product_name: text })}
+              />
+
+              <Text style={styles.label}>수량</Text>
+              <View style={styles.quantityInputContainer}>
+                <TouchableOpacity
+                  style={styles.quantityButton}
+                  onPress={() => {
+                    const currentQty = editingItem?.quantity || 0;
+                    if (currentQty > 0) {
+                      setEditingItem({ ...editingItem, quantity: currentQty - 1 });
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="remove" size={20} color="#FF6B35" />
+                </TouchableOpacity>
+                <TextInput
+                  style={styles.quantityInput}
+                  placeholder="0"
+                  value={String(editingItem?.quantity || '')}
+                  onChangeText={(text) => {
+                    // 숫자만 입력 허용
+                    const numericValue = text.replace(/[^0-9]/g, '');
+                    setEditingItem({ ...editingItem, quantity: parseInt(numericValue) || 0 });
+                  }}
+                  keyboardType="numeric"
+                  placeholderTextColor="#999"
+                  textAlign="center"
+                />
+                <TouchableOpacity
+                  style={styles.quantityButton}
+                  onPress={() => {
+                    const currentQty = editingItem?.quantity || 0;
+                    setEditingItem({ ...editingItem, quantity: currentQty + 1 });
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add" size={20} color="#FF6B35" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.label}>단위</Text>
+              <TextInput
+                style={styles.input}
+                value={editingItem?.unit}
+                onChangeText={(text) => setEditingItem({ ...editingItem, unit: text })}
+                placeholder="예: g, ml, 개"
+                placeholderTextColor="#999"
+              />
+
+              <Text style={styles.label}>유통기한 (선택)</Text>
+              <View style={styles.datePickerContainer}>
+                <WheelDatePicker
+                  onDateChange={(date) => {
+                    // WheelDatePicker는 YYYY/MM/DD 형식으로 반환
+                    // 서버는 YYYY-MM-DD 형식을 기대할 수 있으므로 변환
+                    const formattedDate = date.replace(/\//g, '-');
+                    setEditingItem({ ...editingItem, expiration_date: formattedDate });
+                  }}
+                  initialDate={editingItem?.expiration_date?.replace(/-/g, '/') || ''}
+                />
+              </View>
+            </ScrollView>
+
+            {/* 버튼 영역 - 하단 고정 */}
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
@@ -415,6 +504,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 2,
     elevation: 2,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  headerLogo: {
+    width: 32,
+    height: 32,
   },
   headerTitle: {
     fontSize: 26,
@@ -633,22 +732,60 @@ const styles = StyleSheet.create({
   // 모달 스타일
   modalOverlay: {
     flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalOverlayTouchable: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    width: '85%',
-    maxHeight: '80%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 24,
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 10,
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    paddingTop: 8,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DEE2E6',
+    borderRadius: 2,
+    position: 'absolute',
+    top: 0,
+    left: '50%',
+    marginLeft: -20,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#212529',
-    marginBottom: 20,
+    flex: 1,
+    textAlign: 'center',
+  },
+  modalCloseButton: {
+    padding: 4,
+    position: 'absolute',
+    right: 0,
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    paddingBottom: 16,
   },
   label: {
     fontSize: 14,
@@ -666,10 +803,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#212529',
   },
+  quantityInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#DEE2E6',
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    overflow: 'hidden',
+  },
+  quantityButton: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRightWidth: 1,
+    borderRightColor: '#DEE2E6',
+  },
+  quantityInput: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#212529',
+    backgroundColor: 'transparent',
+  },
+  datePickerContainer: {
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 12,
+    backgroundColor: '#f9f9f9',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#DEE2E6',
+  },
   modalButtons: {
     flexDirection: 'row',
-    marginTop: 24,
+    paddingTop: 16,
+    paddingBottom: 24,
     gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E9ECEF',
+    backgroundColor: '#FFFFFF',
   },
   modalButton: {
     flex: 1,

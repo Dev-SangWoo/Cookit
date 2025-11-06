@@ -96,7 +96,14 @@ export default function CommunityMain() {
   return (
     <SafeAreaView style={styles.page}>
       <View style={styles.header}>
-        <Text style={styles.title}>커뮤니티</Text>
+        <View style={styles.headerLeft}>
+          <Image 
+            source={require('@assets/app_logo.png')} 
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>커뮤니티</Text>
+        </View>
       </View>
 
       <FlatList
@@ -129,6 +136,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerLogo: {
+    width: 28,
+    height: 28,
   },
   title: {
     fontSize: 20,

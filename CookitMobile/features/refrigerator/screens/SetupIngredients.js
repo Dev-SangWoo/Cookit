@@ -76,6 +76,26 @@ export default function SetupIngredients() {
 
             await addReceiptItemsBulk(receiptItems);
 
+            // 유통기한 알림 자동 등록
+            const notificationService = (await import('@shared/services/notificationService')).default;
+            let registeredCount = 0;
+            for (const item of receiptItems) {
+                if (item.expiration_date) {
+                    try {
+                        await notificationService.scheduleExpiryNotification(
+                            item.name,
+                            item.expiration_date
+                        );
+                        registeredCount++;
+                    } catch (notifError) {
+                        console.error(`알림 등록 실패 (${item.name}):`, notifError);
+                    }
+                }
+            }
+            if (registeredCount > 0) {
+                console.log(`✅ ${registeredCount}개의 유통기한 알림이 등록되었습니다.`);
+            }
+
             // 초기 설정 완료 상태로 설정
             setSetupComplete(true);
 

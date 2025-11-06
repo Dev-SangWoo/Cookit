@@ -127,15 +127,20 @@ class NotificationService {
     }
   }
 
-  // 유통기한 알림 스케줄링
-  async scheduleExpiryNotification(ingredientName, expiryDate, hoursBefore = 24) {
-    const notificationDate = new Date(expiryDate);
-    notificationDate.setHours(notificationDate.getHours() - hoursBefore);
+  // 유통기한 알림 스케줄링 (당일 알림)
+  async scheduleExpiryNotification(ingredientName, expiryDate, hoursBefore = 0) {
+    // expiryDate를 Date 객체로 변환
+    const expiry = new Date(expiryDate);
+    expiry.setHours(0, 0, 0, 0); // 당일 00:00:00으로 설정
+    
+    // 알림 시간 설정 (당일 오전 9시)
+    const notificationDate = new Date(expiry);
+    notificationDate.setHours(9, 0, 0, 0); // 오전 9시
 
     // 과거 날짜면 스케줄링하지 않음
     if (notificationDate <= new Date()) {
-      console.log('⏭️ 유통기한이 이미 지났거나 너무 가까워 스케줄링하지 않습니다.');
-      return;
+      console.log('⏭️ 유통기한이 이미 지났거나 오늘 이전이어서 스케줄링하지 않습니다.');
+      return null;
     }
 
     const trigger = {
@@ -144,7 +149,35 @@ class NotificationService {
 
     return await this.scheduleNotification(
       '🚨 유통기한 알림',
-      `${ingredientName}의 유통기한이 ${hoursBefore}시간 후입니다!`,
+      `${ingredientName}의 유통기한이 오늘입니다!`,
+      { type: 'expiry', ingredientName, expiryDate },
+      trigger
+    );
+  }
+
+  // 유통기한 알림 스케줄링 (N일 전 알림 - 선택사항)
+  async scheduleExpiryNotificationBefore(ingredientName, expiryDate, daysBefore = 1) {
+    const expiry = new Date(expiryDate);
+    expiry.setHours(0, 0, 0, 0);
+    
+    // N일 전 날짜 계산
+    const notificationDate = new Date(expiry);
+    notificationDate.setDate(notificationDate.getDate() - daysBefore);
+    notificationDate.setHours(9, 0, 0, 0); // 오전 9시
+
+    // 과거 날짜면 스케줄링하지 않음
+    if (notificationDate <= new Date()) {
+      console.log(`⏭️ 유통기한 ${daysBefore}일 전 알림이 이미 지나서 스케줄링하지 않습니다.`);
+      return null;
+    }
+
+    const trigger = {
+      date: notificationDate,
+    };
+
+    return await this.scheduleNotification(
+      '⚠️ 유통기한 임박 알림',
+      `${ingredientName}의 유통기한이 ${daysBefore}일 후입니다!`,
       { type: 'expiry', ingredientName, expiryDate },
       trigger
     );

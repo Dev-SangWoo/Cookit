@@ -1,9 +1,10 @@
 // 이번 주 완성한 요리 목록 화면
 
-import React from 'react';
-import { StyleSheet, Text, View, FlatList, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, FlatList, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { getUserRatings } from '@features/profile/services/userApi';
 
 // DB의 timestampz 데이터를 순수 자바스크립트 Date 객체를 사용하여 포맷하는 함수
 const formatDate = (dateString) => {
@@ -24,25 +25,71 @@ const ProfileWeekRecipes = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const recipes = route.params?.recipes || [];
+    const [ratings, setRatings] = useState([]);
+    const [loadingRatings, setLoadingRatings] = useState(true);
+
+    // 별점/평점 데이터 로드
+    useEffect(() => {
+        const fetchRatings = async () => {
+            try {
+                const ratingsData = await getUserRatings();
+                setRatings(ratingsData);
+            } catch (error) {
+                console.error('별점/평점 로드 오류:', error);
+            } finally {
+                setLoadingRatings(false);
+            }
+        };
+        fetchRatings();
+    }, []);
+
+    // 레시피 ID로 별점 찾기
+    const getRatingForRecipe = (recipeId) => {
+        if (!recipeId) return null;
+        return ratings.find(r => r.recipe_id === recipeId);
+    };
+
+    // 별점 표시 함수
+    const renderStars = (rating) => {
+        if (!rating || rating === 0) return null;
+        const stars = [];
+        for (let i = 1; i <= 5; i++) {
+            stars.push(
+                <Text key={i} style={[styles.star, i <= rating && styles.filledStar]}>
+                    ★
+                </Text>
+            );
+        }
+        return (
+            <View style={styles.ratingStarsContainer}>
+                {stars}
+            </View>
+        );
+    };
 
     // ----------------------------------------------------------------------
     // [1] 리스트 렌더링 함수
     // ----------------------------------------------------------------------
 
     const renderItem = ({ item }) => {
-        const formattedDate = formatDate(item.created_at);
-        const recipeTitle = item.recipes?.title || item.title;
-        const thumbnail = item.image_urls?.[0] || item.recipes?.image_urls?.[0] || 'https://via.placeholder.com/100x70/E0E0E0/808080?text=No+Image';
+        const recipeId = item.recipe_id || item.recipes?.id;
+        const ratingData = getRatingForRecipe(recipeId);
+        
+        // 별점/평점이 있는 것만 표시
+        if (!ratingData) return null;
+        
+        const recipe = ratingData.recipe;
+        const thumbnail = recipe?.image_urls?.[0] || 'https://via.placeholder.com/100x100/E0E0E0/808080?text=No+Image';
+        const formattedDate = formatDate(ratingData.created_at);
         
         return (
             <TouchableOpacity
                 style={styles.card}
                 onPress={() => {
-                    // 게시글 상세로 이동
-                    if (item.post_id) {
-                        navigation.navigate('Community', {
-                            screen: 'CommunityDetail',
-                            params: { postId: item.post_id }
+                    if (recipe?.id) {
+                        navigation.navigate('Recipe', {
+                            screen: 'RecipeMain',
+                            params: { recipeId: recipe.id }
                         });
                     }
                 }}
@@ -54,24 +101,21 @@ const ProfileWeekRecipes = () => {
                 />
                 
                 <View style={styles.textBox}>
-                    <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+                    <Text style={styles.recipeTitle} numberOfLines={1}>
+                        {recipe?.title || '레시피'}
+                    </Text>
                     
-                    {recipeTitle && recipeTitle !== item.title && (
-                        <Text style={styles.recipeTitle} numberOfLines={1}>
-                            레시피: {recipeTitle}
-                        </Text>
-                    )}
-                    
-                    {item.content && (
-                        <Text style={styles.content} numberOfLines={2}>
-                            {item.content}
-                        </Text>
-                    )}
-                    
-                    <View style={styles.infoRow}>
-                        <Text style={styles.date}>{formattedDate}</Text>
-                        <Text style={styles.badge}>완료 ✓</Text>
+                    {/* 별점/평점 표시 */}
+                    <View style={styles.ratingContainer}>
+                        {renderStars(ratingData.rating)}
+                        {ratingData.comment && (
+                            <Text style={styles.ratingComment} numberOfLines={2}>
+                                {ratingData.comment}
+                            </Text>
+                        )}
                     </View>
+                    
+                    <Text style={styles.date}>{formattedDate}</Text>
                 </View>
             </TouchableOpacity>
         );
@@ -90,17 +134,35 @@ const ProfileWeekRecipes = () => {
                 <View style={styles.backButton} />
             </View>
             
-            {recipes.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>이번 주에 완성한 요리가 없습니다.</Text>
+            {loadingRatings ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#e67e22" />
                 </View>
             ) : (
-                <FlatList
-                    data={recipes}
-                    keyExtractor={(item, index) => `${item.post_id || item.recipe_id}-${index}`}
-                    renderItem={renderItem}
-                    contentContainerStyle={styles.listContent}
-                />
+                (() => {
+                    // 별점/평점이 있는 레시피만 필터링
+                    const recipesWithRatings = recipes.filter(item => {
+                        const recipeId = item.recipe_id || item.recipes?.id;
+                        return getRatingForRecipe(recipeId) !== null;
+                    });
+                    
+                    if (recipesWithRatings.length === 0) {
+                        return (
+                            <View style={styles.emptyContainer}>
+                                <Text style={styles.emptyText}>이번 주에 완성한 요리의 별점/평점이 없습니다.</Text>
+                            </View>
+                        );
+                    }
+                    
+                    return (
+                        <FlatList
+                            data={recipesWithRatings}
+                            keyExtractor={(item, index) => `${item.post_id || item.recipe_id}-${index}`}
+                            renderItem={renderItem}
+                            contentContainerStyle={styles.listContent}
+                        />
+                    );
+                })()
             )}
         </SafeAreaView>
     );
@@ -147,58 +209,34 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderRadius: 12,
         marginBottom: 15,
+        padding: 12,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: 2,
         elevation: 3,
-        overflow: 'hidden',
     },
     thumbnail: {
-        width: 100,
-        height: 120,
-        borderRadius: 0, 
+        width: 80,
+        height: 80,
+        borderRadius: 8,
+        marginRight: 12,
+        backgroundColor: '#E9ECEF',
     },
     textBox: {
         flex: 1,
-        padding: 12,
-        justifyContent: 'space-between', 
-    },
-    title: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#333',
-        marginBottom: 4,
+        justifyContent: 'space-between',
     },
     recipeTitle: {
-        fontSize: 13,
-        color: '#e67e22',
-        marginBottom: 4,
-        fontWeight: '600',
-    },
-    content: {
-        fontSize: 13,
-        color: '#666',
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#212529',
         marginBottom: 8,
-    },
-    infoRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
     },
     date: {
         fontSize: 12,
-        color: '#777',
-        fontWeight: '500',
-    },
-    badge: {
-        fontSize: 12,
-        color: '#4caf50',
-        fontWeight: '600',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        backgroundColor: '#e8f5e9',
-        borderRadius: 4,
+        color: '#ADB5BD',
+        marginTop: 8,
     },
     emptyContainer: {
         flex: 1,
@@ -209,6 +247,32 @@ const styles = StyleSheet.create({
     emptyText: {
         fontSize: 16,
         color: '#888',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    // 별점/평점 스타일
+    ratingContainer: {
+        marginBottom: 8,
+    },
+    ratingStarsContainer: {
+        flexDirection: 'row',
+        marginBottom: 4,
+    },
+    star: {
+        fontSize: 16,
+        color: '#DEE2E6',
+        marginRight: 2,
+    },
+    filledStar: {
+        color: '#FFC107',
+    },
+    ratingComment: {
+        fontSize: 12,
+        color: '#6C757D',
+        fontStyle: 'italic',
     },
 });
 

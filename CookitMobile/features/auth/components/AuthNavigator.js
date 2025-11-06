@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
 import { useAuth } from '@features/auth/contexts/AuthContext';
+import { navigationRef } from '../../../App';
 import AuthScreen from '@features/auth/components/AuthScreen';
 import HomeTab from '@features/navigation/HomeTab';
 
@@ -54,7 +55,7 @@ export default function AuthNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator 
         screenOptions={{ headerShown: false }}
         initialRouteName={!user ? "Auth" : "SetupNickname"} // 테스트용: 인증된 사용자는 SetupNickname으로 시작
@@ -72,7 +73,14 @@ export default function AuthNavigator() {
             
             {/* Setup 완료 후 사용할 메인 앱 화면들 */}
             <Stack.Screen name="HomeTab" component={HomeTab} />
-            <Stack.Screen name="Summary" component={Summary} />
+            <Stack.Screen 
+              name="Summary" 
+              component={Summary}
+              options={{
+                presentation: 'modal',
+                animation: 'slide_from_bottom',
+              }}
+            />
             <Stack.Screen name="RecipeList" component={RecipeList} />
             <Stack.Screen name="AIAnalyze" component={AIAnalyze} />
             <Stack.Screen name="Recipe" component={RecipeStack} />

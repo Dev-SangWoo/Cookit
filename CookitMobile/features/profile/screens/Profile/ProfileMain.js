@@ -135,7 +135,14 @@ export default function ProfileMain() {
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         {/* 헤더 */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>마이페이지</Text>
+          <View style={styles.headerLeft}>
+            <Image 
+              source={require('@assets/app_logo.png')} 
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+            <Text style={styles.headerTitle}>마이페이지</Text>
+          </View>
           <TouchableOpacity 
             ref={settingsButtonRef} 
             style={styles.settingsButton} 
@@ -379,6 +386,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E9ECEF',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  headerLogo: {
+    width: 32,
+    height: 32,
   },
   headerTitle: {
     fontSize: 24,

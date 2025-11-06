@@ -133,14 +133,43 @@ const SetupIngredientsModal = ({ visible, onClose, onAddIngredient, isEditing, i
                 <Ionicons name="scale-outline" size={16} color="#666" /> 수량
               </Text>
               <View style={modalStyles.quantityContainer}>
-                <TextInput
-                  style={modalStyles.quantityInput}
-                  placeholder="예: 100"
-                  value={quantity}
-                  onChangeText={setQuantity}
-                  keyboardType="numeric"
-                  placeholderTextColor="#999"
-                />
+                <View style={modalStyles.quantityInputContainer}>
+                  <TouchableOpacity
+                    style={modalStyles.quantityButton}
+                    onPress={() => {
+                      const currentQty = parseInt(quantity) || 0;
+                      if (currentQty > 0) {
+                        setQuantity((currentQty - 1).toString());
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="remove" size={20} color="#FF8C00" />
+                  </TouchableOpacity>
+                  <TextInput
+                    style={modalStyles.quantityInput}
+                    placeholder="0"
+                    value={quantity}
+                    onChangeText={(text) => {
+                      // 숫자만 입력 허용
+                      const numericValue = text.replace(/[^0-9]/g, '');
+                      setQuantity(numericValue);
+                    }}
+                    keyboardType="numeric"
+                    placeholderTextColor="#999"
+                    textAlign="center"
+                  />
+                  <TouchableOpacity
+                    style={modalStyles.quantityButton}
+                    onPress={() => {
+                      const currentQty = parseInt(quantity) || 0;
+                      setQuantity((currentQty + 1).toString());
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="add" size={20} color="#FF8C00" />
+                  </TouchableOpacity>
+                </View>
                 <View style={modalStyles.unitSelector}>
                   <ScrollView 
                     horizontal 
@@ -174,6 +203,45 @@ const SetupIngredientsModal = ({ visible, onClose, onAddIngredient, isEditing, i
               <Text style={modalStyles.label}>
                 <Ionicons name="calendar-outline" size={16} color="#666" /> 유통기한
               </Text>
+              
+              {/* 빠른 날짜 선택 버튼 */}
+              <View style={modalStyles.quickDateButtonsContainer}>
+                {[15, 30, 60, 90].map((days) => {
+                  return (
+                    <TouchableOpacity
+                      key={days}
+                      style={modalStyles.quickDateButton}
+                      onPress={() => {
+                        // 현재 선택된 날짜 또는 오늘 날짜 기준으로 계산
+                        let baseDate = new Date();
+                        if (selectedDate) {
+                          const separator = selectedDate.includes('/') ? '/' : '-';
+                          const parts = selectedDate.split(separator);
+                          if (parts.length >= 3) {
+                            const year = parseInt(parts[0]);
+                            const month = parseInt(parts[1]) - 1; // 월은 0부터 시작
+                            const day = parseInt(parts[2]);
+                            if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+                              baseDate = new Date(year, month, day);
+                            }
+                          }
+                        }
+                        
+                        // 해당 일수만큼 더하기
+                        baseDate.setDate(baseDate.getDate() + days);
+                        const formattedDate = `${baseDate.getFullYear()}/${String(baseDate.getMonth() + 1).padStart(2, '0')}/${String(baseDate.getDate()).padStart(2, '0')}`;
+                        setSelectedDate(formattedDate);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={modalStyles.quickDateButtonText}>
+                        +{days}일
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              
               <View style={modalStyles.datePickerContainer}>
                 <WheelDatePicker
                   onDateChange={setSelectedDate}
@@ -266,13 +334,30 @@ const modalStyles = StyleSheet.create({
   quantityContainer: {
     gap: 12,
   },
-  quantityInput: {
+  quantityInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 2,
     borderColor: '#e0e0e0',
     borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
     backgroundColor: '#f9f9f9',
+    overflow: 'hidden',
+  },
+  quantityButton: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  quantityInput: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    backgroundColor: 'transparent',
   },
   unitSelector: {
     marginTop: 8,
@@ -301,6 +386,25 @@ const modalStyles = StyleSheet.create({
   unitButtonTextSelected: {
     color: '#FF8C00',
     fontWeight: '700',
+  },
+  quickDateButtonsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
+  quickDateButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#FFF4E6',
+    borderWidth: 2,
+    borderColor: '#FF8C00',
+  },
+  quickDateButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF8C00',
   },
   datePickerContainer: {
     marginTop: 8,

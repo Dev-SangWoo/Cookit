@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView, Modal } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ScrollView, Modal, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@features/auth/contexts/AuthContext';
 import SetupIngredientsModal from '@features/refrigerator/screens/SetupIngredientsModal';
@@ -19,12 +19,43 @@ export default function Ingredients() {
   const [allIngredients, setAllIngredients] = useState([]); // 전체 재료 목록
   const [selectedLocation, setSelectedLocation] = useState('all'); // 'all', '냉장', '냉동', '실온'
   
-  // 화면이 focus될 때마다 재료 목록을 새로고침
+  // 화면이 focus될 때마다 재료 목록을 새로고침 및 알림 등록
   useFocusEffect(
     useCallback(() => {
       fetchIngredients();
+      // 기존 재료들의 유통기한 알림 자동 등록
+      scheduleAllExpiryNotifications();
     }, [])
   );
+
+  // 모든 재료의 유통기한 알림 자동 등록
+  const scheduleAllExpiryNotifications = async () => {
+    try {
+      const items = await getReceiptItems();
+      let registeredCount = 0;
+      
+      for (const item of items) {
+        const expiryDate = item.expiry_date || item.expiration_date;
+        if (expiryDate) {
+          try {
+            await notificationService.scheduleExpiryNotification(
+              item.name || item.product_name,
+              expiryDate
+            );
+            registeredCount++;
+          } catch (error) {
+            console.error(`알림 등록 실패 (${item.name}):`, error);
+          }
+        }
+      }
+      
+      if (registeredCount > 0) {
+        console.log(`✅ ${registeredCount}개의 유통기한 알림이 등록되었습니다.`);
+      }
+    } catch (error) {
+      console.error('유통기한 알림 일괄 등록 오류:', error);
+    }
+  };
 
   const fetchIngredients = async () => {
     try {
@@ -111,8 +142,20 @@ export default function Ingredients() {
         storage_type: newIngredient.storage_type || '냉장',
       });
 
-      // 유통기한 알림 스케줄링
-      await scheduleExpiryNotification(newIngredient.name, newIngredient.expiry);
+      // 유통기한 알림 자동 스케줄링 (당일 알림)
+      if (newIngredient.expiry) {
+        try {
+          await notificationService.scheduleExpiryNotification(
+            newIngredient.name, 
+            newIngredient.expiry
+          );
+          console.log('✅ 유통기한 알림 등록 완료:', newIngredient.name);
+        } catch (notifError) {
+          console.error('알림 등록 오류:', notifError);
+          // 알림 등록 실패해도 재료 추가는 계속 진행
+        }
+      }
+      
       fetchIngredients();
     } catch (error) {
       console.error('재료 추가 오류:', error);
@@ -130,6 +173,20 @@ export default function Ingredients() {
         expiration_date: updatedIngredient.expiry,
         storage_type: updatedIngredient.storage_type || '냉장',
       });
+
+      // 유통기한이 변경되었으면 알림 재등록
+      if (updatedIngredient.expiry) {
+        try {
+          // 기존 알림은 자동으로 덮어쓰기되므로 새로 등록
+          await notificationService.scheduleExpiryNotification(
+            updatedIngredient.name, 
+            updatedIngredient.expiry
+          );
+          console.log('✅ 유통기한 알림 재등록 완료:', updatedIngredient.name);
+        } catch (notifError) {
+          console.error('알림 재등록 오류:', notifError);
+        }
+      }
 
       fetchIngredients(); 
       setIsEditModalVisible(false);
@@ -191,31 +248,19 @@ export default function Ingredients() {
     navigation.navigate('Receipt', { screen: 'ReceiptMain' });
   };
 
-  // 유통기한 알림 스케줄링
-  const scheduleExpiryNotification = async (ingredientName, expiryDate) => {
-    try {
-      // 알림 설정 확인
-      const settings = await AsyncStorage.getItem('notificationSettings');
-      if (settings) {
-        const { expiryNotifications, expiryHoursBefore } = JSON.parse(settings);
-        if (expiryNotifications) {
-          await notificationService.scheduleExpiryNotification(
-            ingredientName,
-            expiryDate,
-            expiryHoursBefore || 24
-          );
-        }
-      }
-    } catch (error) {
-      console.error('유통기한 알림 스케줄링 실패:', error);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* 헤더 */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>내 냉장고</Text>
+        <View style={styles.headerLeft}>
+          <Image 
+            source={require('@assets/app_logo.png')} 
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
+          <Text style={styles.headerTitle}>내 냉장고</Text>
+        </View>
       </View>
 
       {/* 위치 탭 */}
@@ -402,6 +447,15 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E9ECEF',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerLogo: {
+    width: 32,
+    height: 32,
   },
   headerTitle: {
     fontSize: 24,
