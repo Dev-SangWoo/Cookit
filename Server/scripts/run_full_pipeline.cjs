@@ -8,7 +8,8 @@ const path = require("path");
 const startTime = Date.now();
 
 // ✅ 실행 기준 디렉토리(Server 폴더) 고정
-process.chdir(__dirname);
+const serverRoot = path.join(__dirname, "..");
+process.chdir(serverRoot);
 console.log("📂 실행 기준 디렉토리 고정:", process.cwd());
 
 // ✅ 입력된 URL 받기
@@ -35,8 +36,7 @@ if (!videoId) {
   process.exit(1);
 }
 
-// ✅ 주요 경로 설정 (scripts 폴더 기준, 상위 디렉토리로 이동)
-const serverRoot = path.join(__dirname, "..");
+// ✅ 주요 경로 설정 (Server 루트 기준)
 const videoPath = path.join(serverRoot, "video_files", `${videoId}.mp4`);
 const resultPath = path.join(serverRoot, "result_out", `${videoId}_summary.txt`);
 const promptPath = path.join(serverRoot, "prompt_out", `${videoId}_prompt.txt`);
