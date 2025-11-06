@@ -8,7 +8,7 @@ Cookit은 AI 기반 요리 레시피 추천 및 커뮤니티 플랫폼입니다.
 Cookit/
 ├── CookitMobile/          # React Native 모바일 앱
 ├── Server/               # Node.js 백엔드 서버
-├── Recipt+OCR/          # 영수증 OCR 처리 프로젝트
+├── docs/                 # 프로젝트 문서 모음
 └── README.md            # 이 파일
 ```
 
@@ -104,10 +104,17 @@ Supabase 프로젝트를 생성하고 필요한 테이블들을 설정하세요.
 
 ## 📚 문서
 
-- `Setup_Guide_Recipe_DB.md` - 데이터베이스 설정 가이드
-- `IMPLEMENTATION_COMPLETE.md` - 구현 완료 기능 목록
+주요 문서는 `docs/` 폴더에 정리되어 있습니다:
+
+- `docs/PROJECT_STRUCTURE.md` - 프로젝트 구조 상세 설명
+- `docs/IMPLEMENTATION_REPORT.md` - 구현 결과 보고서
+- `docs/DEVELOPMENT_ENVIRONMENT.md` - 개발 환경 설정 가이드
+- `docs/Setup_Guide_Recipe_DB.md` - 데이터베이스 설정 가이드
+- `docs/Cookit_Data_Dictionary.md` - 데이터베이스 자료사전
 - `CookitMobile/README.md` - 모바일 앱 상세 문서
 - `Server/README.md` - 서버 상세 문서
+
+더 많은 문서는 `docs/` 폴더를 참고하세요.
 
 ## 🎯 개발 워크플로우
 
