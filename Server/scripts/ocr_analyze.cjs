@@ -5,7 +5,7 @@
 const { execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const { performOCR } = require("./services/ocrHandler.js");
+const { performOCR } = require("../services/ocrHandler.js");
 
 // ✅ 입력 인자 확인
 const args = process.argv.slice(2);
@@ -15,7 +15,8 @@ if (args.length === 0) {
 }
 
 const videoPath = args[0];
-const outputDir = path.join(__dirname, "ocr_frames");
+const serverRoot = path.join(__dirname, "..");
+const outputDir = path.join(serverRoot, "ocr_frames");
 const outputImage = path.join(outputDir, "frame.jpg");
 
 // ✅ 출력 폴더 생성

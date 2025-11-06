@@ -9,10 +9,11 @@ if (!videoId) {
   process.exit(1);
 }
 
-// ✅ 절대경로 기반 경로 설정
-const promptPath = path.join(__dirname, "prompt_out", `${videoId}_prompt.txt`);
-const videoPath = path.join(__dirname, "video_files", `${videoId}.mp4`);
-const outputDir = path.join(__dirname, "result_out");
+// ✅ 절대경로 기반 경로 설정 (scripts 폴더 기준, 상위 디렉토리로 이동)
+const serverRoot = path.join(__dirname, "..");
+const promptPath = path.join(serverRoot, "prompt_out", `${videoId}_prompt.txt`);
+const videoPath = path.join(serverRoot, "video_files", `${videoId}.mp4`);
+const outputDir = path.join(serverRoot, "result_out");
 const outputPath = path.join(outputDir, `${videoId}_summary.txt`);
 
 function readFileSafely(filePath, label) {

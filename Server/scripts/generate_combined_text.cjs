@@ -12,12 +12,12 @@ if (!videoId) {
   process.exit(1);
 }
 
-// ✅ 절대경로 설정
-const baseDir = __dirname;
-const ocrPath = path.join(baseDir, "OCR_sub", `${videoId}.txt`);
-const whisperPath = path.join(baseDir, "whisper_sub", "audio.txt");
-const subtitleDir = path.join(baseDir, "yt-dlp_sub");
-const outputDir = path.join(baseDir, "combined_sub");
+// ✅ 절대경로 설정 (scripts 폴더 기준, 상위 디렉토리로 이동)
+const serverRoot = path.join(__dirname, "..");
+const ocrPath = path.join(serverRoot, "services", "OCR_sub", `${videoId}.txt`);
+const whisperPath = path.join(serverRoot, "whisper_sub", "audio.txt");
+const subtitleDir = path.join(serverRoot, "yt-dlp_sub");
+const outputDir = path.join(serverRoot, "combined_sub");
 const outputPath = path.join(outputDir, `${videoId}.txt`);
 
 // ✅ 보조 함수: 안전한 파일 읽기

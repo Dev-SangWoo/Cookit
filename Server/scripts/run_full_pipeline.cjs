@@ -35,10 +35,11 @@ if (!videoId) {
   process.exit(1);
 }
 
-// ✅ 주요 경로 설정 (모두 절대경로)
-const videoPath = path.join(__dirname, "video_files", `${videoId}.mp4`);
-const resultPath = path.join(__dirname, "result_out", `${videoId}_summary.txt`);
-const promptPath = path.join(__dirname, "prompt_out", `${videoId}_prompt.txt`);
+// ✅ 주요 경로 설정 (scripts 폴더 기준, 상위 디렉토리로 이동)
+const serverRoot = path.join(__dirname, "..");
+const videoPath = path.join(serverRoot, "video_files", `${videoId}.mp4`);
+const resultPath = path.join(serverRoot, "result_out", `${videoId}_summary.txt`);
+const promptPath = path.join(serverRoot, "prompt_out", `${videoId}_prompt.txt`);
 const whisperScript = path.join(__dirname, "test_whisper.py");
 const ocrScript = path.join(__dirname, "ocr_analyze.cjs");
 const combineScript = path.join(__dirname, "generate_combined_text.cjs");
@@ -151,7 +152,7 @@ function runCommand(command, stepName) {
     }
 
     // ✅ 분석 완료 후 parsed_out JSON 파일 삭제
-    const parsedFile = path.join(__dirname, "parsed_out", `${videoId}_parsed.json`);
+    const parsedFile = path.join(serverRoot, "parsed_out", `${videoId}_parsed.json`);
     if (fs.existsSync(parsedFile)) {
       fs.unlinkSync(parsedFile);
       console.log(`🧹 parsed_out 정리 완료: ${parsedFile}`);

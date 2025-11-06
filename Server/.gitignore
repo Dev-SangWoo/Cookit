@@ -75,6 +75,8 @@ uploads/
 # Tesseract OCR 훈련 데이터 (자동 다운로드됨, 바이러스 오탐 방지)
 *.traineddata 
 *.traineddata
+
+# 미디어 파일
 *.mp4
 *.mp3
 *.wav
@@ -82,4 +84,20 @@ uploads/
 *.m4v
 *.mov
 *.avi
-*.mkv   
+*.mkv
+
+# 임시/결과 파일 폴더
+temp_frames/
+video_files/
+combined_sub/
+parsed_out/
+prompt_out/
+result_out/
+whisper_sub/
+ocr_frames/
+thumbnails/
+services/temp_frames/
+services/combined_sub/
+services/OCR_sub/
+services/prompt_out/
+services/result_out/   

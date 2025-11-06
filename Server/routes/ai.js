@@ -61,8 +61,8 @@ router.post('/analyze-youtube', async (req, res) => {
     // ✅ 중복 아님 → 새 분석 시작
     console.log(`🚀 새 영상 분석 시작: ${videoId}`);
 
-    const serverRoot = path.join(__dirname, '../../Server');
-    const pipelinePath = path.join(serverRoot, 'run_full_pipeline.cjs');
+    const serverRoot = path.join(__dirname, '../');
+    const pipelinePath = path.join(serverRoot, 'scripts', 'run_full_pipeline.cjs');
 
     // 로그 디렉토리 생성
     const logDir = path.join(serverRoot, 'logs');

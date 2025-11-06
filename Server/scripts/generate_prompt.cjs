@@ -15,10 +15,10 @@ if (!videoId || !videoUrl || !videoTitle) {
   process.exit(1);
 }
 
-// ✅ 절대경로 설정
-const baseDir = __dirname;
-const inputPath = path.join(baseDir, "combined_sub", `${videoId}.txt`);
-const outputDir = path.join(baseDir, "prompt_out");
+// ✅ 절대경로 설정 (scripts 폴더 기준, 상위 디렉토리로 이동)
+const serverRoot = path.join(__dirname, "..");
+const inputPath = path.join(serverRoot, "combined_sub", `${videoId}.txt`);
+const outputDir = path.join(serverRoot, "prompt_out");
 const outputPath = path.join(outputDir, `${videoId}_prompt.txt`);
 
 // ✅ 디렉토리 보장 함수

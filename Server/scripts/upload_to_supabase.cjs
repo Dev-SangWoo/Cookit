@@ -20,11 +20,12 @@ if (!videoId) {
   process.exit(1);
 }
 
-// ✅ 경로 설정
-const resultPath = path.join(__dirname, "result_out", `${videoId}_summary.txt`);
-const thumbnailDir = path.join(__dirname, "thumbnails");
+// ✅ 경로 설정 (scripts 폴더 기준, 상위 디렉토리로 이동)
+const serverRoot = path.join(__dirname, "..");
+const resultPath = path.join(serverRoot, "result_out", `${videoId}_summary.txt`);
+const thumbnailDir = path.join(serverRoot, "thumbnails");
 const thumbnailPath = path.join(thumbnailDir, `${videoId}.jpg`);
-const fallbackImagePath = path.join(__dirname, "assets", "default_thumbnail.jpg"); // 기본 썸네일 이미지
+const fallbackImagePath = path.join(serverRoot, "assets", "default_thumbnail.png"); // 기본 썸네일 이미지
 
 // ✅ fetch import (Node 18+)
 const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));

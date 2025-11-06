@@ -11,8 +11,8 @@ if (!videoId) {
   process.exit(1);
 }
 
-// ✅ 주요 경로
-const serverRoot = __dirname;
+// ✅ 주요 경로 (scripts 폴더 기준, 상위 디렉토리로 이동)
+const serverRoot = path.join(__dirname, "..");
 const resultPath = path.join(serverRoot, "result_out", `${videoId}_summary.txt`);
 const parsedDir = path.join(serverRoot, "parsed_out");
 const parsedPath = path.join(parsedDir, `${videoId}_parsed.json`);
